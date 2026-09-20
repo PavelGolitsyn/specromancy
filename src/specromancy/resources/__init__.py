@@ -1,0 +1,2 @@
+"""Packaged, versioned Specromancy resources."""
+

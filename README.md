@@ -18,3 +18,38 @@ Specromancy is a harness-agnostic toolkit for artifact-driven, spec-driven devel
 - **Validator:** Deterministic code that checks a manifest, artifact, repository subject, or transition guard before state can advance.
 
 The version 1 architecture and public contracts are documented in [the POC architecture](docs/architecture/poc.md).
+
+## Install and run
+
+Specromancy requires Python 3.11 or later and has no runtime dependencies outside the standard library.
+
+```bash
+python -m pip install .
+specromancy --help
+specromancy --version --format json
+```
+
+The module entry point is equivalent when a console-script launcher is unavailable:
+
+```bash
+python -m specromancy --help
+```
+
+For development, install the optional build tooling with `python -m pip install -e '.[dev]'`. Run the full test suite with:
+
+```bash
+python -m unittest discover -s tests -p 'test_*.py'
+python -m build
+```
+
+The `build` package is development-only and is deliberately absent from the runtime dependency set.
+
+Stage 1 reserves the `init`, `status`, `next`, `phase`, `artifact`, `approve`, `validate`, `resume`, and `adapters` command names. Until their implementation stages land, each placeholder returns exit code `2` (`INVALID_INPUT`) and the same structured error envelope in JSON mode.
+
+## Repository map
+
+- `src/specromancy/` — CLI and reusable runtime primitives.
+- `src/specromancy/resources/contracts/` — packaged version 1 pipeline contracts.
+- `tests/unit/` and `tests/contract/` — focused behavior and public-contract tests.
+- `docs/architecture/` — architectural decisions and trust boundaries.
+- `docs/poc/implementation-plan/` — staged implementation plans.

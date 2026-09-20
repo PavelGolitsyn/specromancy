@@ -13,7 +13,7 @@ flowchart LR
     H --> S[Canonical skills\n.agents/skills]
     H -. generated discovery only .-> A[Harness adapters]
     S --> C[Specromancy CLI]
-    C --> K[Contracts\nspecromancy/contracts]
+    C --> K[Contracts\nsrc/specromancy/resources/contracts]
     C --> T[Templates\nspecromancy/templates]
     C --> R[Durable run\n.specromancy/runs/run-id]
     S --> W[Repository worktree]
@@ -30,7 +30,7 @@ Harness adapters expose discovery and convenient invocation only. They may stren
 |---|---|---|
 | Always-on project instructions | `AGENTS.md` | Phase procedures do not belong here. |
 | Phase and orchestration procedures | `.agents/skills/<name>/` | This is the canonical skill source. Copies are generated adapters. |
-| Machine-enforced behavior | `specromancy/contracts/` | State, schemas, exit codes, and error fields are versioned here. |
+| Machine-enforced behavior | `src/specromancy/resources/contracts/` | State, schemas, exit codes, and error fields are versioned here and packaged with the CLI. |
 | Initial artifact prose | `specromancy/templates/` | Templates cannot override contracts. |
 | Durable run state | `.specromancy/runs/<run-id>/` | `run.json`, artifacts, and `events.jsonl` allow process-independent resume. |
 | Harness discovery | Generated adapter files | Adapters contain no unique workflow semantics. |
@@ -58,7 +58,7 @@ All paths serialized in a run manifest use repository-relative POSIX separators 
 
 ## Pipeline state machine
 
-The normative transition table is [`pipeline.json`](../../specromancy/contracts/pipeline.json). The statuses are:
+The normative transition table is [`pipeline.json`](../../src/specromancy/resources/contracts/pipeline.json). The statuses are:
 
 ```text
 initialized
@@ -91,7 +91,7 @@ Otherwise the command fails rather than silently adopting changed input. Idempot
 
 ## Run manifest
 
-[`run.schema.json`](../../specromancy/contracts/run.schema.json) is normative. Important bindings are:
+[`run.schema.json`](../../src/specromancy/resources/contracts/run.schema.json) is normative. Important bindings are:
 
 - every recorded artifact includes its repository-relative path, SHA-256 digest, validation time, and named input bindings;
 - a plan approval records the exact plan digest, approver-supplied identity, UTC time, and active or revoked state;
@@ -116,7 +116,7 @@ created-at: "2026-09-20T10:00:00Z"
 ---
 ```
 
-[`artifact.schema.json`](../../specromancy/contracts/artifact.schema.json) describes the parsed metadata. The POC parser is intentionally not a general YAML parser:
+[`artifact.schema.json`](../../src/specromancy/resources/contracts/artifact.schema.json) describes the parsed metadata. The POC parser is intentionally not a general YAML parser:
 
 1. The opening and closing delimiter must each be exactly `---` on their own line.
 2. Metadata must contain exactly the five known keys, once each.
@@ -165,7 +165,7 @@ The CLI discovers and resolves the repository root once, then resolves every man
 
 ## Errors and exit codes
 
-[`exit-codes.json`](../../specromancy/contracts/exit-codes.json) defines the stable process codes and the JSON result/error envelope. Human output may be phrased for context, but JSON field meanings and process codes are stable in pipeline version `1`. Errors contain safe remediation and structured details; they never echo secrets or entire prompts.
+[`exit-codes.json`](../../src/specromancy/resources/contracts/exit-codes.json) defines the stable process codes and the JSON result/error envelope. Human output may be phrased for context, but JSON field meanings and process codes are stable in pipeline version `1`. Errors contain safe remediation and structured details; they never echo secrets or entire prompts.
 
 ## Data flow
 

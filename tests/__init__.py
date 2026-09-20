@@ -1,0 +1,2 @@
+"""Specromancy test suite."""
+

@@ -1,0 +1,29 @@
+usage: specromancy [-h] [--format {text,json}] [--repo PATH] [--version]
+                   COMMAND ...
+
+Coordinate artifact-driven, spec-driven development runs.
+
+positional arguments:
+  COMMAND
+    init                init workflow operations (available in a later stage)
+    status              status workflow operations (available in a later
+                        stage)
+    next                next workflow operations (available in a later stage)
+    phase               phase workflow operations (available in a later stage)
+    artifact            artifact workflow operations (available in a later
+                        stage)
+    approve             approve workflow operations (available in a later
+                        stage)
+    validate            validate workflow operations (available in a later
+                        stage)
+    resume              resume workflow operations (available in a later
+                        stage)
+    adapters            adapters workflow operations (available in a later
+                        stage)
+
+options:
+  -h, --help            show this help message and exit
+  --format {text,json}  output format (default: text)
+  --repo PATH           repository path (default: discover from the current
+                        directory)
+  --version             show package and contract versions

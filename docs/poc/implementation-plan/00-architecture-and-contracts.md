@@ -14,10 +14,10 @@ None.
 - `docs/architecture/decisions/0001-artifact-driven-pipeline.md`
 - `docs/architecture/decisions/0002-python-stdlib-cli.md`
 - `docs/architecture/decisions/0003-canonical-agent-skills.md`
-- `specromancy/contracts/pipeline.json`
-- `specromancy/contracts/run.schema.json`
-- `specromancy/contracts/artifact.schema.json`
-- `specromancy/contracts/exit-codes.json`
+- `src/specromancy/resources/contracts/pipeline.json`
+- `src/specromancy/resources/contracts/run.schema.json`
+- `src/specromancy/resources/contracts/artifact.schema.json`
+- `src/specromancy/resources/contracts/exit-codes.json`
 - Initial terminology section in `README.md`
 
 ## Required decisions
@@ -28,7 +28,7 @@ Adopt the following ownership rules:
 
 - `AGENTS.md` is the canonical always-on instruction file.
 - `.agents/skills/<name>/` is the canonical skill source.
-- `specromancy/contracts/` defines machine-enforced pipeline behavior.
+- `src/specromancy/resources/contracts/` defines machine-enforced pipeline behavior and is installed with the package.
 - `specromancy/templates/` defines initial human-readable artifacts.
 - Harness-specific files are generated adapters and must never contain unique workflow logic.
 - `.specromancy/runs/<run-id>/` is the durable runtime state.
@@ -171,4 +171,3 @@ Harness permissions can strengthen these rules but cannot weaken the canonical p
 - **Markdown parsing ambiguity:** restrict frontmatter and validate required section headings rather than implementing general YAML.
 - **Harness permission mismatch:** treat native permissions as optional enforcement, not pipeline semantics.
 - **Schema churn:** add `schema_version` immediately and require decision records for breaking changes.
-

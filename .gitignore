@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Durable local run state and interrupted atomic writes.
+.specromancy/runs/
+.specromancy/**/*.tmp
+
