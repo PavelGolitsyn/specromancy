@@ -1,0 +1,137 @@
+{
+  "contract_version": "1",
+  "description": "Stable process exit codes and JSON result envelope for the Specromancy POC.",
+  "exit_codes": [
+    {
+      "code": 0,
+      "meaning": "Success",
+      "name": "SUCCESS",
+      "retryable_by_default": false
+    },
+    {
+      "code": 2,
+      "meaning": "Invalid arguments or malformed input",
+      "name": "INVALID_INPUT",
+      "retryable_by_default": false
+    },
+    {
+      "code": 3,
+      "meaning": "Invalid state transition",
+      "name": "INVALID_TRANSITION",
+      "retryable_by_default": false
+    },
+    {
+      "code": 4,
+      "meaning": "Artifact or repository validation failed",
+      "name": "VALIDATION_FAILED",
+      "retryable_by_default": false
+    },
+    {
+      "code": 5,
+      "meaning": "Explicit approval required",
+      "name": "APPROVAL_REQUIRED",
+      "retryable_by_default": false
+    },
+    {
+      "code": 6,
+      "meaning": "External command failed",
+      "name": "EXTERNAL_COMMAND_FAILED",
+      "retryable_by_default": true
+    },
+    {
+      "code": 7,
+      "meaning": "Safety or policy check rejected the operation",
+      "name": "SAFETY_REJECTED",
+      "retryable_by_default": false
+    },
+    {
+      "code": 8,
+      "meaning": "Run lock or concurrent modification conflict",
+      "name": "CONCURRENCY_CONFLICT",
+      "retryable_by_default": true
+    }
+  ],
+  "json_envelope": {
+    "additional_properties": false,
+    "fields": {
+      "command": {
+        "description": "Canonical command name without user-provided arguments.",
+        "type": "string"
+      },
+      "data": {
+        "description": "Command-specific structured result. Empty object on errors when there is no safe partial result.",
+        "type": "object"
+      },
+      "errors": {
+        "description": "Zero or more structured errors. Empty on success.",
+        "items": {
+          "additional_properties": false,
+          "fields": {
+            "code": {
+              "description": "Stable uppercase machine-readable error identifier.",
+              "pattern": "^[A-Z][A-Z0-9_]*$",
+              "type": "string"
+            },
+            "details": {
+              "description": "Safe scalar context only; no secrets, prompts, credentials, or environment dumps.",
+              "type": "object"
+            },
+            "hint": {
+              "description": "Safe actionable remediation, or null.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "message": {
+              "description": "Human-readable summary safe for logs.",
+              "type": "string"
+            },
+            "path": {
+              "description": "Repository-relative normalized path associated with the error, or null.",
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "retryable": {
+              "description": "Whether retrying without changing arguments may succeed.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "code",
+            "message",
+            "hint",
+            "path",
+            "retryable",
+            "details"
+          ]
+        },
+        "type": "array"
+      },
+      "message": {
+        "description": "Concise top-level outcome safe for logs.",
+        "type": "string"
+      },
+      "ok": {
+        "description": "True exactly when process exit code is zero.",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "ok",
+      "command",
+      "message",
+      "data",
+      "errors"
+    ]
+  },
+  "rules": [
+    "The process exit code is the highest-priority primary failure, not a sum or bitmask.",
+    "Expected user errors do not emit tracebacks unless an explicit debug mode is active.",
+    "Text and JSON modes use the same process exit code.",
+    "JSON mode writes exactly one envelope to stdout; diagnostics that would corrupt it must not be written to stdout.",
+    "Messages, hints, paths, and details must be redacted before persistence or output."
+  ]
+}

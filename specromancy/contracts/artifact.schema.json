@@ -1,0 +1,147 @@
+{
+  "$id": "https://specromancy.dev/contracts/v1/artifact.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Schema for metadata returned by the restricted Specromancy Markdown frontmatter parser. Markdown body rules are enforced by phase validators.",
+  "properties": {
+    "created-at": {
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$",
+      "type": "string"
+    },
+    "run-id": {
+      "maxLength": 80,
+      "minLength": 3,
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+      "type": "string"
+    },
+    "schema-version": {
+      "const": "1",
+      "type": "string"
+    },
+    "stage": {
+      "enum": [
+        "request",
+        "research",
+        "plan",
+        "implementation",
+        "review"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "ready",
+        "passed",
+        "changes_requested",
+        "blocked"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema-version",
+    "run-id",
+    "stage",
+    "status",
+    "created-at"
+  ],
+  "title": "Specromancy artifact frontmatter version 1",
+  "type": "object",
+  "x-specromancy-frontmatter": {
+    "delimiter": "---",
+    "duplicate_keys": "reject",
+    "encoding": "UTF-8",
+    "key_order": [
+      "schema-version",
+      "run-id",
+      "stage",
+      "status",
+      "created-at"
+    ],
+    "line_endings": [
+      "LF",
+      "CRLF"
+    ],
+    "missing_delimiter": "reject",
+    "parser": "restricted-scalar-v1",
+    "run_id_mismatch": "reject",
+    "scalar_syntax": "Each metadata line is key: followed by one space and a double-quoted, single-line scalar. Escapes, comments, tags, anchors, aliases, sequences, mappings, and unquoted values are rejected.",
+    "unknown_keys": "reject",
+    "unknown_stage": "reject"
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "request"
+          }
+        },
+        "required": [
+          "stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "draft",
+              "ready"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "enum": [
+              "research",
+              "plan",
+              "implementation"
+            ]
+          }
+        },
+        "required": [
+          "stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "draft",
+              "ready"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stage": {
+            "const": "review"
+          }
+        },
+        "required": [
+          "stage"
+        ]
+      },
+      "then": {
+        "properties": {
+          "status": {
+            "enum": [
+              "draft",
+              "passed",
+              "changes_requested",
+              "blocked"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

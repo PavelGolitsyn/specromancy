@@ -1,0 +1,487 @@
+{
+  "contract_version": "1",
+  "default_max_review_cycles": 3,
+  "description": "Normative Specromancy POC state machine. Transition selection is by exact action and source state.",
+  "phases": [
+    "run",
+    "research",
+    "plan",
+    "approval",
+    "implementation",
+    "review"
+  ],
+  "statuses": [
+    "initialized",
+    "research_in_progress",
+    "research_ready",
+    "plan_in_progress",
+    "plan_ready",
+    "plan_approved",
+    "implementation_in_progress",
+    "implementation_ready",
+    "review_in_progress",
+    "changes_requested",
+    "passed",
+    "blocked",
+    "cancelled"
+  ],
+  "terminal_statuses": [
+    "passed",
+    "blocked",
+    "cancelled"
+  ],
+  "status_current_phase": {
+    "initialized": null,
+    "research_in_progress": "research",
+    "research_ready": null,
+    "plan_in_progress": "plan",
+    "plan_ready": null,
+    "plan_approved": null,
+    "implementation_in_progress": "implementation",
+    "implementation_ready": null,
+    "review_in_progress": "review",
+    "changes_requested": null,
+    "passed": null,
+    "blocked": null,
+    "cancelled": null
+  },
+  "artifacts": {
+    "implementation": {
+      "completion_status": "ready",
+      "run_relative_path": "implementation.md",
+      "stage": "implementation"
+    },
+    "plan": {
+      "completion_status": "ready",
+      "run_relative_path": "plan.md",
+      "stage": "plan"
+    },
+    "request": {
+      "completion_status": "ready",
+      "run_relative_path": "request.md",
+      "stage": "request"
+    },
+    "research": {
+      "completion_status": "ready",
+      "run_relative_path": "research.md",
+      "stage": "research"
+    },
+    "review": {
+      "completion_statuses": [
+        "passed",
+        "changes_requested",
+        "blocked"
+      ],
+      "run_relative_path": "review.md",
+      "stage": "review"
+    }
+  },
+  "validators": {
+    "approval_revoke_v1": {
+      "kind": "approval",
+      "requires": [
+        "active_plan_approval_exists",
+        "revocation_actor_and_reason_present"
+      ]
+    },
+    "block_run_v1": {
+      "kind": "state",
+      "requires": [
+        "nonempty_block_reason"
+      ]
+    },
+    "cancel_run_v1": {
+      "kind": "state",
+      "requires": [
+        "nonempty_cancel_reason"
+      ]
+    },
+    "implementation_complete_v1": {
+      "kind": "artifact",
+      "requires": [
+        "implementation_artifact_valid",
+        "approval_matches_current_plan",
+        "repository_scope_valid",
+        "verification_records_valid"
+      ]
+    },
+    "implementation_start_v1": {
+      "kind": "state",
+      "requires": [
+        "plan_artifact_current",
+        "active_plan_approval_exists",
+        "approval_matches_current_plan",
+        "repository_baseline_recorded"
+      ]
+    },
+    "plan_approval_v1": {
+      "kind": "approval",
+      "requires": [
+        "plan_artifact_valid",
+        "plan_artifact_current",
+        "no_blocking_open_decisions",
+        "approver_identity_present"
+      ]
+    },
+    "plan_complete_v1": {
+      "kind": "artifact",
+      "requires": [
+        "plan_artifact_valid",
+        "research_artifact_current",
+        "requirements_fully_traced"
+      ]
+    },
+    "plan_start_v1": {
+      "kind": "state",
+      "requires": [
+        "research_artifact_valid",
+        "research_artifact_current"
+      ]
+    },
+    "plan_restart_v1": {
+      "kind": "state",
+      "requires": [
+        "research_artifact_valid",
+        "research_artifact_current",
+        "no_active_plan_approval"
+      ]
+    },
+    "repair_exhausted_v1": {
+      "kind": "state",
+      "requires": [
+        "review_cycle_at_limit",
+        "current_review_requests_changes"
+      ]
+    },
+    "repair_start_v1": {
+      "kind": "state",
+      "requires": [
+        "review_artifact_valid",
+        "review_artifact_current",
+        "current_review_requests_changes",
+        "review_cycle_below_limit",
+        "approval_matches_current_plan"
+      ]
+    },
+    "research_complete_v1": {
+      "kind": "artifact",
+      "requires": [
+        "research_artifact_valid",
+        "research_write_scope_valid"
+      ]
+    },
+    "research_start_v1": {
+      "kind": "state",
+      "requires": [
+        "request_artifact_valid",
+        "repository_identity_matches"
+      ]
+    },
+    "review_block_v1": {
+      "kind": "artifact",
+      "requires": [
+        "review_artifact_valid",
+        "review_verdict_is_blocked",
+        "review_subject_current",
+        "review_write_scope_valid"
+      ]
+    },
+    "review_changes_requested_v1": {
+      "kind": "artifact",
+      "requires": [
+        "review_artifact_valid",
+        "review_verdict_is_changes_requested",
+        "blocking_findings_present",
+        "review_subject_current",
+        "review_write_scope_valid"
+      ]
+    },
+    "review_pass_v1": {
+      "kind": "artifact",
+      "requires": [
+        "review_artifact_valid",
+        "review_verdict_is_passed",
+        "no_blocking_findings",
+        "review_subject_current",
+        "review_write_scope_valid"
+      ]
+    },
+    "review_start_v1": {
+      "kind": "state",
+      "requires": [
+        "implementation_artifact_valid",
+        "implementation_artifact_current",
+        "review_subject_digest_recorded"
+      ]
+    },
+    "run_manifest_v1": {
+      "kind": "manifest",
+      "requires": [
+        "run_schema_valid",
+        "repository_identity_matches",
+        "event_projection_matches"
+      ]
+    }
+  },
+  "idempotency": {
+    "approval_actions": [
+      "approve_plan"
+    ],
+    "completion_actions": [
+      "complete_research",
+      "complete_plan",
+      "complete_implementation",
+      "pass_review",
+      "request_changes",
+      "block_review"
+    ],
+    "rule": "If current status equals the transition target and every artifact, subject, binding, verdict, and approver input is byte-for-byte or digest-equivalent to the accepted transition, return success without applying another state transition. Otherwise reject the replay.",
+    "unchanged_replay_appends_transition_event": false
+  },
+  "transitions": [
+    {
+      "action": "start_research",
+      "from": "initialized",
+      "guards": [
+        "request_artifact_valid",
+        "repository_identity_matches"
+      ],
+      "id": "research.start",
+      "phase": "research",
+      "to": "research_in_progress",
+      "validator": "research_start_v1"
+    },
+    {
+      "action": "complete_research",
+      "artifact": "research",
+      "from": "research_in_progress",
+      "guards": [
+        "research_artifact_valid",
+        "research_write_scope_valid"
+      ],
+      "id": "research.complete",
+      "phase": "research",
+      "to": "research_ready",
+      "validator": "research_complete_v1"
+    },
+    {
+      "action": "start_plan",
+      "from": "research_ready",
+      "guards": [
+        "research_artifact_current"
+      ],
+      "id": "plan.start",
+      "phase": "plan",
+      "to": "plan_in_progress",
+      "validator": "plan_start_v1"
+    },
+    {
+      "action": "complete_plan",
+      "artifact": "plan",
+      "from": "plan_in_progress",
+      "guards": [
+        "plan_artifact_valid",
+        "research_artifact_current"
+      ],
+      "id": "plan.complete",
+      "phase": "plan",
+      "to": "plan_ready",
+      "validator": "plan_complete_v1"
+    },
+    {
+      "action": "approve_plan",
+      "artifact": "plan",
+      "from": "plan_ready",
+      "guards": [
+        "plan_artifact_current",
+        "no_blocking_open_decisions",
+        "approver_identity_present"
+      ],
+      "id": "plan.approve",
+      "phase": "approval",
+      "to": "plan_approved",
+      "validator": "plan_approval_v1"
+    },
+    {
+      "action": "start_plan",
+      "artifact": "plan",
+      "from": "plan_ready",
+      "guards": [
+        "research_artifact_current",
+        "no_active_plan_approval"
+      ],
+      "id": "plan.restart",
+      "phase": "plan",
+      "to": "plan_in_progress",
+      "validator": "plan_restart_v1"
+    },
+    {
+      "action": "revoke_plan_approval",
+      "artifact": "plan",
+      "from": "plan_approved",
+      "guards": [
+        "active_plan_approval_exists",
+        "revocation_actor_and_reason_present"
+      ],
+      "id": "plan.revoke_approval",
+      "phase": "approval",
+      "to": "plan_ready",
+      "validator": "approval_revoke_v1"
+    },
+    {
+      "action": "start_implementation",
+      "artifact": "plan",
+      "from": "plan_approved",
+      "guards": [
+        "approval_matches_current_plan",
+        "repository_baseline_recorded"
+      ],
+      "id": "implementation.start",
+      "phase": "implementation",
+      "to": "implementation_in_progress",
+      "validator": "implementation_start_v1"
+    },
+    {
+      "action": "complete_implementation",
+      "artifact": "implementation",
+      "from": "implementation_in_progress",
+      "guards": [
+        "implementation_artifact_valid",
+        "approval_matches_current_plan",
+        "repository_scope_valid"
+      ],
+      "id": "implementation.complete",
+      "phase": "implementation",
+      "to": "implementation_ready",
+      "validator": "implementation_complete_v1"
+    },
+    {
+      "action": "start_review",
+      "artifact": "implementation",
+      "from": "implementation_ready",
+      "guards": [
+        "implementation_artifact_current",
+        "review_subject_digest_recorded"
+      ],
+      "id": "review.start",
+      "phase": "review",
+      "to": "review_in_progress",
+      "validator": "review_start_v1"
+    },
+    {
+      "action": "pass_review",
+      "artifact": "review",
+      "from": "review_in_progress",
+      "guards": [
+        "review_verdict_is_passed",
+        "review_subject_current",
+        "no_blocking_findings"
+      ],
+      "id": "review.pass",
+      "phase": "review",
+      "to": "passed",
+      "validator": "review_pass_v1"
+    },
+    {
+      "action": "request_changes",
+      "artifact": "review",
+      "from": "review_in_progress",
+      "guards": [
+        "review_verdict_is_changes_requested",
+        "review_subject_current",
+        "blocking_findings_present"
+      ],
+      "id": "review.request_changes",
+      "phase": "review",
+      "to": "changes_requested",
+      "validator": "review_changes_requested_v1"
+    },
+    {
+      "action": "block_review",
+      "artifact": "review",
+      "from": "review_in_progress",
+      "guards": [
+        "review_verdict_is_blocked",
+        "review_subject_current"
+      ],
+      "id": "review.block",
+      "phase": "review",
+      "to": "blocked",
+      "validator": "review_block_v1"
+    },
+    {
+      "action": "start_repair",
+      "artifact": "review",
+      "effects": {
+        "review_cycle": "increment_by_one"
+      },
+      "from": "changes_requested",
+      "guards": [
+        "review_cycle_below_limit",
+        "review_artifact_current",
+        "approval_matches_current_plan"
+      ],
+      "id": "implementation.start_repair",
+      "phase": "implementation",
+      "to": "implementation_in_progress",
+      "validator": "repair_start_v1"
+    },
+    {
+      "action": "exhaust_review_cycles",
+      "artifact": "review",
+      "from": "changes_requested",
+      "guards": [
+        "review_cycle_at_limit",
+        "current_review_requests_changes"
+      ],
+      "id": "run.exhaust_review_cycles",
+      "phase": "run",
+      "to": "blocked",
+      "validator": "repair_exhausted_v1"
+    },
+    {
+      "action": "block_run",
+      "allowed_from": [
+        "initialized",
+        "research_in_progress",
+        "research_ready",
+        "plan_in_progress",
+        "plan_ready",
+        "plan_approved",
+        "implementation_in_progress",
+        "implementation_ready",
+        "review_in_progress",
+        "changes_requested"
+      ],
+      "guards": [
+        "nonempty_block_reason"
+      ],
+      "id": "run.block",
+      "phase": "run",
+      "to": "blocked",
+      "validator": "block_run_v1"
+    },
+    {
+      "action": "cancel_run",
+      "allowed_from": [
+        "initialized",
+        "research_in_progress",
+        "research_ready",
+        "plan_in_progress",
+        "plan_ready",
+        "plan_approved",
+        "implementation_in_progress",
+        "implementation_ready",
+        "review_in_progress",
+        "changes_requested"
+      ],
+      "guards": [
+        "nonempty_cancel_reason"
+      ],
+      "id": "run.cancel",
+      "phase": "run",
+      "to": "cancelled",
+      "validator": "cancel_run_v1"
+    }
+  ]
+}

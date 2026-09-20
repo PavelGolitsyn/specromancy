@@ -1,0 +1,744 @@
+{
+  "$id": "https://specromancy.dev/contracts/v1/run.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Version 1 durable run manifest. Secret values, full prompts, tokens, credentials, and complete command environments are forbidden.",
+  "properties": {
+    "approvals": {
+      "items": {
+        "$ref": "#/$defs/approval"
+      },
+      "type": "array"
+    },
+    "artifacts": {
+      "additionalProperties": false,
+      "properties": {
+        "implementation": {
+          "$ref": "#/$defs/artifactRecord"
+        },
+        "plan": {
+          "$ref": "#/$defs/artifactRecord"
+        },
+        "request": {
+          "$ref": "#/$defs/artifactRecord"
+        },
+        "research": {
+          "$ref": "#/$defs/artifactRecord"
+        },
+        "review": {
+          "$ref": "#/$defs/artifactRecord"
+        }
+      },
+      "required": [
+        "request"
+      ],
+      "type": "object"
+    },
+    "changed_files": {
+      "items": {
+        "$ref": "#/$defs/changedFile"
+      },
+      "type": "array"
+    },
+    "created_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "current_phase": {
+      "enum": [
+        null,
+        "research",
+        "plan",
+        "implementation",
+        "review"
+      ]
+    },
+    "events_path": {
+      "$ref": "#/$defs/relativePath"
+    },
+    "git_base": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/gitObjectId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "git_branch": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "git_head": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/gitObjectId"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "implementation_baseline": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/implementationBaseline"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "initial_worktree": {
+      "$ref": "#/$defs/worktreeSnapshot"
+    },
+    "last_error": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/errorRecord"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "lock_path": {
+      "$ref": "#/$defs/relativePath"
+    },
+    "max_review_cycles": {
+      "default": 3,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "repository_root": {
+      "description": "Absolute, resolved platform-native repository path.",
+      "minLength": 1,
+      "pattern": "^(?:/|[A-Za-z]:[\\\\/]).*",
+      "type": "string"
+    },
+    "repository_url": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "requirements": {
+      "items": {
+        "$ref": "#/$defs/requirement"
+      },
+      "type": "array"
+    },
+    "review_cycle": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "review_subject_sha256": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/sha256"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "run_id": {
+      "$ref": "#/$defs/runId"
+    },
+    "schema_version": {
+      "const": "1",
+      "type": "string"
+    },
+    "status": {
+      "$ref": "#/$defs/status"
+    },
+    "title": {
+      "maxLength": 200,
+      "minLength": 1,
+      "type": "string"
+    },
+    "updated_at": {
+      "$ref": "#/$defs/timestamp"
+    }
+  },
+  "required": [
+    "schema_version",
+    "run_id",
+    "title",
+    "created_at",
+    "updated_at",
+    "status",
+    "current_phase",
+    "repository_root",
+    "repository_url",
+    "git_base",
+    "git_head",
+    "git_branch",
+    "initial_worktree",
+    "implementation_baseline",
+    "requirements",
+    "artifacts",
+    "approvals",
+    "changed_files",
+    "review_subject_sha256",
+    "review_cycle",
+    "max_review_cycles",
+    "last_error",
+    "events_path",
+    "lock_path"
+  ],
+  "title": "Specromancy run manifest version 1",
+  "type": "object",
+  "x-specromancy-invariants": [
+    "updated_at is not earlier than created_at.",
+    "review_cycle is less than or equal to max_review_cycles.",
+    "current_phase equals the status_current_phase mapping in pipeline.json.",
+    "Every artifact record key agrees with the parsed artifact stage and its path resolves to .specromancy/runs/<run_id>/<artifact-name>.md.",
+    "Artifact bindings required by the phase validator are present and match the currently recorded input digests.",
+    "At most one plan approval is active. An active approval digest equals the current validated plan digest.",
+    "events_path resolves to .specromancy/runs/<run_id>/events.jsonl and lock_path resolves to .specromancy/runs/<run_id>/run.lock.",
+    "Repository URLs containing embedded credentials are rejected.",
+    "All resolved managed paths remain within repository_root after symlink resolution."
+  ],
+  "$defs": {
+    "approval": {
+      "additionalProperties": false,
+      "properties": {
+        "approved_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "approver": {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        "artifact_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "note": {
+          "maxLength": 1000,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revocation_reason": {
+          "maxLength": 1000,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "revoked_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revoked_by": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "enum": [
+            "active",
+            "revoked"
+          ],
+          "type": "string"
+        },
+        "subject": {
+          "const": "plan",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject",
+        "approver",
+        "approved_at",
+        "artifact_sha256",
+        "note",
+        "status",
+        "revoked_at",
+        "revoked_by",
+        "revocation_reason"
+      ],
+      "type": "object",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "active"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "revocation_reason": {
+                "const": null
+              },
+              "revoked_at": {
+                "const": null
+              },
+              "revoked_by": {
+                "const": null
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "revoked"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "revocation_reason": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "revoked_at": {
+                "$ref": "#/$defs/timestamp"
+              },
+              "revoked_by": {
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "artifactRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "bindings": {
+          "additionalProperties": {
+            "$ref": "#/$defs/sha256"
+          },
+          "description": "Named input or subject digests, for example research, plan, implementation, or repository_diff.",
+          "propertyNames": {
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "type": "object"
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "schema_version": {
+          "const": "1",
+          "type": "string"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "validated_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "validated_at",
+        "schema_version",
+        "bindings"
+      ],
+      "type": "object"
+    },
+    "changedFile": {
+      "additionalProperties": false,
+      "properties": {
+        "classification": {
+          "enum": [
+            "planned",
+            "generated",
+            "implied_support",
+            "pre_existing_user_change",
+            "approved_deviation",
+            "unexplained"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "sha256_after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sha256_before": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "classification",
+        "sha256_before",
+        "sha256_after"
+      ],
+      "type": "object"
+    },
+    "errorRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "details": {
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "integer",
+              "boolean",
+              "null"
+            ]
+          },
+          "type": "object"
+        },
+        "error_code": {
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "type": "string"
+        },
+        "exit_code": {
+          "enum": [
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "type": "integer"
+        },
+        "message": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "occurred_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "phase": {
+          "enum": [
+            null,
+            "run",
+            "research",
+            "plan",
+            "approval",
+            "implementation",
+            "review"
+          ]
+        },
+        "retryable": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "exit_code",
+        "error_code",
+        "message",
+        "occurred_at",
+        "phase",
+        "retryable",
+        "details"
+      ],
+      "type": "object"
+    },
+    "gitObjectId": {
+      "pattern": "^(?:[0-9a-f]{40}|[0-9a-f]{64})$",
+      "type": "string"
+    },
+    "implementationBaseline": {
+      "additionalProperties": false,
+      "properties": {
+        "git_head": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/gitObjectId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "plan_paths": {
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "type": "array"
+        },
+        "recorded_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "staged_paths": {
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "type": "array"
+        },
+        "unstaged_paths": {
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "type": "array"
+        },
+        "untracked_paths": {
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "type": "array"
+        },
+        "user_modified_paths": {
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "recorded_at",
+        "git_head",
+        "staged_paths",
+        "unstaged_paths",
+        "untracked_paths",
+        "plan_paths",
+        "user_modified_paths"
+      ],
+      "type": "object"
+    },
+    "relativePath": {
+      "description": "Repository-relative normalized POSIX path with no dot-dot component or backslash. Resolution and ancestor checks remain mandatory.",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\\\u0000]+$",
+      "type": "string"
+    },
+    "requirement": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^REQ-[0-9]{3,}$",
+          "type": "string"
+        },
+        "source": {
+          "enum": [
+            "explicit_acceptance_criterion",
+            "request_goal",
+            "derived"
+          ],
+          "type": "string"
+        },
+        "text": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "source"
+      ],
+      "type": "object"
+    },
+    "runId": {
+      "maxLength": 80,
+      "minLength": 3,
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+      "type": "string"
+    },
+    "sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "initialized",
+        "research_in_progress",
+        "research_ready",
+        "plan_in_progress",
+        "plan_ready",
+        "plan_approved",
+        "implementation_in_progress",
+        "implementation_ready",
+        "review_in_progress",
+        "changes_requested",
+        "passed",
+        "blocked",
+        "cancelled"
+      ],
+      "type": "string"
+    },
+    "timestamp": {
+      "pattern": "^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$",
+      "type": "string"
+    },
+    "worktreeSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "recorded_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "staged_paths": {
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "type": "array"
+        },
+        "unstaged_paths": {
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "type": "array"
+        },
+        "untracked_paths": {
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "recorded_at",
+        "staged_paths",
+        "unstaged_paths",
+        "untracked_paths"
+      ],
+      "type": "object"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "research_in_progress"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "current_phase": {
+            "const": "research"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "plan_in_progress"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "current_phase": {
+            "const": "plan"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "implementation_in_progress"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "current_phase": {
+            "const": "implementation"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "review_in_progress"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "current_phase": {
+            "const": "review"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "initialized",
+              "research_ready",
+              "plan_ready",
+              "plan_approved",
+              "implementation_ready",
+              "changes_requested",
+              "passed",
+              "blocked",
+              "cancelled"
+            ]
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "current_phase": {
+            "const": null
+          }
+        }
+      }
+    }
+  ]
+}
