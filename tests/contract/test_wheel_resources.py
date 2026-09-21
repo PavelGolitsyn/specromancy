@@ -1,4 +1,4 @@
-import importlib.util
+import importlib.metadata
 import json
 import os
 from pathlib import Path
@@ -12,8 +12,16 @@ import zipfile
 ROOT = Path(__file__).parents[2]
 
 
+try:
+    importlib.metadata.version("build")
+except importlib.metadata.PackageNotFoundError:
+    BUILD_AVAILABLE = False
+else:
+    BUILD_AVAILABLE = True
+
+
 class WheelResourceTests(unittest.TestCase):
-    @unittest.skipUnless(importlib.util.find_spec("build"), "development dependency 'build' is unavailable")
+    @unittest.skipUnless(BUILD_AVAILABLE, "development dependency 'build' is unavailable")
     def test_built_wheel_contains_and_loads_contract_resources(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory, "dist")
@@ -42,6 +50,7 @@ class WheelResourceTests(unittest.TestCase):
                 "run.schema.json",
             ):
                 self.assertIn(f"specromancy/resources/contracts/{name}", names)
+            self.assertIn("specromancy/templates/research.md", names)
 
             environment = os.environ.copy()
             environment["PYTHONPATH"] = str(wheel)
@@ -65,4 +74,3 @@ class WheelResourceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

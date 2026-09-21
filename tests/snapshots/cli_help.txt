@@ -9,13 +9,11 @@ positional arguments:
     status              status workflow operations (available in a later
                         stage)
     next                next workflow operations (available in a later stage)
-    phase               phase workflow operations (available in a later stage)
-    artifact            artifact workflow operations (available in a later
-                        stage)
+    phase               start or complete an implemented phase
+    artifact            inspect managed artifact paths
     approve             approve workflow operations (available in a later
                         stage)
-    validate            validate workflow operations (available in a later
-                        stage)
+    validate            validate an implemented phase artifact
     resume              resume workflow operations (available in a later
                         stage)
     adapters            adapters workflow operations (available in a later

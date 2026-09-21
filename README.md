@@ -44,11 +44,22 @@ python -m build
 
 The `build` package is development-only and is deliberately absent from the runtime dependency set.
 
-Stage 1 reserves the `init`, `status`, `next`, `phase`, `artifact`, `approve`, `validate`, `resume`, and `adapters` command names. Until their implementation stages land, each placeholder returns exit code `2` (`INVALID_INPUT`) and the same structured error envelope in JSON mode.
+Stage 2 implements the research slice of `phase start`, `phase complete`, `artifact path`, and `validate`. The remaining commands stay reserved and return exit code `2` (`INVALID_INPUT`) with the same structured error envelope in JSON mode.
+
+For an initialized run, the research lifecycle is:
+
+```bash
+specromancy phase start RUN_ID research
+specromancy artifact path RUN_ID research
+specromancy validate RUN_ID research
+specromancy phase complete RUN_ID research
+```
+
+The canonical procedure is in `.agents/skills/research/`. Completion validates the evidence-backed artifact, enforces research-only write scope, records its digest and request binding in `run.json`, and appends audit events.
 
 ## Repository map
 
-- `src/specromancy/` — CLI and reusable runtime primitives.
+- `src/specromancy/` — CLI, artifact validators, phase handlers, templates, and reusable runtime primitives.
 - `src/specromancy/resources/contracts/` — packaged version 1 pipeline contracts.
 - `tests/unit/` and `tests/contract/` — focused behavior and public-contract tests.
 - `docs/architecture/` — architectural decisions and trust boundaries.

@@ -11,9 +11,24 @@ from typing import Any, Sequence, TextIO
 from . import __version__
 from .contracts import ContractVersions, validate_contracts
 from .errors import ExitCode, InvalidInputError, SpecromancyError, normalize_exception
+from .paths import RepositoryPaths, discover_repository
+from .phases.research import (
+    complete_research,
+    research_artifact_path,
+    start_research,
+    validate_research_file,
+)
 
 
 PLACEHOLDER_COMMANDS = (
+    "init",
+    "status",
+    "next",
+    "approve",
+    "resume",
+    "adapters",
+)
+COMMANDS = (
     "init",
     "status",
     "next",
@@ -94,7 +109,7 @@ def build_parser() -> Parser:
         help="show package and contract versions",
     )
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
-    for command in PLACEHOLDER_COMMANDS:
+    def add_placeholder(command: str) -> None:
         subparsers.add_parser(
             command,
             parents=[common],
@@ -102,6 +117,52 @@ def build_parser() -> Parser:
             help=f"{command} workflow operations (available in a later stage)",
             description=f"The {command} command is reserved by the public CLI.",
         )
+
+    for command in ("init", "status", "next"):
+        add_placeholder(command)
+
+    phase = subparsers.add_parser(
+        "phase",
+        add_help=False,
+        help="start or complete an implemented phase",
+        description="Start or complete the research phase for an existing run.",
+    )
+    phase_actions = phase.add_subparsers(dest="phase_action", metavar="ACTION", required=True)
+    for action in ("start", "complete"):
+        action_parser = phase_actions.add_parser(action, parents=[common], add_help=False)
+        action_parser.add_argument("run_id", metavar="RUN_ID")
+        action_parser.add_argument("phase_name", choices=("research",), metavar="PHASE")
+
+    artifact = subparsers.add_parser(
+        "artifact",
+        add_help=False,
+        help="inspect managed artifact paths",
+        description="Inspect managed artifact paths for an existing run.",
+    )
+    artifact_actions = artifact.add_subparsers(
+        dest="artifact_action", metavar="ACTION", required=True
+    )
+    artifact_path_parser = artifact_actions.add_parser(
+        "path", parents=[common], add_help=False
+    )
+    artifact_path_parser.add_argument("run_id", metavar="RUN_ID")
+    artifact_path_parser.add_argument(
+        "artifact_name", choices=("research",), metavar="ARTIFACT"
+    )
+
+    add_placeholder("approve")
+
+    validate = subparsers.add_parser(
+        "validate",
+        parents=[common],
+        add_help=False,
+        help="validate an implemented phase artifact",
+        description="Validate the research artifact for an existing run.",
+    )
+    validate.add_argument("run_id", metavar="RUN_ID")
+    validate.add_argument("phase_name", choices=("research",), metavar="PHASE")
+    for command in ("resume", "adapters"):
+        add_placeholder(command)
     parser.set_defaults(format="text", repo=None, version=False, help=False)
     return parser
 
@@ -117,7 +178,7 @@ def _requested_format(argv: Sequence[str]) -> str:
 
 def _command_name(argv: Sequence[str]) -> str:
     for value in argv:
-        if value in PLACEHOLDER_COMMANDS:
+        if value in COMMANDS:
             return value
     return "root"
 
@@ -161,9 +222,72 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
     if args.command is None:
         return Result.success("help", parser.format_help().rstrip())
 
+    if args.command in {"phase", "artifact", "validate"}:
+        root = discover_repository(args.repo)
+        paths = RepositoryPaths(root)
+        if args.command == "artifact":
+            target = research_artifact_path(root, args.run_id)
+            relative = paths.serialize(target)
+            return Result.success(
+                "artifact",
+                str(target),
+                {
+                    "run_id": args.run_id,
+                    "artifact": args.artifact_name,
+                    "path": relative,
+                    "absolute_path": str(target),
+                },
+            )
+        if args.command == "validate":
+            artifact = validate_research_file(root, args.run_id)
+            target = research_artifact_path(root, args.run_id)
+            message = f"Research artifact is valid: {paths.serialize(target)}"
+            if artifact.warnings:
+                message += "\nWarnings:\n- " + "\n- ".join(artifact.warnings)
+            return Result.success(
+                "validate",
+                message,
+                {
+                    "run_id": args.run_id,
+                    "phase": args.phase_name,
+                    "path": paths.serialize(target),
+                    "warnings": list(artifact.warnings),
+                },
+            )
+        if args.phase_action == "start":
+            result = start_research(root, args.run_id)
+            return Result.success(
+                "phase",
+                f"Research started for run {args.run_id}.",
+                {
+                    "run_id": result.run_id,
+                    "phase": args.phase_name,
+                    "status": result.status,
+                    "artifact_path": result.artifact_path,
+                },
+            )
+        result = complete_research(root, args.run_id)
+        qualifier = " already" if result.replayed else ""
+        message = f"Research is{qualifier} complete for run {args.run_id}."
+        if result.warnings:
+            message += "\nWarnings:\n- " + "\n- ".join(result.warnings)
+        return Result.success(
+            "phase",
+            message,
+            {
+                "run_id": result.run_id,
+                "phase": args.phase_name,
+                "status": result.status,
+                "artifact_path": result.artifact_path,
+                "artifact_sha256": result.artifact_sha256,
+                "warnings": list(result.warnings),
+                "replayed": result.replayed,
+            },
+        )
+
     raise InvalidInputError(
         f"Command '{args.command}' is reserved but not implemented in this stage.",
-        hint="Use --help to inspect the current repository-foundation interface.",
+        hint="Use --help to inspect the currently implemented interface.",
         details={"command": args.command},
     )
 

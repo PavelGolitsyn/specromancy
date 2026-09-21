@@ -1,0 +1,27 @@
+[
+  {
+    "id": "documented-python",
+    "fixture": "fixtures/documented-python",
+    "properties": ["request_coverage", "repository_evidence", "no_source_changes"]
+  },
+  {
+    "id": "misleading-filenames",
+    "fixture": "fixtures/misleading-filenames",
+    "properties": ["targeted_search", "behavior_over_filename_inference"]
+  },
+  {
+    "id": "underspecified-request",
+    "fixture": "fixtures/underspecified-request",
+    "properties": ["explicit_unknowns", "acceptance_criteria_gaps"]
+  },
+  {
+    "id": "current-external-docs",
+    "fixture": "fixtures/current-external-docs",
+    "properties": ["direct_urls", "access_dates", "time_sensitive_scope"]
+  },
+  {
+    "id": "large-generated-tree",
+    "fixture": "fixtures/large-generated-tree",
+    "properties": ["generated_directory_avoidance", "scope_discipline"]
+  }
+]

@@ -32,3 +32,4 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "specromancy.resources.contracts" = ["*.json"]
+"specromancy.templates" = ["*.md"]
