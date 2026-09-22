@@ -1,0 +1,34 @@
+---
+name: pipeline
+description: Orchestrate a complete Specromancy run across research, planning, approval, implementation, review, and bounded repair using durable CLI state.
+---
+
+# Pipeline
+
+Coordinate the run; never duplicate a phase's canonical procedure or treat chat history as state.
+
+## Inputs
+
+- A repository-confined request or an existing run ID.
+- The durable manifest and artifacts under `.specromancy/runs/<run-id>/`.
+- The packaged state contract and this skill's `references/state-machine.md`.
+
+## Procedure
+
+1. Initialize with `specromancy init`, or identify the existing run ID. Never initialize over an existing run; use `specromancy resume`.
+2. Run `specromancy next <run-id>` before selecting work. Treat its required gate as authoritative.
+3. For research, plan, implementation, or review, load and follow the matching canonical skill in `.agents/skills/<phase>/SKILL.md`. Phase procedures own their artifacts and validation rules.
+4. Stop at `plan_ready`. Surface the exact plan for human review and do not run `approve` on the user's behalf without explicit approval of that digest.
+5. After approval, continue only with the action reported by `next`. Do not infer successful completion from an agent response; require the CLI transition and durable artifact.
+6. If review returns `changes_requested`, run `phase repair` and follow the implementation skill in repair mode with the current review. Account for every `REV-NNN` finding.
+7. Stop when the run is `passed`, `blocked`, or `cancelled`, or when repair cycles are exhausted. Never bypass the configured cycle limit.
+8. If interrupted, use `resume`. For a lock, inspect it first and recover it only through the explicit recovery command when the recorded owner is gone or the age policy is exceeded.
+9. Report the final run ID, durable status, artifact paths, changed-file inventory, and recorded verification.
+
+## Safety boundaries
+
+- Never edit `run.json` or `events.jsonl` by hand as a normal workflow action.
+- Never silently accept an edited artifact, changed repository HEAD, stale approval, changed review subject, or abandoned lock.
+- Do not call a model from the CLI; the interactive harness follows this skill and invokes phase skills.
+- Cancellation and blocking preserve all artifacts and event history.
+

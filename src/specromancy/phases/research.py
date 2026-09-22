@@ -19,6 +19,7 @@ from ..errors import (
     ValidationError,
 )
 from ..io import append_json_line, read_text, sha256_file
+from ..locking import locked_run
 from ..paths import RepositoryPaths
 from ..state import apply_transition
 
@@ -263,6 +264,7 @@ def research_artifact_path(repository_root: str | Path, run_id: str) -> Path:
     return paths.run_artifact(run_id, "research.md")
 
 
+@locked_run("validate_research")
 def validate_research_file(
     repository_root: str | Path,
     run_id: str,
@@ -303,6 +305,7 @@ def validate_research_file(
     return artifact
 
 
+@locked_run("start_research")
 def start_research(
     repository_root: str | Path,
     run_id: str,
@@ -346,6 +349,7 @@ def start_research(
     )
 
 
+@locked_run("complete_research")
 def complete_research(
     repository_root: str | Path,
     run_id: str,

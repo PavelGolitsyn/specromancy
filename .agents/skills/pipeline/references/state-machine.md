@@ -1,0 +1,23 @@
+# Pipeline state machine
+
+The packaged `pipeline.json` contract is normative. The summary below is an operator reference, not a second contract.
+
+| Status | Permitted continuation | Gate |
+| --- | --- | --- |
+| `initialized` | Start research | Current request artifact and repository identity |
+| `research_in_progress` | Complete research | Valid research artifact; unchanged research write scope |
+| `research_ready` | Start plan | Current research artifact |
+| `plan_in_progress` | Complete plan | Valid plan; complete requirement traceability |
+| `plan_ready` | Approve plan or reopen planning | Explicit approval of the current plan digest |
+| `plan_approved` | Start implementation | Active approval matches the plan digest |
+| `implementation_in_progress` | Complete implementation | Scoped diff, implementation artifact, and command records |
+| `implementation_ready` | Start review | Current implementation subject and bindings |
+| `review_in_progress` | Complete review | Valid verdict against an unchanged subject |
+| `changes_requested` | Start repair or exhaust cycles | Current review, matching approval, and remaining cycle |
+| `passed`, `blocked`, `cancelled` | None | Terminal |
+
+Every accepted status change is selected from `pipeline.json`, performed while holding the run lock, appended to `events.jsonl`, and projected into `run.json`. `next` is read-only. `resume` revalidates the manifest, recorded artifact digests, event projection, repository HEAD, changed-file subject, approval binding, and lock state before returning a continuation brief.
+
+Repair increments `review_cycle` only when repair implementation starts. A repaired implementation requires a new review and a new review-subject digest. When `review_cycle` reaches `max_review_cycles`, orchestration blocks the run rather than starting another repair.
+
+Lock recovery is always explicit. A local lock is recoverable when its PID is gone; any lock is recoverable after the configured stale age. Recovery removes only `run.lock` and appends a compensating audit event.

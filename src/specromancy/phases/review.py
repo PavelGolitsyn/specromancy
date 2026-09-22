@@ -22,7 +22,8 @@ from ..git import GitSnapshot, capture_snapshot, snapshot_payload
 from ..io import append_json_line, canonical_json, read_text, sha256_file, sha256_text
 from ..paths import RepositoryPaths
 from ..state import apply_transition
-from .implement import RunLock, _baseline_event, validate_implementation_file
+from ..locking import RunLock
+from .implement import _baseline_event, validate_implementation_file
 from .research import _event, _load_manifest, _timestamp
 
 

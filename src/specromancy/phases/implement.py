@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 import json
-import os
 import re
-import secrets
-import socket
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -32,6 +29,7 @@ from ..io import (
     sha256_file,
     sha256_text,
 )
+from ..locking import RunLock, RunLockInfo, inspect_run_lock
 from ..paths import RepositoryPaths
 from ..state import apply_transition
 from .plan import _active_approvals, validate_plan_file
@@ -46,110 +44,6 @@ class ImplementationPhaseResult:
     artifact_sha256: str | None = None
     changed_files: tuple[Mapping[str, Any], ...] = ()
     replayed: bool = False
-
-
-@dataclass(frozen=True)
-class RunLockInfo:
-    run_id: str
-    owner_id: str
-    pid: int
-    hostname: str
-    created_at: str
-    command: str
-
-
-class RunLock:
-    """Exclusive, ownership-checked lock for one short run mutation."""
-
-    def __init__(self, paths: RepositoryPaths, run_id: str, command: str, clock: Clock):
-        self.paths = paths
-        self.run_id = run_id
-        self.command = command
-        self.clock = clock
-        self.owner_id = secrets.token_hex(16)
-        self.acquired = False
-
-    def __enter__(self) -> "RunLock":
-        target = self.paths.run_lock(self.run_id)
-        target.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
-            "schema_version": "1",
-            "run_id": self.run_id,
-            "owner_id": self.owner_id,
-            "pid": os.getpid(),
-            "hostname": socket.gethostname(),
-            "created_at": _timestamp(self.clock),
-            "command": self.command,
-        }
-        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
-        try:
-            descriptor = os.open(target, flags, 0o600)
-        except FileExistsError as exc:
-            details: dict[str, Any] = {"lock_path": self.paths.serialize(target)}
-            try:
-                observed = json.loads(read_text(target))
-                if isinstance(observed, dict):
-                    details.update(
-                        {
-                            key: observed.get(key)
-                            for key in ("owner_id", "pid", "hostname", "created_at", "command")
-                        }
-                    )
-            except SpecromancyError:
-                details["diagnostic"] = "existing lock is unreadable"
-            except json.JSONDecodeError:
-                details["diagnostic"] = "existing lock is malformed"
-            raise ConcurrencyError(
-                f"Run '{self.run_id}' is locked by another writer.",
-                hint="Inspect the recorded owner and use explicit lock recovery only after confirming it is stale.",
-                details=details,
-            ) from exc
-        try:
-            encoded = canonical_json(payload).encode("utf-8")
-            os.write(descriptor, encoded)
-            os.fsync(descriptor)
-        finally:
-            os.close(descriptor)
-        self.acquired = True
-        return self
-
-    def __exit__(self, exc_type, exc, traceback) -> None:
-        if not self.acquired:
-            return
-        target = self.paths.run_lock(self.run_id)
-        try:
-            observed = json.loads(read_text(target))
-        except (SpecromancyError, json.JSONDecodeError):
-            return
-        if isinstance(observed, dict) and observed.get("owner_id") == self.owner_id:
-            try:
-                target.unlink()
-            except FileNotFoundError:
-                pass
-
-
-def inspect_run_lock(repository_root: str | Path, run_id: str) -> RunLockInfo | None:
-    paths = RepositoryPaths(Path(repository_root))
-    target = paths.run_lock(run_id)
-    if not target.exists():
-        return None
-    try:
-        value = json.loads(read_text(target))
-    except json.JSONDecodeError as exc:
-        raise ConcurrencyError("The run lock is malformed.", path=paths.serialize(target)) from exc
-    required = {"run_id", "owner_id", "pid", "hostname", "created_at", "command"}
-    if not isinstance(value, dict) or not required.issubset(value):
-        raise ConcurrencyError("The run lock is missing ownership diagnostics.", path=paths.serialize(target))
-    if value.get("run_id") != run_id:
-        raise ConcurrencyError("The run lock belongs to a different run ID.", path=paths.serialize(target))
-    return RunLockInfo(
-        run_id=str(value["run_id"]),
-        owner_id=str(value["owner_id"]),
-        pid=int(value["pid"]),
-        hostname=str(value["hostname"]),
-        created_at=str(value["created_at"]),
-        command=str(value["command"]),
-    )
 
 
 def implementation_artifact_path(repository_root: str | Path, run_id: str) -> Path:
@@ -714,8 +608,8 @@ def abort_implementation(
             event_type="transition",
             run_id=run_id,
             occurred_at=_timestamp(clock),
-            phase="implementation",
-            action="abort_implementation",
+            phase="run",
+            action="block_run",
             transition_id="run.block",
             from_status="implementation_in_progress",
             to_status="blocked",

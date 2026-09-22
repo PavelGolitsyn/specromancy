@@ -11,7 +11,19 @@ from typing import Any, Sequence, TextIO
 from . import __version__
 from .contracts import ContractVersions, validate_contracts
 from .errors import ExitCode, InvalidInputError, SpecromancyError, normalize_exception
+from .locking import inspect_run_lock
+from .orchestrator import (
+    cancel_run,
+    exhaust_review_cycles,
+    fail_phase,
+    next_action,
+    recover_lock,
+    resume_run,
+    status_run,
+    verify_artifacts,
+)
 from .paths import RepositoryPaths, discover_repository
+from .run import initialize_run, validate_manifest
 from .phases.plan import (
     approve_plan,
     complete_plan,
@@ -25,7 +37,6 @@ from .phases.implement import (
     complete_implementation,
     execute_verification,
     implementation_artifact_path,
-    inspect_run_lock,
     start_implementation,
     start_repair,
     validate_implementation_file,
@@ -44,13 +55,7 @@ from .phases.review import (
 )
 
 
-PLACEHOLDER_COMMANDS = (
-    "init",
-    "status",
-    "next",
-    "resume",
-    "adapters",
-)
+PLACEHOLDER_COMMANDS = ("adapters",)
 COMMANDS = (
     "init",
     "status",
@@ -63,6 +68,7 @@ COMMANDS = (
     "verify",
     "lock",
     "resume",
+    "cancel",
     "adapters",
 )
 
@@ -144,8 +150,28 @@ def build_parser() -> Parser:
             description=f"The {command} command is reserved by the public CLI.",
         )
 
-    for command in ("init", "status", "next"):
-        add_placeholder(command)
+    init = subparsers.add_parser(
+        "init",
+        parents=[common],
+        add_help=False,
+        help="initialize a durable run",
+        description="Initialize a durable run from a request artifact.",
+    )
+    init.add_argument("--title", metavar="TEXT")
+    init.add_argument("--request", metavar="FILE")
+    init.add_argument("--id", dest="run_id", metavar="RUN_ID")
+
+    for command, help_text in (
+        ("status", "inspect durable run status"),
+        ("next", "report the next permitted action"),
+    ):
+        command_parser = subparsers.add_parser(
+            command,
+            parents=[common],
+            add_help=False,
+            help=help_text,
+        )
+        command_parser.add_argument("run_id", metavar="RUN_ID")
 
     phase = subparsers.add_parser(
         "phase",
@@ -162,6 +188,14 @@ def build_parser() -> Parser:
             choices=("research", "plan", "implementation", "review"),
             metavar="PHASE",
         )
+    fail_parser = phase_actions.add_parser("fail", parents=[common], add_help=False)
+    fail_parser.add_argument("run_id", metavar="RUN_ID")
+    fail_parser.add_argument(
+        "phase_name",
+        choices=("research", "plan", "implementation", "review"),
+        metavar="PHASE",
+    )
+    fail_parser.add_argument("--reason", required=True, metavar="TEXT")
     repair_parser = phase_actions.add_parser("repair", parents=[common], add_help=False)
     repair_parser.add_argument("run_id", metavar="RUN_ID")
     repair_parser.add_argument("phase_name", choices=("implementation",), metavar="PHASE")
@@ -185,7 +219,17 @@ def build_parser() -> Parser:
     artifact_path_parser.add_argument("run_id", metavar="RUN_ID")
     artifact_path_parser.add_argument(
         "artifact_name",
-        choices=("research", "plan", "implementation", "review"),
+        choices=("request", "research", "plan", "implementation", "review"),
+        metavar="ARTIFACT",
+    )
+    artifact_verify_parser = artifact_actions.add_parser(
+        "verify", parents=[common], add_help=False
+    )
+    artifact_verify_parser.add_argument("run_id", metavar="RUN_ID")
+    artifact_verify_parser.add_argument(
+        "artifact_name",
+        nargs="?",
+        choices=("request", "research", "plan", "implementation", "review"),
         metavar="ARTIFACT",
     )
 
@@ -226,6 +270,7 @@ def build_parser() -> Parser:
     validate.add_argument("run_id", metavar="RUN_ID")
     validate.add_argument(
         "phase_name",
+        nargs="?",
         choices=("research", "plan", "implementation", "review"),
         metavar="PHASE",
     )
@@ -246,8 +291,19 @@ def build_parser() -> Parser:
     lock_actions = lock.add_subparsers(dest="lock_action", metavar="ACTION", required=True)
     lock_inspect = lock_actions.add_parser("inspect", parents=[common], add_help=False)
     lock_inspect.add_argument("run_id", metavar="RUN_ID")
-    for command in ("resume", "adapters"):
-        add_placeholder(command)
+    lock_recover = lock_actions.add_parser("recover", parents=[common], add_help=False)
+    lock_recover.add_argument("run_id", metavar="RUN_ID")
+
+    resume = subparsers.add_parser(
+        "resume", parents=[common], add_help=False, help="validate and resume a run"
+    )
+    resume.add_argument("run_id", metavar="RUN_ID")
+    cancel = subparsers.add_parser(
+        "cancel", parents=[common], add_help=False, help="cancel a nonterminal run"
+    )
+    cancel.add_argument("run_id", metavar="RUN_ID")
+    cancel.add_argument("--reason", required=True, metavar="TEXT")
+    add_placeholder("adapters")
     parser.set_defaults(format="text", repo=None, version=False, help=False)
     return parser
 
@@ -307,10 +363,76 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
     if args.command is None:
         return Result.success("help", parser.format_help().rstrip())
 
-    if args.command in {"phase", "artifact", "approve", "approval", "validate", "verify", "lock"}:
+    if args.command != "adapters":
         root = discover_repository(args.repo)
         paths = RepositoryPaths(root)
+        if args.command == "init":
+            result = initialize_run(
+                root,
+                title=getattr(args, "title", None),
+                request_path=getattr(args, "request", None),
+                run_id=getattr(args, "run_id", None),
+            )
+            return Result.success(
+                "init",
+                (
+                    f"Initialized run {result.run_id}.\n"
+                    f"Request: {result.request_path}\n"
+                    f"Next: {result.next_command}"
+                ),
+                {
+                    "run_id": result.run_id,
+                    "title": result.title,
+                    "status": result.status,
+                    "run_path": result.run_path,
+                    "request_path": result.request_path,
+                    "manifest_path": result.manifest_path,
+                    "next_command": result.next_command,
+                },
+            )
+        if args.command == "status":
+            data = status_run(root, args.run_id)
+            message = f"Run {args.run_id}: {data['status']}"
+            if data["next_action"]:
+                command = str(data["next_action"]).replace("RUN_ID", args.run_id)
+                message += f"\nNext: specromancy {command}"
+            return Result.success("status", message, data)
+        if args.command == "next":
+            data = status_run(root, args.run_id)
+            action = next_action(data)
+            command = action.action.replace("RUN_ID", args.run_id) if action.action else None
+            message = action.description
+            if command:
+                message += f"\nNext: specromancy {command}"
+            if action.gate:
+                message += f"\nGate: {action.gate}"
+            return Result.success(
+                "next",
+                message,
+                {
+                    "run_id": args.run_id,
+                    "status": data["status"],
+                    "action": command,
+                    "required_gate": action.gate,
+                    "terminal": data["terminal"],
+                },
+            )
+        if args.command == "resume":
+            data = resume_run(root, args.run_id)
+            return Result.success("resume", data["continuation_brief"], data)
+        if args.command == "cancel":
+            manifest = cancel_run(root, args.run_id, reason=args.reason)
+            return Result.success(
+                "cancel",
+                f"Run {args.run_id} cancelled.",
+                {"run_id": args.run_id, "status": manifest["status"], "reason": args.reason},
+            )
         if args.command == "lock":
+            if args.lock_action == "recover":
+                data = recover_lock(root, args.run_id)
+                return Result.success(
+                    "lock", f"Recovered stale lock for run {args.run_id}.", data
+                )
             info = inspect_run_lock(root, args.run_id)
             if info is None:
                 return Result.success(
@@ -348,7 +470,18 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
                 },
             )
         if args.command == "artifact":
-            if args.artifact_name == "research":
+            if args.artifact_action == "verify":
+                verified = verify_artifacts(root, args.run_id, args.artifact_name)
+                label = args.artifact_name or "all recorded artifacts"
+                return Result.success(
+                    "artifact",
+                    f"Verified {label} for run {args.run_id}.",
+                    {"run_id": args.run_id, "verified": verified},
+                )
+            validate_manifest(paths, args.run_id, validate_artifacts=False)
+            if args.artifact_name == "request":
+                target = paths.run_artifact(args.run_id, "request.md")
+            elif args.artifact_name == "research":
                 target = research_artifact_path(root, args.run_id)
             elif args.artifact_name == "plan":
                 target = plan_artifact_path(root, args.run_id)
@@ -368,6 +501,15 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
                 },
             )
         if args.command == "validate":
+            if args.phase_name is None:
+                manifest = validate_manifest(
+                    paths, args.run_id, validate_artifacts=True, validate_events=True
+                )
+                return Result.success(
+                    "validate",
+                    f"Run {args.run_id} manifest and recorded artifacts are valid.",
+                    {"run_id": args.run_id, "status": manifest["status"], "phase": None},
+                )
             if args.phase_name == "research":
                 artifact = validate_research_file(root, args.run_id)
                 target = research_artifact_path(root, args.run_id)
@@ -439,7 +581,24 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
                     "reason": result.reason,
                 },
             )
+        if args.phase_action == "fail":
+            manifest = fail_phase(
+                root, args.run_id, args.phase_name, reason=args.reason
+            )
+            return Result.success(
+                "phase",
+                f"Run {args.run_id} blocked from phase {args.phase_name}.",
+                {"run_id": args.run_id, "phase": args.phase_name, "status": manifest["status"]},
+            )
         if args.phase_action == "repair":
+            current = status_run(root, args.run_id)
+            if current["review_cycle"] >= current["max_review_cycles"]:
+                manifest = exhaust_review_cycles(root, args.run_id)
+                return Result.success(
+                    "phase",
+                    f"Run {args.run_id} blocked because review repair cycles are exhausted.",
+                    {"run_id": args.run_id, "phase": "implementation", "status": manifest["status"]},
+                )
             result = start_repair(root, args.run_id)
             return Result.success(
                 "phase", f"Implementation repair started for run {args.run_id}.",

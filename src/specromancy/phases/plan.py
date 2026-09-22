@@ -17,6 +17,7 @@ from ..errors import (
     ValidationError,
 )
 from ..io import append_json_line, read_text, sha256_file
+from ..locking import locked_run
 from ..paths import RepositoryPaths
 from ..state import apply_transition
 from .research import (
@@ -159,6 +160,7 @@ def plan_artifact_path(repository_root: str | Path, run_id: str) -> Path:
     return paths.run_artifact(run_id, "plan.md")
 
 
+@locked_run("validate_plan")
 def validate_plan_file(
     repository_root: str | Path,
     run_id: str,
@@ -208,6 +210,7 @@ def validate_plan_file(
     return artifact
 
 
+@locked_run("start_plan")
 def start_plan(
     repository_root: str | Path,
     run_id: str,
@@ -258,6 +261,7 @@ def start_plan(
     )
 
 
+@locked_run("complete_plan")
 def complete_plan(
     repository_root: str | Path,
     run_id: str,
@@ -377,6 +381,7 @@ def _current_recorded_plan(
     return digest, record
 
 
+@locked_run("approve_plan")
 def approve_plan(
     repository_root: str | Path,
     run_id: str,
@@ -487,6 +492,7 @@ def approve_plan(
     )
 
 
+@locked_run("revoke_plan_approval")
 def revoke_plan_approval(
     repository_root: str | Path,
     run_id: str,

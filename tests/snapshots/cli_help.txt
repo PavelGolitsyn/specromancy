@@ -5,10 +5,9 @@ Coordinate artifact-driven, spec-driven development runs.
 
 positional arguments:
   COMMAND
-    init                init workflow operations (available in a later stage)
-    status              status workflow operations (available in a later
-                        stage)
-    next                next workflow operations (available in a later stage)
+    init                initialize a durable run
+    status              inspect durable run status
+    next                report the next permitted action
     phase               start or complete an implemented phase
     artifact            inspect managed artifact paths
     approve             record explicit approval for a completed plan
@@ -16,8 +15,8 @@ positional arguments:
     validate            validate an implemented phase artifact
     verify              run and record one implementation verification command
     lock                inspect run-lock ownership
-    resume              resume workflow operations (available in a later
-                        stage)
+    resume              validate and resume a run
+    cancel              cancel a nonterminal run
     adapters            adapters workflow operations (available in a later
                         stage)
 
