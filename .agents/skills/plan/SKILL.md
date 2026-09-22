@@ -1,0 +1,37 @@
+---
+name: plan
+description: Convert validated, current Specromancy research into a reviewable change plan with requirement traceability, file-level actions, verification, risks, and explicit approval-sensitive decisions. Use for the planning phase; do not implement code or treat prose as approval.
+---
+
+# Plan
+
+Produce a durable, implementation-ready `plan.md` from the active run's validated inputs without changing repository source.
+
+## Inputs
+
+- Active Specromancy run ID.
+- `.specromancy/runs/<run-id>/request.md`.
+- Validated, digest-current `.specromancy/runs/<run-id>/research.md`.
+- Requirements and artifact records in `run.json`.
+- Only the repository areas needed to verify research claims.
+
+## Output
+
+- `.specromancy/runs/<run-id>/plan.md`, validated and bound to the current research digest in `run.json`.
+
+## Procedure
+
+1. Run `specromancy phase start <run-id> plan`. Stop and report the actionable error if research is unvalidated or stale, approval is still active, or the run cannot enter `plan_in_progress`.
+2. Read `request.md`, `research.md`, `run.json`, and applicable repository instructions. Use the stable `REQ-NNN` identifiers from the manifest; do not invent replacements.
+3. Re-inspect only repository areas needed to verify material research claims. Planning is read-only outside the active run directory.
+4. Copy `assets/plan-template.md` to the artifact path reported by `specromancy artifact path <run-id> plan`.
+5. Map every requirement to current `E-NNN` evidence, one or more `CHG-NNN` changes, and at least one observable verification method.
+6. Describe each change at file or interface level. Use `modify` or `delete` only for a path that exists. Mark every new path `create`. When exact files cannot yet be known, target an existing directory or component and include a bounded discovery step.
+7. Identify compatibility, data/schema, generated-file, dependency, public-interface, production, documentation, rollout, and rollback effects. Mark destructive operations, dependency additions, migrations, public API changes, and production actions as approval-sensitive.
+8. Record unresolved choices under `## Open decisions` using the columns `Decision ID | Decision | Blocking | Status`, or write `None.` when there are none. A blocking decision must be resolved before plan completion. A nonblocking assumption may remain only when it is explicit, bounded, and does not change the requested outcome or authorization boundary.
+9. Prefer the smallest coherent implementation. Do not include implementation patches or edit source, tests, fixtures, configuration, or documentation during planning.
+10. Check the artifact against `references/plan-quality.md`, replace every template variable, set frontmatter status to `ready`, and run `specromancy validate <run-id> plan`.
+11. Run `specromancy phase complete <run-id> plan`. Completion succeeds only as `plan_ready` and does not approve the plan.
+12. Stop for explicit user approval. Only `specromancy approve <run-id> plan --by <identity> [--note <text>]` creates approval; chat prose never counts.
+
+If the plan changes after approval, implementation must stop. Revoke with `specromancy approval revoke <run-id> plan --by <identity> --reason <text>`, reopen planning, validate and complete the revised plan, then obtain a new digest-bound approval.

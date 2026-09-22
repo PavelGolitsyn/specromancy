@@ -1,0 +1,20 @@
+# Plan quality checklist
+
+Use this checklist before validation and completion.
+
+- The outcome is observable and the scope names meaningful exclusions.
+- Every manifest requirement ID has exactly one traceability row.
+- Every traceability row cites current research evidence, planned change IDs, and an observable verification method.
+- Proposed changes use unique `CHG-NNN` IDs and identify repository-relative paths or existing component directories.
+- Existing targets exist; every new file is explicitly marked `create`.
+- Changes describe file or interface behavior without embedding implementation patches.
+- Data, schema, compatibility, generated-file, dependency, public-interface, production, documentation, rollout, and rollback effects are addressed.
+- Destructive operations, dependency additions, schema migrations, public API changes, and production actions are labeled approval-sensitive.
+- Focused checks and broader regression checks have expected outcomes.
+- Risks have concrete mitigations.
+- Open decisions use `DEC-NNN` IDs and the required Decision, Blocking, and Status columns. Blocking decisions are resolved; open nonblocking assumptions are explicit and bounded.
+- The implementation sequence is ordered, minimal, and usable without conversation history.
+- No source, tests, fixtures, configuration, or documentation outside the active run was edited while planning.
+- The plan is `ready`, contains no template variables, and has not been treated as self-approved.
+
+A **blocking decision** can materially change product behavior, authorization, compatibility, data safety, dependencies, or the implementation scope. It must be resolved before approval. A **nonblocking assumption** fills a limited detail without changing those boundaries; record it so implementation can verify it and stop if it proves false.

@@ -23,6 +23,7 @@ def apply_transition(
     *,
     artifact_name: str | None = None,
     artifact_record: Mapping[str, Any] | None = None,
+    manifest_updates: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Append one accepted transition and atomically replace its projection."""
 
@@ -58,6 +59,16 @@ def apply_transition(
         )
 
     updated = dict(manifest)
+    if manifest_updates is not None:
+        protected = {"status", "current_phase", "updated_at", "last_error"}
+        overlap = protected.intersection(manifest_updates)
+        if overlap:
+            raise ValidationError(
+                "Transition manifest updates contain state-engine-owned fields.",
+                hint="Pass status projection fields through the transition event only.",
+                details={"fields": sorted(overlap)},
+            )
+        updated.update(manifest_updates)
     if artifact_name is not None and artifact_record is not None:
         artifacts = dict(updated.get("artifacts", {}))
         artifacts[artifact_name] = dict(artifact_record)

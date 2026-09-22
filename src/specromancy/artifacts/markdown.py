@@ -19,7 +19,12 @@ def _failure(message: str, hint: str) -> ValidationError:
     return ValidationError(message, hint=hint)
 
 
-def require_headings_in_order(body: str, required: Sequence[str]) -> dict[str, str]:
+def require_headings_in_order(
+    body: str,
+    required: Sequence[str],
+    *,
+    artifact_name: str = "Research",
+) -> dict[str, str]:
     """Return required section bodies after checking uniqueness and order."""
 
     lines = body.splitlines()
@@ -28,20 +33,20 @@ def require_headings_in_order(body: str, required: Sequence[str]) -> dict[str, s
         matches = [index for index, line in enumerate(lines) if line == heading]
         if not matches:
             raise _failure(
-                f"Research artifact is missing required heading '{heading}'.",
+                f"{artifact_name} artifact is missing required heading '{heading}'.",
                 f"Add '{heading}' once in the documented section order.",
             )
         if len(matches) != 1:
             raise _failure(
-                f"Research artifact repeats required heading '{heading}'.",
+                f"{artifact_name} artifact repeats required heading '{heading}'.",
                 f"Keep exactly one '{heading}' section.",
             )
         locations[heading] = matches[0]
     positions = [locations[heading] for heading in required]
     if positions != sorted(positions):
         raise _failure(
-            "Research artifact headings are out of order.",
-            "Reorder the required sections to match the research template.",
+            f"{artifact_name} artifact headings are out of order.",
+            f"Reorder the required sections to match the {artifact_name.casefold()} template.",
         )
 
     sections: dict[str, str] = {}
@@ -55,7 +60,7 @@ def require_headings_in_order(body: str, required: Sequence[str]) -> dict[str, s
         value = "\n".join(lines[start:end]).strip()
         if not value:
             raise _failure(
-                f"Research section '{heading}' is empty.",
+                f"{artifact_name} section '{heading}' is empty.",
                 "Add grounded content or explicitly record that the item is unknown.",
             )
         sections[heading] = value

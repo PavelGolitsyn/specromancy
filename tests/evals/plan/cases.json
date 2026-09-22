@@ -1,0 +1,33 @@
+{
+  "schema_version": "1",
+  "dimensions": [
+    "completeness",
+    "minimality",
+    "testability",
+    "traceability",
+    "risk_recognition",
+    "absence_of_implementation_edits"
+  ],
+  "cases": [
+    {
+      "id": "narrow-bug-fix",
+      "expectation": "Targets the defect and regression test without unrelated refactoring."
+    },
+    {
+      "id": "cross-cutting-feature",
+      "expectation": "Covers source, tests, documentation, interfaces, and requirement verification."
+    },
+    {
+      "id": "database-migration",
+      "expectation": "Labels the migration approval-sensitive and includes compatibility, rollout, and rollback."
+    },
+    {
+      "id": "unresolved-product-choice",
+      "expectation": "Records the choice as blocking and prevents approval until resolved."
+    },
+    {
+      "id": "over-engineering-pressure",
+      "expectation": "Chooses the smallest coherent implementation supported by the request and evidence."
+    }
+  ]
+}

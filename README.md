@@ -44,7 +44,7 @@ python -m build
 
 The `build` package is development-only and is deliberately absent from the runtime dependency set.
 
-Stage 2 implements the research slice of `phase start`, `phase complete`, `artifact path`, and `validate`. The remaining commands stay reserved and return exit code `2` (`INVALID_INPUT`) with the same structured error envelope in JSON mode.
+Stages 2 and 3 implement the research and planning slices of `phase start`, `phase complete`, `artifact path`, and `validate`. Stage 3 also adds explicit, digest-bound plan approval and revocation. Commands for implementation, review, orchestration, resume, and adapters remain reserved and return exit code `2` (`INVALID_INPUT`) with the same structured error envelope in JSON mode.
 
 For an initialized run, the research lifecycle is:
 
@@ -56,6 +56,23 @@ specromancy phase complete RUN_ID research
 ```
 
 The canonical procedure is in `.agents/skills/research/`. Completion validates the evidence-backed artifact, enforces research-only write scope, records its digest and request binding in `run.json`, and appends audit events.
+
+After research reaches `research_ready`, the planning lifecycle is:
+
+```bash
+specromancy phase start RUN_ID plan
+specromancy artifact path RUN_ID plan
+specromancy validate RUN_ID plan
+specromancy phase complete RUN_ID plan
+specromancy approve RUN_ID plan --by IDENTITY
+```
+
+The canonical procedure is in `.agents/skills/plan/`. A plan must trace every initialized requirement to current research evidence, file-level changes, and verification. Approval binds the supplied identity to the exact validated plan digest; chat prose is never approval. Replanning after approval begins with:
+
+```bash
+specromancy approval revoke RUN_ID plan --by IDENTITY --reason TEXT
+specromancy phase start RUN_ID plan
+```
 
 ## Repository map
 

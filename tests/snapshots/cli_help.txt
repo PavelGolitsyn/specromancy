@@ -11,8 +11,8 @@ positional arguments:
     next                next workflow operations (available in a later stage)
     phase               start or complete an implemented phase
     artifact            inspect managed artifact paths
-    approve             approve workflow operations (available in a later
-                        stage)
+    approve             record explicit approval for a completed plan
+    approval            manage recorded plan approvals
     validate            validate an implemented phase artifact
     resume              resume workflow operations (available in a later
                         stage)

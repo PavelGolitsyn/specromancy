@@ -51,6 +51,7 @@ class WheelResourceTests(unittest.TestCase):
             ):
                 self.assertIn(f"specromancy/resources/contracts/{name}", names)
             self.assertIn("specromancy/templates/research.md", names)
+            self.assertIn("specromancy/templates/plan.md", names)
 
             environment = os.environ.copy()
             environment["PYTHONPATH"] = str(wheel)
