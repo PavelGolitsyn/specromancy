@@ -17,8 +17,7 @@ positional arguments:
     lock                inspect run-lock ownership
     resume              validate and resume a run
     cancel              cancel a nonterminal run
-    adapters            adapters workflow operations (available in a later
-                        stage)
+    adapters            generate and verify harness discovery adapters
 
 options:
   -h, --help            show this help message and exit

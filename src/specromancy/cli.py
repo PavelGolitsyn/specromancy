@@ -9,6 +9,13 @@ from dataclasses import dataclass, field
 from typing import Any, Sequence, TextIO
 
 from . import __version__
+from .adapters import (
+    ADAPTER_NAMES,
+    check as check_harness_adapters,
+    clean as clean_harness_adapters,
+    generate as generate_harness_adapters,
+    list_adapters,
+)
 from .contracts import ContractVersions, validate_contracts
 from .errors import ExitCode, InvalidInputError, SpecromancyError, normalize_exception
 from .locking import inspect_run_lock
@@ -55,7 +62,6 @@ from .phases.review import (
 )
 
 
-PLACEHOLDER_COMMANDS = ("adapters",)
 COMMANDS = (
     "init",
     "status",
@@ -141,15 +147,6 @@ def build_parser() -> Parser:
         help="show package and contract versions",
     )
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
-    def add_placeholder(command: str) -> None:
-        subparsers.add_parser(
-            command,
-            parents=[common],
-            add_help=False,
-            help=f"{command} workflow operations (available in a later stage)",
-            description=f"The {command} command is reserved by the public CLI.",
-        )
-
     init = subparsers.add_parser(
         "init",
         parents=[common],
@@ -303,7 +300,27 @@ def build_parser() -> Parser:
     )
     cancel.add_argument("run_id", metavar="RUN_ID")
     cancel.add_argument("--reason", required=True, metavar="TEXT")
-    add_placeholder("adapters")
+    adapters = subparsers.add_parser(
+        "adapters",
+        add_help=False,
+        help="generate and verify harness discovery adapters",
+        description="Generate, check, clean, or list deterministic harness adapters.",
+    )
+    adapter_actions = adapters.add_subparsers(
+        dest="adapter_action", metavar="ACTION", required=True
+    )
+    for action in ("generate", "check", "clean"):
+        action_parser = adapter_actions.add_parser(
+            action, parents=[common], add_help=False
+        )
+        action_parser.add_argument("--harness", choices=ADAPTER_NAMES, metavar="NAME")
+        if action == "generate":
+            action_parser.add_argument(
+                "--force",
+                action="store_true",
+                help="back up and replace colliding user-authored files",
+            )
+    adapter_actions.add_parser("list", parents=[common], add_help=False)
     parser.set_defaults(format="text", repo=None, version=False, help=False)
     return parser
 
@@ -363,9 +380,42 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
     if args.command is None:
         return Result.success("help", parser.format_help().rstrip())
 
-    if args.command != "adapters":
+    if args.command == "adapters":
+        if args.adapter_action == "list":
+            rows = list_adapters()
+            labels = [
+                f"{row['name']} v{row['version']} ({'native' if row['native'] else 'generated'})"
+                for row in rows
+            ]
+            return Result.success(
+                "adapters", "Harness adapters:\n- " + "\n- ".join(labels), {"adapters": rows}
+            )
         root = discover_repository(args.repo)
-        paths = RepositoryPaths(root)
+        harness = getattr(args, "harness", None)
+        if args.adapter_action == "generate":
+            data = generate_harness_adapters(
+                root, harness=harness, force=getattr(args, "force", False)
+            )
+            return Result.success(
+                "adapters",
+                f"Generated {len(data['generated'])} harness adapter files.",
+                data,
+            )
+        if args.adapter_action == "check":
+            data = check_harness_adapters(root, harness=harness)
+            return Result.success(
+                "adapters",
+                f"Checked {len(data['checked'])} harness adapter files; all are current.",
+                data,
+            )
+        data = clean_harness_adapters(root, harness=harness)
+        return Result.success(
+            "adapters", f"Removed {len(data['removed'])} generated adapter files.", data
+        )
+
+    root = discover_repository(args.repo)
+    paths = RepositoryPaths(root)
+    if args.command != "adapters":
         if args.command == "init":
             result = initialize_run(
                 root,
@@ -660,11 +710,7 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
             },
         )
 
-    raise InvalidInputError(
-        f"Command '{args.command}' is reserved but not implemented in this stage.",
-        hint="Use --help to inspect the currently implemented interface.",
-        details={"command": args.command},
-    )
+    raise InvalidInputError(f"Command '{args.command}' is not implemented.")
 
 
 def main(argv: Sequence[str] | None = None) -> int:

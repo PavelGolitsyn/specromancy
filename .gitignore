@@ -9,3 +9,5 @@ dist/
 .specromancy/runs/
 .specromancy/**/*.tmp
 
+# Local preservation copies created by forced adapter replacement.
+specromancy/adapters/backups/

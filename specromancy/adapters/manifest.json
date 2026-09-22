@@ -1,0 +1,449 @@
+{
+  "adapters": {
+    "claude": {
+      "minimum_harness_version": null,
+      "native": false,
+      "version": 1
+    },
+    "codex": {
+      "minimum_harness_version": null,
+      "native": true,
+      "version": 1
+    },
+    "copilot": {
+      "minimum_harness_version": null,
+      "native": false,
+      "version": 1
+    },
+    "hermes": {
+      "minimum_harness_version": null,
+      "native": true,
+      "version": 1
+    },
+    "opencode": {
+      "minimum_harness_version": null,
+      "native": false,
+      "version": 1
+    }
+  },
+  "files": [
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/implement/SKILL.md",
+      "sha256": "8f162a53d48c097a61c9db8794115ab95bd7788fd91a69d58f32154a0d113909",
+      "sources": [
+        {
+          "path": ".agents/skills/implement/SKILL.md",
+          "sha256": "bfc8c7e0c582f31090923ef8f26a58120081e6c704ad6484c7d2d35f4cb220af"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/implement/assets/implementation-template.md",
+      "sha256": "658b057c76582bb44a4f31b1c920bf232901654d06ea7721635a63ddfdb08a5f",
+      "sources": [
+        {
+          "path": ".agents/skills/implement/assets/implementation-template.md",
+          "sha256": "15acbb1ec5c9bbfe891e4ffd09e028e6dd5e8c9b16c3eadd59a6d967ce41f600"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/implement/references/implementation-policy.md",
+      "sha256": "1f893a39b33d8ed119b69142de89d1d1d4311902fb35c5f24f75cc7ada0e6a49",
+      "sources": [
+        {
+          "path": ".agents/skills/implement/references/implementation-policy.md",
+          "sha256": "b6f4fc8b10adce11dd49ed8519e7642c785695f71dd074762d339fee73575bcb"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/pipeline/SKILL.md",
+      "sha256": "15ef0d3736af648a43681784b93dcada920f66c7573fe6dac1652311b33b30d1",
+      "sources": [
+        {
+          "path": ".agents/skills/pipeline/SKILL.md",
+          "sha256": "1c6fd7e204a21dcb3633be8346adb2664d56272fe3a22f0e293207d6ebab30c6"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/pipeline/references/state-machine.md",
+      "sha256": "0e34cc85aeb5e98633f6c2f01b391cd7b2ff8434879297429ce62773647322a3",
+      "sources": [
+        {
+          "path": ".agents/skills/pipeline/references/state-machine.md",
+          "sha256": "d7fe1f93828203085bc37915ea0d72881723c9a0527ff1e0cb5ce0e3e68c867b"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/plan/SKILL.md",
+      "sha256": "0babf9c05b8fb1f8c2b53a8bc1fc75a6fb1c372139eefdf519032bc511aad41d",
+      "sources": [
+        {
+          "path": ".agents/skills/plan/SKILL.md",
+          "sha256": "4aa1b2ceabd43a1efda36972583dcbd3b280cb5ee54f78d220b9c02b0bbf7d26"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/plan/assets/plan-template.md",
+      "sha256": "32f2214758b0066bd2c75144620525658199e776cd38290c109f070d32b51be9",
+      "sources": [
+        {
+          "path": ".agents/skills/plan/assets/plan-template.md",
+          "sha256": "5b47ddcd0bfe97286baffd784ff52287be819b892f1fcbccbe66d211dee6d040"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/plan/references/plan-quality.md",
+      "sha256": "0b4d3e15b79f010b7336c3593f11e7d96f441a0975d860e0c28f90fb942bbf8c",
+      "sources": [
+        {
+          "path": ".agents/skills/plan/references/plan-quality.md",
+          "sha256": "1d72d56c1ee64b844960b8c55adeec67458a5ee913658f6bc7e5db0ece71a198"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/research/SKILL.md",
+      "sha256": "dd8c7f94dab5656d57822da5c172749d6ee5485ef305525c909d7c4f36384db9",
+      "sources": [
+        {
+          "path": ".agents/skills/research/SKILL.md",
+          "sha256": "bc74a9c68a578ff36fe617d3fbf1966692e29b955768bfc9dd59db803ca79147"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/research/assets/research-template.md",
+      "sha256": "e0e32c67dd24cedf4a758eff2db501cb21f07c702c6836c299a8db1ff0650836",
+      "sources": [
+        {
+          "path": ".agents/skills/research/assets/research-template.md",
+          "sha256": "d4917c9da42e3d6dd4f577383c29683d52199e2db25c81e0e288cdc2353b4b9b"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/research/references/research-quality.md",
+      "sha256": "39edae9bf2184e123e776c109f70f57e2fccf9c2312be4df0db1670dc039d5fd",
+      "sources": [
+        {
+          "path": ".agents/skills/research/references/research-quality.md",
+          "sha256": "d969f7f63bb293a527fdeb5aa7d2f508b7a86468d84590bd1d7767d15a20b747"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/review/SKILL.md",
+      "sha256": "0ee529c18a7f4d697fdae40c81df90b1778cb37fe21b25278d78bd3e47284150",
+      "sources": [
+        {
+          "path": ".agents/skills/review/SKILL.md",
+          "sha256": "100a036143b452c65604e1cd0b9cf1f78cf7754d847f6092c12f19607e33b420"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/review/assets/review-template.md",
+      "sha256": "2dc7e4397298cbbec0923df9aeee62e32dcb74939b12a532251a6bc8ab0c5711",
+      "sources": [
+        {
+          "path": ".agents/skills/review/assets/review-template.md",
+          "sha256": "b0f3c2ee49e11ddb54af5900a88581ba43818102eef5b0ea4c13b1a6f2da2088"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".claude/skills/review/references/review-policy.md",
+      "sha256": "efe378ba1b86dd5eb234e284451c04bfe671d2c7351c4c4073435add2f47fdc0",
+      "sources": [
+        {
+          "path": ".agents/skills/review/references/review-policy.md",
+          "sha256": "5de788153820331fa69c594c4911d739563717baaca73e13006b8f72c4b19cc8"
+        }
+      ],
+      "transformation": "normalized-copy-with-provenance"
+    },
+    {
+      "adapter": "copilot",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".github/copilot-instructions.md",
+      "sha256": "50cff15cdade8af5aaf8709ad11e5028c4c901fba23a3653201c3458a3ed65de",
+      "sources": [
+        {
+          "path": "AGENTS.md",
+          "sha256": "52f50b614d2c5ad49ea65e6c39bd88262d9f9033380381045bca48334a44cdce"
+        }
+      ],
+      "transformation": "normalized-mirror-with-provenance"
+    },
+    {
+      "adapter": "copilot",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".github/prompts/implement.prompt.md",
+      "sha256": "5e419e80c213e779449ac53c83556f92788121140b854510ea629c52e53e27e6",
+      "sources": [
+        {
+          "path": ".agents/skills/implement/SKILL.md",
+          "sha256": "bfc8c7e0c582f31090923ef8f26a58120081e6c704ad6484c7d2d35f4cb220af"
+        }
+      ],
+      "transformation": "thin-prompt-launcher"
+    },
+    {
+      "adapter": "copilot",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".github/prompts/pipeline.prompt.md",
+      "sha256": "49b080cf41b90f000c633083e4c01dad03e479a51c4e64787e6cdf483cbd0110",
+      "sources": [
+        {
+          "path": ".agents/skills/pipeline/SKILL.md",
+          "sha256": "1c6fd7e204a21dcb3633be8346adb2664d56272fe3a22f0e293207d6ebab30c6"
+        }
+      ],
+      "transformation": "thin-prompt-launcher"
+    },
+    {
+      "adapter": "copilot",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".github/prompts/plan.prompt.md",
+      "sha256": "e85e694eb25226f20e8227fe4f757684cb01be83fd6780a15c089961cc70a853",
+      "sources": [
+        {
+          "path": ".agents/skills/plan/SKILL.md",
+          "sha256": "4aa1b2ceabd43a1efda36972583dcbd3b280cb5ee54f78d220b9c02b0bbf7d26"
+        }
+      ],
+      "transformation": "thin-prompt-launcher"
+    },
+    {
+      "adapter": "copilot",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".github/prompts/research.prompt.md",
+      "sha256": "a8cad3a009911721e0c02c949688463a13db6b4847f7ebe8a819f7ef370b1912",
+      "sources": [
+        {
+          "path": ".agents/skills/research/SKILL.md",
+          "sha256": "bc74a9c68a578ff36fe617d3fbf1966692e29b955768bfc9dd59db803ca79147"
+        }
+      ],
+      "transformation": "thin-prompt-launcher"
+    },
+    {
+      "adapter": "copilot",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".github/prompts/review.prompt.md",
+      "sha256": "ce831c03e9a87ef88d57fc500293dbf123f85256be586cc1b6cf74e4554b0bae",
+      "sources": [
+        {
+          "path": ".agents/skills/review/SKILL.md",
+          "sha256": "100a036143b452c65604e1cd0b9cf1f78cf7754d847f6092c12f19607e33b420"
+        }
+      ],
+      "transformation": "thin-prompt-launcher"
+    },
+    {
+      "adapter": "opencode",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".opencode/commands/implement.md",
+      "sha256": "f81598117cb9f90716c413a3db193f4940ec3058aef8fedfbefbdc3339b67159",
+      "sources": [
+        {
+          "path": ".agents/skills/implement/SKILL.md",
+          "sha256": "bfc8c7e0c582f31090923ef8f26a58120081e6c704ad6484c7d2d35f4cb220af"
+        }
+      ],
+      "transformation": "thin-command-launcher"
+    },
+    {
+      "adapter": "opencode",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".opencode/commands/pipeline.md",
+      "sha256": "d1b55923ceadaf2241e72574bd1710102a402e60a37243034d36344dcde93524",
+      "sources": [
+        {
+          "path": ".agents/skills/pipeline/SKILL.md",
+          "sha256": "1c6fd7e204a21dcb3633be8346adb2664d56272fe3a22f0e293207d6ebab30c6"
+        }
+      ],
+      "transformation": "thin-command-launcher"
+    },
+    {
+      "adapter": "opencode",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".opencode/commands/plan.md",
+      "sha256": "90468d35438a7749a9dfb033c8fdff973f2f802794dbe25622cd9c3f89b2dac2",
+      "sources": [
+        {
+          "path": ".agents/skills/plan/SKILL.md",
+          "sha256": "4aa1b2ceabd43a1efda36972583dcbd3b280cb5ee54f78d220b9c02b0bbf7d26"
+        }
+      ],
+      "transformation": "thin-command-launcher"
+    },
+    {
+      "adapter": "opencode",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".opencode/commands/research.md",
+      "sha256": "2412c0c157230807584f01e0da99f80e8214f75d46ece6c385ee9523ce0bdccb",
+      "sources": [
+        {
+          "path": ".agents/skills/research/SKILL.md",
+          "sha256": "bc74a9c68a578ff36fe617d3fbf1966692e29b955768bfc9dd59db803ca79147"
+        }
+      ],
+      "transformation": "thin-command-launcher"
+    },
+    {
+      "adapter": "opencode",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": ".opencode/commands/review.md",
+      "sha256": "cc6e910e99966dee2213e2529363fbbd11696513d91798e94427ed64d4cc5b05",
+      "sources": [
+        {
+          "path": ".agents/skills/review/SKILL.md",
+          "sha256": "100a036143b452c65604e1cd0b9cf1f78cf7754d847f6092c12f19607e33b420"
+        }
+      ],
+      "transformation": "thin-command-launcher"
+    },
+    {
+      "adapter": "claude",
+      "adapter_version": 1,
+      "committed": true,
+      "minimum_harness_version": null,
+      "mode": "0644",
+      "path": "CLAUDE.md",
+      "sha256": "9846398f3c6e85e0e66455561328884919941894afa8a7fb9aab8030824d1a48",
+      "sources": [
+        {
+          "path": "AGENTS.md",
+          "sha256": "52f50b614d2c5ad49ea65e6c39bd88262d9f9033380381045bca48334a44cdce"
+        }
+      ],
+      "transformation": "normalized-mirror-with-provenance"
+    }
+  ],
+  "generated_by": "specromancy 0.1.0",
+  "schema_version": 1
+}

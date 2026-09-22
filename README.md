@@ -35,16 +35,17 @@ The module entry point is equivalent when a console-script launcher is unavailab
 python -m specromancy --help
 ```
 
-For development, install the optional build tooling with `python -m pip install -e '.[dev]'`. Run the full test suite with:
+For development, install the optional build tooling with `python -m pip install -e '.[dev]'`. Run the full verification with:
 
 ```bash
 python -m unittest discover -s tests -p 'test_*.py'
+python -m specromancy adapters check
 python -m build
 ```
 
 The `build` package is development-only and is deliberately absent from the runtime dependency set.
 
-Stages 2 and 3 implement the research and planning slices of `phase start`, `phase complete`, `artifact path`, and `validate`. Stage 3 also adds explicit, digest-bound plan approval and revocation. Commands for implementation, review, orchestration, resume, and adapters remain reserved and return exit code `2` (`INVALID_INPUT`) with the same structured error envelope in JSON mode.
+The POC implements durable research, planning, implementation, review, orchestration, resume, and harness-adapter commands. Plan approval is explicit and digest-bound; prose approval never substitutes for the CLI gate.
 
 For an initialized run, the research lifecycle is:
 
@@ -73,6 +74,23 @@ The canonical procedure is in `.agents/skills/plan/`. A plan must trace every in
 specromancy approval revoke RUN_ID plan --by IDENTITY --reason TEXT
 specromancy phase start RUN_ID plan
 ```
+
+## Harness adapters
+
+Generate, verify, inspect, or safely remove discovery adapters with:
+
+```bash
+specromancy adapters generate [--harness NAME]
+specromancy adapters check [--harness NAME]
+specromancy adapters clean [--harness NAME]
+specromancy adapters list
+```
+
+Codex and Hermes use `AGENTS.md` and `.agents/skills` natively. Claude Code receives generated `CLAUDE.md` and complete skill copies; GitHub Copilot receives instructions and thin prompt launchers; OpenCode receives thin slash-command launchers. Generated paths and source digests are recorded in `specromancy/adapters/manifest.json`.
+
+Generation refuses to overwrite user-authored or hand-edited files. `--force` preserves each replaced file under `specromancy/adapters/backups/<sha256>/<original-path>` before replacement. `clean` removes only manifest-declared files whose bytes still match their generated digest; backups are never cleaned automatically.
+
+See the harness-specific setup and limitations under [`docs/harnesses/`](docs/harnesses/).
 
 ## Repository map
 
