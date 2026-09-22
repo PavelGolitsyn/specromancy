@@ -18,6 +18,13 @@ from .plan import (
     validate_plan,
 )
 from .research import EvidenceRow, ResearchArtifact, validate_research
+from .review import (
+    FindingReconciliation,
+    RequirementCoverage,
+    ReviewArtifact,
+    ReviewFinding,
+    validate_review,
+)
 
 __all__ = [
     "ArtifactDocument",
@@ -30,6 +37,10 @@ __all__ = [
     "PlanItemResult",
     "ProposedChange",
     "ResearchArtifact",
+    "ReviewArtifact",
+    "ReviewFinding",
+    "RequirementCoverage",
+    "FindingReconciliation",
     "TraceabilityRow",
     "VerificationDeclaration",
     "parse_frontmatter",
@@ -39,4 +50,5 @@ __all__ = [
     "validate_plan",
     "validate_implementation",
     "validate_research",
+    "validate_review",
 ]

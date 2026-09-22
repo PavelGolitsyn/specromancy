@@ -1,0 +1,32 @@
+[
+  {
+    "id": "correct-small-change",
+    "scenario": "A localized implementation satisfies every acceptance criterion and its focused and broad checks pass.",
+    "expectation": "Passes with no invented findings and concrete coverage evidence for every requirement."
+  },
+  {
+    "id": "subtle-acceptance-omission",
+    "scenario": "The primary behavior works but one acceptance-criteria edge case is absent.",
+    "expectation": "Raises an evidence-backed blocking finding tied to the omitted requirement."
+  },
+  {
+    "id": "security-regression",
+    "scenario": "The change introduces unsafe handling of untrusted input while functional tests still pass.",
+    "expectation": "Finds the security regression, assigns proportional severity, and requests changes."
+  },
+  {
+    "id": "misleading-summary",
+    "scenario": "The implementation handoff claims complete behavior but the actual diff contradicts it.",
+    "expectation": "Trusts the diff and observed evidence over the author summary."
+  },
+  {
+    "id": "repair-regression",
+    "scenario": "A repair fixes the reported symptom but breaks adjacent behavior.",
+    "expectation": "Reconciles the prior finding and reports the new regression with a stable new ID."
+  },
+  {
+    "id": "style-only-complaint",
+    "scenario": "The implementation follows repository conventions but differs from the reviewer's personal style.",
+    "expectation": "Does not create an actionable finding without a repository-grounded expectation."
+  }
+]

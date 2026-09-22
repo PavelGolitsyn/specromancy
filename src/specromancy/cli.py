@@ -36,6 +36,12 @@ from .phases.research import (
     start_research,
     validate_research_file,
 )
+from .phases.review import (
+    complete_review,
+    review_artifact_path,
+    start_review,
+    validate_review_file,
+)
 
 
 PLACEHOLDER_COMMANDS = (
@@ -152,7 +158,9 @@ def build_parser() -> Parser:
         action_parser = phase_actions.add_parser(action, parents=[common], add_help=False)
         action_parser.add_argument("run_id", metavar="RUN_ID")
         action_parser.add_argument(
-            "phase_name", choices=("research", "plan", "implementation"), metavar="PHASE"
+            "phase_name",
+            choices=("research", "plan", "implementation", "review"),
+            metavar="PHASE",
         )
     repair_parser = phase_actions.add_parser("repair", parents=[common], add_help=False)
     repair_parser.add_argument("run_id", metavar="RUN_ID")
@@ -176,7 +184,9 @@ def build_parser() -> Parser:
     )
     artifact_path_parser.add_argument("run_id", metavar="RUN_ID")
     artifact_path_parser.add_argument(
-        "artifact_name", choices=("research", "plan", "implementation"), metavar="ARTIFACT"
+        "artifact_name",
+        choices=("research", "plan", "implementation", "review"),
+        metavar="ARTIFACT",
     )
 
     approve = subparsers.add_parser(
@@ -214,7 +224,11 @@ def build_parser() -> Parser:
         description="Validate an implemented phase artifact for an existing run.",
     )
     validate.add_argument("run_id", metavar="RUN_ID")
-    validate.add_argument("phase_name", choices=("research", "plan", "implementation"), metavar="PHASE")
+    validate.add_argument(
+        "phase_name",
+        choices=("research", "plan", "implementation", "review"),
+        metavar="PHASE",
+    )
 
     verify = subparsers.add_parser(
         "verify",
@@ -338,8 +352,10 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
                 target = research_artifact_path(root, args.run_id)
             elif args.artifact_name == "plan":
                 target = plan_artifact_path(root, args.run_id)
-            else:
+            elif args.artifact_name == "implementation":
                 target = implementation_artifact_path(root, args.run_id)
+            else:
+                target = review_artifact_path(root, args.run_id)
             relative = paths.serialize(target)
             return Result.success(
                 "artifact",
@@ -360,9 +376,13 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
                 validate_plan_file(root, args.run_id)
                 target = plan_artifact_path(root, args.run_id)
                 warnings = []
-            else:
+            elif args.phase_name == "implementation":
                 validate_implementation_file(root, args.run_id)
                 target = implementation_artifact_path(root, args.run_id)
+                warnings = []
+            else:
+                validate_review_file(root, args.run_id)
+                target = review_artifact_path(root, args.run_id)
                 warnings = []
             phase_label = args.phase_name.title()
             message = f"{phase_label} artifact is valid: {paths.serialize(target)}"
@@ -438,8 +458,10 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
                 result = start_research(root, args.run_id)
             elif args.phase_name == "plan":
                 result = start_plan(root, args.run_id)
-            else:
+            elif args.phase_name == "implementation":
                 result = start_implementation(root, args.run_id)
+            else:
+                result = start_review(root, args.run_id)
             phase_label = args.phase_name.title()
             return Result.success(
                 "phase",
@@ -455,8 +477,10 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
             result = complete_research(root, args.run_id)
         elif args.phase_name == "plan":
             result = complete_plan(root, args.run_id)
-        else:
+        elif args.phase_name == "implementation":
             result = complete_implementation(root, args.run_id)
+        else:
+            result = complete_review(root, args.run_id)
         qualifier = " already" if result.replayed else ""
         phase_label = args.phase_name.title()
         message = f"{phase_label} is{qualifier} complete for run {args.run_id}."
