@@ -20,6 +20,16 @@ from .phases.plan import (
     start_plan,
     validate_plan_file,
 )
+from .phases.implement import (
+    abort_implementation,
+    complete_implementation,
+    execute_verification,
+    implementation_artifact_path,
+    inspect_run_lock,
+    start_implementation,
+    start_repair,
+    validate_implementation_file,
+)
 from .phases.research import (
     complete_research,
     research_artifact_path,
@@ -44,6 +54,8 @@ COMMANDS = (
     "approve",
     "approval",
     "validate",
+    "verify",
+    "lock",
     "resume",
     "adapters",
 )
@@ -140,8 +152,15 @@ def build_parser() -> Parser:
         action_parser = phase_actions.add_parser(action, parents=[common], add_help=False)
         action_parser.add_argument("run_id", metavar="RUN_ID")
         action_parser.add_argument(
-            "phase_name", choices=("research", "plan"), metavar="PHASE"
+            "phase_name", choices=("research", "plan", "implementation"), metavar="PHASE"
         )
+    repair_parser = phase_actions.add_parser("repair", parents=[common], add_help=False)
+    repair_parser.add_argument("run_id", metavar="RUN_ID")
+    repair_parser.add_argument("phase_name", choices=("implementation",), metavar="PHASE")
+    abort_parser = phase_actions.add_parser("abort", parents=[common], add_help=False)
+    abort_parser.add_argument("run_id", metavar="RUN_ID")
+    abort_parser.add_argument("phase_name", choices=("implementation",), metavar="PHASE")
+    abort_parser.add_argument("--reason", required=True, metavar="TEXT")
 
     artifact = subparsers.add_parser(
         "artifact",
@@ -157,7 +176,7 @@ def build_parser() -> Parser:
     )
     artifact_path_parser.add_argument("run_id", metavar="RUN_ID")
     artifact_path_parser.add_argument(
-        "artifact_name", choices=("research", "plan"), metavar="ARTIFACT"
+        "artifact_name", choices=("research", "plan", "implementation"), metavar="ARTIFACT"
     )
 
     approve = subparsers.add_parser(
@@ -195,7 +214,24 @@ def build_parser() -> Parser:
         description="Validate an implemented phase artifact for an existing run.",
     )
     validate.add_argument("run_id", metavar="RUN_ID")
-    validate.add_argument("phase_name", choices=("research", "plan"), metavar="PHASE")
+    validate.add_argument("phase_name", choices=("research", "plan", "implementation"), metavar="PHASE")
+
+    verify = subparsers.add_parser(
+        "verify",
+        parents=[common],
+        add_help=False,
+        help="run and record one implementation verification command",
+    )
+    verify.add_argument("run_id", metavar="RUN_ID")
+    verify.add_argument("--cwd", default=".", metavar="PATH")
+    verify.add_argument("--nonblocking", action="store_true")
+    verify.add_argument("--reason", dest="failure_reason", metavar="TEXT")
+    verify.add_argument("argv", nargs="+", metavar="COMMAND")
+
+    lock = subparsers.add_parser("lock", add_help=False, help="inspect run-lock ownership")
+    lock_actions = lock.add_subparsers(dest="lock_action", metavar="ACTION", required=True)
+    lock_inspect = lock_actions.add_parser("inspect", parents=[common], add_help=False)
+    lock_inspect.add_argument("run_id", metavar="RUN_ID")
     for command in ("resume", "adapters"):
         add_placeholder(command)
     parser.set_defaults(format="text", repo=None, version=False, help=False)
@@ -257,15 +293,53 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
     if args.command is None:
         return Result.success("help", parser.format_help().rstrip())
 
-    if args.command in {"phase", "artifact", "approve", "approval", "validate"}:
+    if args.command in {"phase", "artifact", "approve", "approval", "validate", "verify", "lock"}:
         root = discover_repository(args.repo)
         paths = RepositoryPaths(root)
-        if args.command == "artifact":
-            target = (
-                research_artifact_path(root, args.run_id)
-                if args.artifact_name == "research"
-                else plan_artifact_path(root, args.run_id)
+        if args.command == "lock":
+            info = inspect_run_lock(root, args.run_id)
+            if info is None:
+                return Result.success(
+                    "lock", f"Run {args.run_id} is not locked.", {"run_id": args.run_id, "locked": False}
+                )
+            return Result.success(
+                "lock",
+                f"Run {args.run_id} is locked by PID {info.pid} on {info.hostname}.",
+                {"run_id": info.run_id, "locked": True, "owner_id": info.owner_id, "pid": info.pid,
+                 "hostname": info.hostname, "created_at": info.created_at, "command": info.command},
             )
+        if args.command == "verify":
+            argv = list(args.argv)
+            if argv and argv[0] == "--":
+                argv.pop(0)
+            result = execute_verification(
+                root,
+                args.run_id,
+                argv,
+                cwd=args.cwd,
+                blocking=not args.nonblocking,
+                failure_reason=getattr(args, "failure_reason", None),
+            )
+            return Result.success(
+                "verify",
+                f"Verification {result.command_id} exited with code {result.exit_code}.",
+                {
+                    "run_id": args.run_id,
+                    "command_id": result.command_id,
+                    "exit_code": result.exit_code,
+                    "blocking": result.blocking,
+                    "record_path": result.record_path,
+                    "stdout_path": result.stdout_path,
+                    "stderr_path": result.stderr_path,
+                },
+            )
+        if args.command == "artifact":
+            if args.artifact_name == "research":
+                target = research_artifact_path(root, args.run_id)
+            elif args.artifact_name == "plan":
+                target = plan_artifact_path(root, args.run_id)
+            else:
+                target = implementation_artifact_path(root, args.run_id)
             relative = paths.serialize(target)
             return Result.success(
                 "artifact",
@@ -282,9 +356,13 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
                 artifact = validate_research_file(root, args.run_id)
                 target = research_artifact_path(root, args.run_id)
                 warnings = list(artifact.warnings)
-            else:
+            elif args.phase_name == "plan":
                 validate_plan_file(root, args.run_id)
                 target = plan_artifact_path(root, args.run_id)
+                warnings = []
+            else:
+                validate_implementation_file(root, args.run_id)
+                target = implementation_artifact_path(root, args.run_id)
                 warnings = []
             phase_label = args.phase_name.title()
             message = f"{phase_label} artifact is valid: {paths.serialize(target)}"
@@ -341,12 +419,27 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
                     "reason": result.reason,
                 },
             )
-        if args.phase_action == "start":
-            result = (
-                start_research(root, args.run_id)
-                if args.phase_name == "research"
-                else start_plan(root, args.run_id)
+        if args.phase_action == "repair":
+            result = start_repair(root, args.run_id)
+            return Result.success(
+                "phase", f"Implementation repair started for run {args.run_id}.",
+                {"run_id": result.run_id, "phase": "implementation", "status": result.status,
+                 "artifact_path": result.artifact_path},
             )
+        if args.phase_action == "abort":
+            result = abort_implementation(root, args.run_id, reason=args.reason)
+            return Result.success(
+                "phase", f"Implementation aborted for run {args.run_id}.",
+                {"run_id": result.run_id, "phase": "implementation", "status": result.status,
+                 "artifact_path": result.artifact_path},
+            )
+        if args.phase_action == "start":
+            if args.phase_name == "research":
+                result = start_research(root, args.run_id)
+            elif args.phase_name == "plan":
+                result = start_plan(root, args.run_id)
+            else:
+                result = start_implementation(root, args.run_id)
             phase_label = args.phase_name.title()
             return Result.success(
                 "phase",
@@ -358,11 +451,12 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
                     "artifact_path": result.artifact_path,
                 },
             )
-        result = (
-            complete_research(root, args.run_id)
-            if args.phase_name == "research"
-            else complete_plan(root, args.run_id)
-        )
+        if args.phase_name == "research":
+            result = complete_research(root, args.run_id)
+        elif args.phase_name == "plan":
+            result = complete_plan(root, args.run_id)
+        else:
+            result = complete_implementation(root, args.run_id)
         qualifier = " already" if result.replayed else ""
         phase_label = args.phase_name.title()
         message = f"{phase_label} is{qualifier} complete for run {args.run_id}."

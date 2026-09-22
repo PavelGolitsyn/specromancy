@@ -130,7 +130,12 @@ def _required_ids(requirements: Sequence[Mapping[str, object]]) -> tuple[str, ..
     return tuple(result)
 
 
-def _parse_changes(section: str, paths: RepositoryPaths) -> tuple[ProposedChange, ...]:
+def _parse_changes(
+    section: str,
+    paths: RepositoryPaths,
+    *,
+    implementation_context: bool = False,
+) -> tuple[ProposedChange, ...]:
     table = parse_markdown_table(
         section, PROPOSED_CHANGE_HEADERS, table_name="Proposed changes"
     )
@@ -165,14 +170,14 @@ def _parse_changes(section: str, paths: RepositoryPaths) -> tuple[ProposedChange
                 change_id=change_id,
                 path=raw_path,
             ) from exc
-        if action == "create" and target.exists():
+        if action == "create" and target.exists() and not implementation_context:
             raise _failure(
                 f"Change '{change_id}' marks an existing path as create.",
                 "Use action 'modify' for an existing file or directory.",
                 change_id=change_id,
                 path=raw_path,
             )
-        if action != "create" and not target.exists():
+        if action != "create" and not target.exists() and not implementation_context:
             raise _failure(
                 f"Change '{change_id}' names an existing target that cannot be found.",
                 "Correct the path or mark a new file explicitly with action 'create'.",
@@ -342,6 +347,8 @@ def validate_plan(
     run_id: str,
     requirements: Sequence[Mapping[str, object]],
     evidence_ids: Sequence[str],
+    *,
+    implementation_context: bool = False,
 ) -> PlanArtifact:
     """Validate one completed plan against initialized requirements and research."""
 
@@ -367,7 +374,11 @@ def validate_plan(
     )
     required_ids = _required_ids(requirements)
     paths = RepositoryPaths(Path(repository_root))
-    changes = _parse_changes(sections["## Proposed changes"], paths)
+    changes = _parse_changes(
+        sections["## Proposed changes"],
+        paths,
+        implementation_context=implementation_context,
+    )
     traceability = _parse_traceability(
         sections["## Requirements traceability"],
         required_ids,

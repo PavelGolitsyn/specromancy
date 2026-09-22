@@ -14,6 +14,8 @@ positional arguments:
     approve             record explicit approval for a completed plan
     approval            manage recorded plan approvals
     validate            validate an implemented phase artifact
+    verify              run and record one implementation verification command
+    lock                inspect run-lock ownership
     resume              resume workflow operations (available in a later
                         stage)
     adapters            adapters workflow operations (available in a later

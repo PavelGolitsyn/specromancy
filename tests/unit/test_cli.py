@@ -63,6 +63,14 @@ class CliTests(unittest.TestCase):
         self.assertFalse(envelope["ok"])
         self.assertEqual(set(envelope), {"ok", "command", "message", "data", "errors"})
 
+    def test_verify_parser_keeps_options_out_of_recorded_argv(self) -> None:
+        args = build_parser().parse_args(
+            ["verify", "run-1", "--nonblocking", "--reason", "optional", "--", "python3", "-V"]
+        )
+        self.assertTrue(args.nonblocking)
+        self.assertEqual(args.failure_reason, "optional")
+        self.assertEqual(args.argv, ["python3", "-V"])
+
     def test_invalid_packaged_contract_fails_startup_with_exit_four(self) -> None:
         with mock.patch(
             "specromancy.cli.validate_contracts",

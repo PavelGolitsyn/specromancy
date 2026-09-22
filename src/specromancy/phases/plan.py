@@ -165,6 +165,7 @@ def validate_plan_file(
     *,
     record_event: bool = True,
     clock: Clock | None = None,
+    implementation_context: bool = False,
 ) -> PlanArtifact:
     paths = RepositoryPaths(Path(repository_root))
     clock = clock or SystemClock()
@@ -184,6 +185,7 @@ def validate_plan_file(
             run_id,
             _requirements(manifest),
             evidence_ids,
+            implementation_context=implementation_context,
         )
     except SpecromancyError as exc:
         if record_event:

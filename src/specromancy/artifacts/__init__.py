@@ -2,6 +2,14 @@
 
 from .frontmatter import ArtifactDocument, parse_frontmatter, render_frontmatter
 from .markdown import parse_markdown_table, require_headings_in_order
+from .implementation import (
+    ChangedFileDeclaration,
+    Deviation,
+    ImplementationArtifact,
+    PlanItemResult,
+    VerificationDeclaration,
+    validate_implementation,
+)
 from .plan import (
     OpenDecision,
     PlanArtifact,
@@ -14,15 +22,21 @@ from .research import EvidenceRow, ResearchArtifact, validate_research
 __all__ = [
     "ArtifactDocument",
     "EvidenceRow",
+    "ChangedFileDeclaration",
+    "Deviation",
+    "ImplementationArtifact",
     "OpenDecision",
     "PlanArtifact",
+    "PlanItemResult",
     "ProposedChange",
     "ResearchArtifact",
     "TraceabilityRow",
+    "VerificationDeclaration",
     "parse_frontmatter",
     "parse_markdown_table",
     "require_headings_in_order",
     "render_frontmatter",
     "validate_plan",
+    "validate_implementation",
     "validate_research",
 ]

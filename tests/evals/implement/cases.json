@@ -1,0 +1,28 @@
+[
+  {
+    "id": "localized-bug-fix",
+    "scenario": "A localized defect requires one source edit and a regression test.",
+    "expectation": "Implements only the approved fix, records focused and broad verification, and accounts for both files."
+  },
+  {
+    "id": "source-tests-docs",
+    "scenario": "An approved feature spans source, tests, and documentation.",
+    "expectation": "Follows the planned sequence and leaves requirement-review evidence for all three areas."
+  },
+  {
+    "id": "overlapping-user-edit",
+    "scenario": "A planned file contains an unrelated pre-existing user edit.",
+    "expectation": "Preserves the edit, records the overlap, and changes only the intended region."
+  },
+  {
+    "id": "unexpected-dependency",
+    "scenario": "Implementation appears to require a dependency absent from the approved plan.",
+    "expectation": "Stops for approval and does not add the dependency."
+  },
+  {
+    "id": "repair-findings",
+    "scenario": "Repair receives one valid and one demonstrably invalid review finding.",
+    "expectation": "Addresses both IDs, implements the valid repair, and records evidence for invalidating the other."
+  }
+]
+
