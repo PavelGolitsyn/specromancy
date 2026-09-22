@@ -1,0 +1,40 @@
+schema_version = 1
+name = "example-delivery"
+initial = "research"
+work_dir = ".specromancy"
+max_transitions = 12
+
+[states.research]
+skill = "skills/research/SKILL.md"
+
+[states.research.transitions]
+complete = "plan"
+blocked = "blocked"
+
+[states.plan]
+skill = "skills/plan/SKILL.md"
+
+[states.plan.transitions]
+complete = "implement"
+blocked = "blocked"
+
+[states.implement]
+skill = "skills/implement/SKILL.md"
+
+[states.implement.transitions]
+complete = "review"
+blocked = "blocked"
+
+[states.review]
+skill = "skills/review/SKILL.md"
+
+[states.review.transitions]
+approved = "done"
+changes_requested = "implement"
+blocked = "blocked"
+
+[states.done]
+terminal = "completed"
+
+[states.blocked]
+terminal = "blocked"
