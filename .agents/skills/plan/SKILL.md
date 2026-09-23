@@ -7,6 +7,8 @@ description: Convert validated, current Specromancy research into a reviewable c
 
 Produce a durable, implementation-ready `plan.md` from the active run's validated inputs without changing repository source.
 
+Do not open likely secret-bearing files such as `.env`, credential stores, private keys, or token caches unless the planning request explicitly requires that access and the user has clearly authorized it. Secret scanning does not grant permission to inspect secrets.
+
 ## Inputs
 
 - Active Specromancy run ID.

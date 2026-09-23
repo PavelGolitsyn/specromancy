@@ -45,6 +45,8 @@ class WheelResourceTests(unittest.TestCase):
                 names = set(archive.namelist())
             for name in (
                 "artifact.schema.json",
+                "evaluation-case.schema.json",
+                "evaluation-result.schema.json",
                 "exit-codes.json",
                 "pipeline.json",
                 "run.schema.json",

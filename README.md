@@ -47,6 +47,15 @@ The `build` package is development-only and is deliberately absent from the runt
 
 The POC implements durable research, planning, implementation, review, orchestration, resume, and harness-adapter commands. Plan approval is explicit and digest-bound; prose approval never substitutes for the CLI gate.
 
+Run safe installation and repository diagnostics in text or JSON form:
+
+```bash
+specromancy doctor
+specromancy doctor --format json
+```
+
+The doctor reports versions, repository and run-directory health, packaged contracts, canonical skills, adapter drift, stale locks, risky configuration, and optional harness availability. It does not print environment variables, tokens, executable paths, or full user configuration.
+
 For an initialized run, the research lifecycle is:
 
 ```bash
@@ -92,10 +101,17 @@ Generation refuses to overwrite user-authored or hand-edited files. `--force` pr
 
 See the harness-specific setup and limitations under [`docs/harnesses/`](docs/harnesses/).
 
+## Reliability and security
+
+- [Testing and evaluation](docs/testing.md) explains validation layers, deterministic fixtures, behavioral scoring, CI, and opt-in smoke practice.
+- [Security model](docs/security.md) documents threats, controls, approval boundaries, redaction limits, and residual risk.
+- [Harness smoke observations](docs/harnesses/smoke-observations.md) records versioned availability and limitations without treating missing live runs as passes.
+- Normalized evaluation case and result contracts are packaged under `src/specromancy/resources/contracts/`.
+
 ## Repository map
 
 - `src/specromancy/` — CLI, artifact validators, phase handlers, templates, and reusable runtime primitives.
 - `src/specromancy/resources/contracts/` — packaged version 1 pipeline contracts.
-- `tests/unit/` and `tests/contract/` — focused behavior and public-contract tests.
+- `tests/unit/`, `tests/contract/`, `tests/security/`, `tests/integration/`, and `tests/evals/` — focused, adversarial, workflow, and behavioral checks.
 - `docs/architecture/` — architectural decisions and trust boundaries.
 - `docs/poc/implementation-plan/` — staged implementation plans.

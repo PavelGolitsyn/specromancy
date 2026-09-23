@@ -34,11 +34,11 @@
       "minimum_harness_version": null,
       "mode": "0644",
       "path": ".claude/skills/implement/SKILL.md",
-      "sha256": "8f162a53d48c097a61c9db8794115ab95bd7788fd91a69d58f32154a0d113909",
+      "sha256": "b9c82d67b92fb2d629b03b002c13e29f4a78e273be9abef181c1d96b8396de3d",
       "sources": [
         {
           "path": ".agents/skills/implement/SKILL.md",
-          "sha256": "bfc8c7e0c582f31090923ef8f26a58120081e6c704ad6484c7d2d35f4cb220af"
+          "sha256": "df41dcaebcb9353c3880b22036539b6ac684fc05084b421cfa95f1cea9a275db"
         }
       ],
       "transformation": "normalized-copy-with-provenance"
@@ -82,11 +82,11 @@
       "minimum_harness_version": null,
       "mode": "0644",
       "path": ".claude/skills/pipeline/SKILL.md",
-      "sha256": "15ef0d3736af648a43681784b93dcada920f66c7573fe6dac1652311b33b30d1",
+      "sha256": "10d11d423172d72a163fc40c879acb38dcf88d614f871ff2131ce191f51c83ff",
       "sources": [
         {
           "path": ".agents/skills/pipeline/SKILL.md",
-          "sha256": "1c6fd7e204a21dcb3633be8346adb2664d56272fe3a22f0e293207d6ebab30c6"
+          "sha256": "e1938af02acb51bca06b25d2cac479ddd2e4508e7ebde305301e55346fc3993e"
         }
       ],
       "transformation": "normalized-copy-with-provenance"
@@ -114,11 +114,11 @@
       "minimum_harness_version": null,
       "mode": "0644",
       "path": ".claude/skills/plan/SKILL.md",
-      "sha256": "0babf9c05b8fb1f8c2b53a8bc1fc75a6fb1c372139eefdf519032bc511aad41d",
+      "sha256": "db3b1f296cac237b3a22f683f4ac6ca55b6a2a0a95cfdccbcb6d0e391cd02117",
       "sources": [
         {
           "path": ".agents/skills/plan/SKILL.md",
-          "sha256": "4aa1b2ceabd43a1efda36972583dcbd3b280cb5ee54f78d220b9c02b0bbf7d26"
+          "sha256": "2255863542f16bede7d8d2cbcfc325b239d734a048bee33def1ea728e7d92b8f"
         }
       ],
       "transformation": "normalized-copy-with-provenance"
@@ -162,11 +162,11 @@
       "minimum_harness_version": null,
       "mode": "0644",
       "path": ".claude/skills/research/SKILL.md",
-      "sha256": "dd8c7f94dab5656d57822da5c172749d6ee5485ef305525c909d7c4f36384db9",
+      "sha256": "5d3f2dad9b0c392b38073bbe2101baad798104ee9ed243b8a088cbe452f0bcdf",
       "sources": [
         {
           "path": ".agents/skills/research/SKILL.md",
-          "sha256": "bc74a9c68a578ff36fe617d3fbf1966692e29b955768bfc9dd59db803ca79147"
+          "sha256": "dd70e8eb303f79ba468732e9b475b69366d46f4604e89d237cf163a31d77c42d"
         }
       ],
       "transformation": "normalized-copy-with-provenance"
@@ -210,11 +210,11 @@
       "minimum_harness_version": null,
       "mode": "0644",
       "path": ".claude/skills/review/SKILL.md",
-      "sha256": "0ee529c18a7f4d697fdae40c81df90b1778cb37fe21b25278d78bd3e47284150",
+      "sha256": "6e7411cafc61b1de183760d7141853988a3d39c3f3f3e5081f71df83e769b154",
       "sources": [
         {
           "path": ".agents/skills/review/SKILL.md",
-          "sha256": "100a036143b452c65604e1cd0b9cf1f78cf7754d847f6092c12f19607e33b420"
+          "sha256": "68bb9eb2da492223aa40605185bde1f56562ff6f5202cf778c2a874a3556a666"
         }
       ],
       "transformation": "normalized-copy-with-provenance"
@@ -278,7 +278,7 @@
       "sources": [
         {
           "path": ".agents/skills/implement/SKILL.md",
-          "sha256": "bfc8c7e0c582f31090923ef8f26a58120081e6c704ad6484c7d2d35f4cb220af"
+          "sha256": "df41dcaebcb9353c3880b22036539b6ac684fc05084b421cfa95f1cea9a275db"
         }
       ],
       "transformation": "thin-prompt-launcher"
@@ -294,7 +294,7 @@
       "sources": [
         {
           "path": ".agents/skills/pipeline/SKILL.md",
-          "sha256": "1c6fd7e204a21dcb3633be8346adb2664d56272fe3a22f0e293207d6ebab30c6"
+          "sha256": "e1938af02acb51bca06b25d2cac479ddd2e4508e7ebde305301e55346fc3993e"
         }
       ],
       "transformation": "thin-prompt-launcher"
@@ -310,7 +310,7 @@
       "sources": [
         {
           "path": ".agents/skills/plan/SKILL.md",
-          "sha256": "4aa1b2ceabd43a1efda36972583dcbd3b280cb5ee54f78d220b9c02b0bbf7d26"
+          "sha256": "2255863542f16bede7d8d2cbcfc325b239d734a048bee33def1ea728e7d92b8f"
         }
       ],
       "transformation": "thin-prompt-launcher"
@@ -326,7 +326,7 @@
       "sources": [
         {
           "path": ".agents/skills/research/SKILL.md",
-          "sha256": "bc74a9c68a578ff36fe617d3fbf1966692e29b955768bfc9dd59db803ca79147"
+          "sha256": "dd70e8eb303f79ba468732e9b475b69366d46f4604e89d237cf163a31d77c42d"
         }
       ],
       "transformation": "thin-prompt-launcher"
@@ -342,7 +342,7 @@
       "sources": [
         {
           "path": ".agents/skills/review/SKILL.md",
-          "sha256": "100a036143b452c65604e1cd0b9cf1f78cf7754d847f6092c12f19607e33b420"
+          "sha256": "68bb9eb2da492223aa40605185bde1f56562ff6f5202cf778c2a874a3556a666"
         }
       ],
       "transformation": "thin-prompt-launcher"
@@ -358,7 +358,7 @@
       "sources": [
         {
           "path": ".agents/skills/implement/SKILL.md",
-          "sha256": "bfc8c7e0c582f31090923ef8f26a58120081e6c704ad6484c7d2d35f4cb220af"
+          "sha256": "df41dcaebcb9353c3880b22036539b6ac684fc05084b421cfa95f1cea9a275db"
         }
       ],
       "transformation": "thin-command-launcher"
@@ -374,7 +374,7 @@
       "sources": [
         {
           "path": ".agents/skills/pipeline/SKILL.md",
-          "sha256": "1c6fd7e204a21dcb3633be8346adb2664d56272fe3a22f0e293207d6ebab30c6"
+          "sha256": "e1938af02acb51bca06b25d2cac479ddd2e4508e7ebde305301e55346fc3993e"
         }
       ],
       "transformation": "thin-command-launcher"
@@ -390,7 +390,7 @@
       "sources": [
         {
           "path": ".agents/skills/plan/SKILL.md",
-          "sha256": "4aa1b2ceabd43a1efda36972583dcbd3b280cb5ee54f78d220b9c02b0bbf7d26"
+          "sha256": "2255863542f16bede7d8d2cbcfc325b239d734a048bee33def1ea728e7d92b8f"
         }
       ],
       "transformation": "thin-command-launcher"
@@ -406,7 +406,7 @@
       "sources": [
         {
           "path": ".agents/skills/research/SKILL.md",
-          "sha256": "bc74a9c68a578ff36fe617d3fbf1966692e29b955768bfc9dd59db803ca79147"
+          "sha256": "dd70e8eb303f79ba468732e9b475b69366d46f4604e89d237cf163a31d77c42d"
         }
       ],
       "transformation": "thin-command-launcher"
@@ -422,7 +422,7 @@
       "sources": [
         {
           "path": ".agents/skills/review/SKILL.md",
-          "sha256": "100a036143b452c65604e1cd0b9cf1f78cf7754d847f6092c12f19607e33b420"
+          "sha256": "68bb9eb2da492223aa40605185bde1f56562ff6f5202cf778c2a874a3556a666"
         }
       ],
       "transformation": "thin-command-launcher"

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specromancy.dev/contracts/evaluation-case.schema.json",
+  "title": "Specromancy evaluation case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "phase",
+    "fixture",
+    "initial_state",
+    "request",
+    "allowed_tools",
+    "allowed_mutations",
+    "required_artifact_properties",
+    "forbidden_behaviors",
+    "rubric",
+    "human_review_notes"
+  ],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "case_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,79}$"},
+    "phase": {"enum": ["research", "plan", "implementation", "review", "pipeline"]},
+    "fixture": {"type": "string", "minLength": 1},
+    "initial_state": {"type": "object"},
+    "request": {"type": "string", "minLength": 1},
+    "allowed_tools": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "allowed_mutations": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "required_artifact_properties": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
+    "forbidden_behaviors": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
+    "rubric": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "metric", "weight", "criterion"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "metric": {"enum": ["artifact_properties", "forbidden_behaviors", "mutation_boundaries", "tests_passing", "requirement_coverage", "verdict_consistency", "audit_trail"]},
+          "weight": {"type": "integer", "minimum": 1, "maximum": 100},
+          "criterion": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "human_review_notes": {"type": "array", "items": {"type": "string"}}
+  }
+}

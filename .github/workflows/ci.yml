@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  source-tests:
+    name: Source tests (${{ matrix.os }}, Python ${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.11", "3.14"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run provider-free suite
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p "test_*.py"
+      - name: Upload failed-run evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-failure-${{ matrix.os }}-py${{ matrix.python }}
+          path: .specromancy/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  security-static-adapters:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run adversarial security tests
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests/security -p "test_*.py"
+      - name: Validate static repository contracts
+        env:
+          PYTHONPATH: src
+        run: python -c "from pathlib import Path; from specromancy.security import validate_static_repository; validate_static_repository(Path.cwd())"
+      - name: Check adapter drift
+        env:
+          PYTHONPATH: src
+        run: python -m specromancy adapters check
+      - name: Run safe doctor diagnostics
+        env:
+          PYTHONPATH: src
+        run: python -m specromancy doctor --format json
+      - name: Upload failed-run evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-static-failure
+          path: .specromancy/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install build
+      - run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/
+          retention-days: 14
+
+  installed-wheel:
+    needs: package
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.11", "3.14"]
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: distributions
+          path: dist
+      - run: python -m pip install dist/*.whl
+      - name: Verify installed resources and CLI
+        working-directory: ${{ runner.temp }}
+        run: python -c "from specromancy.contracts import validate_contracts; from specromancy.cli import main; assert validate_contracts().pipeline == '1'; assert main(['--version']) == 0"

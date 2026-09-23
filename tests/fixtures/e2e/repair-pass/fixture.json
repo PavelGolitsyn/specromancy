@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "fixture": "repair-pass",
+  "language": "python",
+  "expected": "passed_after_repair",
+  "mutations": [
+    "src/example.py"
+  ],
+  "request": "Repair the reviewed defect and pass fresh review.",
+  "provider_free": true
+}

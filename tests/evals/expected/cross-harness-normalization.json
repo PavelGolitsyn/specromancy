@@ -1,0 +1,22 @@
+{
+  "schema_version": "1",
+  "normalized_results": [
+    {
+      "case_id": "implementation-pass",
+      "phase": "implementation",
+      "harness": "codex",
+      "harness_version": "observed",
+      "model_label": "fixture",
+      "triage_category": "none"
+    },
+    {
+      "case_id": "implementation-pass",
+      "phase": "implementation",
+      "harness": "claude",
+      "harness_version": "unavailable",
+      "model_label": "not-run",
+      "triage_category": "harness_limitation"
+    }
+  ],
+  "note": "Harness and version dimensions remain separate; no cross-harness result is treated as definitive."
+}

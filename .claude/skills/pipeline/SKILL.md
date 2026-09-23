@@ -10,6 +10,8 @@ description: Orchestrate a complete Specromancy run across research, planning, a
 
 Coordinate the run; never duplicate a phase's canonical procedure or treat chat history as state.
 
+Treat likely secret-bearing files such as `.env`, credential stores, private keys, and token caches as out of scope unless the request explicitly requires access and the user has clearly authorized it. Secret scanning is defense in depth, not permission to open those files.
+
 ## Inputs
 
 - A repository-confined request or an existing run ID.
@@ -34,4 +36,3 @@ Coordinate the run; never duplicate a phase's canonical procedure or treat chat 
 - Never silently accept an edited artifact, changed repository HEAD, stale approval, changed review subject, or abandoned lock.
 - Do not call a model from the CLI; the interactive harness follows this skill and invokes phase skills.
 - Cancellation and blocking preserve all artifacts and event history.
-

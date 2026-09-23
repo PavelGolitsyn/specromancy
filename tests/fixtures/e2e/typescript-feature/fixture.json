@@ -1,0 +1,13 @@
+{
+  "schema_version": "1",
+  "fixture": "typescript-feature",
+  "language": "typescript",
+  "expected": "passed",
+  "mutations": [
+    "src/index.ts",
+    "tests/index.test.ts",
+    "docs/api.md"
+  ],
+  "request": "Add the typed feature with tests and documentation.",
+  "provider_free": true
+}

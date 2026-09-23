@@ -14,6 +14,8 @@ from .errors import ValidationError
 CONTRACT_PACKAGE: Final = "specromancy.resources.contracts"
 CONTRACT_NAMES: Final = (
     "artifact.schema.json",
+    "evaluation-case.schema.json",
+    "evaluation-result.schema.json",
     "exit-codes.json",
     "pipeline.json",
     "run.schema.json",
@@ -73,6 +75,8 @@ def validate_contracts() -> ContractVersions:
     exits = load_contract("exit-codes.json")
     run_schema = load_contract("run.schema.json")
     artifact_schema = load_contract("artifact.schema.json")
+    evaluation_case_schema = load_contract("evaluation-case.schema.json")
+    evaluation_result_schema = load_contract("evaluation-result.schema.json")
 
     pipeline_version = pipeline.get("contract_version")
     if not isinstance(pipeline_version, str) or not pipeline_version:
@@ -84,6 +88,9 @@ def validate_contracts() -> ContractVersions:
     artifact_version = _schema_version(artifact_schema, "schema-version")
     if run_version != artifact_version or run_version != pipeline_version:
         raise ValidationError("The packaged pipeline and schema versions differ.")
+    for evaluation_schema in (evaluation_case_schema, evaluation_result_schema):
+        if _schema_version(evaluation_schema, "schema_version") != pipeline_version:
+            raise ValidationError("The packaged evaluation and pipeline versions differ.")
 
     statuses = pipeline.get("statuses")
     phases = pipeline.get("phases")
@@ -151,3 +158,11 @@ def artifact_schema() -> dict[str, Any]:
 
 def exit_code_contract() -> dict[str, Any]:
     return load_contract("exit-codes.json")
+
+
+def evaluation_case_schema() -> dict[str, Any]:
+    return load_contract("evaluation-case.schema.json")
+
+
+def evaluation_result_schema() -> dict[str, Any]:
+    return load_contract("evaluation-result.schema.json")

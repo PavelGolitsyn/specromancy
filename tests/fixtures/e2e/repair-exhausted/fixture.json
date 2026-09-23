@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "fixture": "repair-exhausted",
+  "language": "python",
+  "expected": "blocked_after_3_cycles",
+  "mutations": [
+    "src/example.py"
+  ],
+  "request": "Stop after the bounded repair loop is exhausted.",
+  "provider_free": true
+}

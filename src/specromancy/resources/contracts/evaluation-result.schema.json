@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specromancy.dev/contracts/evaluation-result.schema.json",
+  "title": "Specromancy evaluation result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "phase",
+    "harness",
+    "harness_version",
+    "model_label",
+    "started_at",
+    "ended_at",
+    "scores",
+    "overall_score",
+    "evidence",
+    "observations",
+    "triage_category",
+    "passed"
+  ],
+  "properties": {
+    "schema_version": {"const": "1"},
+    "case_id": {"type": "string"},
+    "phase": {"enum": ["research", "plan", "implementation", "review", "pipeline"]},
+    "harness": {"type": "string", "minLength": 1},
+    "harness_version": {"type": "string", "minLength": 1},
+    "model_label": {"type": "string", "minLength": 1},
+    "started_at": {"type": "string", "minLength": 1},
+    "ended_at": {"type": "string", "minLength": 1},
+    "scores": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
+    "overall_score": {"type": "number", "minimum": 0, "maximum": 1},
+    "evidence": {"type": "object", "additionalProperties": {"type": "array", "items": {"type": "string"}}},
+    "observations": {"type": "array", "items": {"type": "string"}},
+    "triage_category": {"enum": ["none", "contract_defect", "skill_defect", "harness_limitation", "model_variability"]},
+    "passed": {"type": "boolean"}
+  }
+}

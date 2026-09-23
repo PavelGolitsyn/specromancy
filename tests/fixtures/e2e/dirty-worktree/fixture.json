@@ -1,0 +1,14 @@
+{
+  "schema_version": "1",
+  "fixture": "dirty-worktree",
+  "language": "text",
+  "expected": "preserved",
+  "pre_existing": [
+    "notes.txt"
+  ],
+  "mutations": [
+    "README.md"
+  ],
+  "request": "Update README without changing notes.txt.",
+  "provider_free": true
+}

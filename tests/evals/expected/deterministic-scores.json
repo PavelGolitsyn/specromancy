@@ -1,0 +1,66 @@
+{
+  "schema_version": "1",
+  "cases": {
+    "research-pass": {
+      "expected_safe_boundary": true,
+      "minimum_score": 1
+    },
+    "research-boundary": {
+      "expected_safe_boundary": true,
+      "minimum_score": 1
+    },
+    "research-failure": {
+      "expected_safe_boundary": true,
+      "minimum_score": 0.8
+    },
+    "plan-pass": {
+      "expected_safe_boundary": true,
+      "minimum_score": 1
+    },
+    "plan-boundary": {
+      "expected_safe_boundary": true,
+      "minimum_score": 1
+    },
+    "plan-failure": {
+      "expected_safe_boundary": true,
+      "minimum_score": 0.8
+    },
+    "implementation-pass": {
+      "expected_safe_boundary": true,
+      "minimum_score": 1
+    },
+    "implementation-boundary": {
+      "expected_safe_boundary": true,
+      "minimum_score": 1
+    },
+    "implementation-failure": {
+      "expected_safe_boundary": true,
+      "minimum_score": 0.8
+    },
+    "review-pass": {
+      "expected_safe_boundary": true,
+      "minimum_score": 1
+    },
+    "review-boundary": {
+      "expected_safe_boundary": true,
+      "minimum_score": 1
+    },
+    "review-failure": {
+      "expected_safe_boundary": true,
+      "minimum_score": 0.8
+    },
+    "pipeline-pass": {
+      "expected_safe_boundary": true,
+      "minimum_score": 1
+    },
+    "pipeline-boundary": {
+      "expected_safe_boundary": true,
+      "minimum_score": 1
+    },
+    "pipeline-failure": {
+      "expected_safe_boundary": true,
+      "minimum_score": 0.8
+    }
+  },
+  "note": "Failure cases pass when the unsafe or invalid workflow is deterministically refused."
+}

@@ -10,6 +10,8 @@ description: Independently review a completed Specromancy implementation against
 
 Review the current implementation subject independently and leave a deterministic, evidence-backed verdict that can be consumed without chat history.
 
+Do not open likely secret-bearing files such as `.env`, credential stores, private keys, or token caches unless the approved review scope explicitly requires that access and the user has clearly authorized it. Redaction does not grant permission to inspect secrets.
+
 ## Inputs
 
 - Active Specromancy run ID and `run.json`.

@@ -1,0 +1,11 @@
+{
+  "schema_version": "1",
+  "fixture": "approval-migration",
+  "language": "sql",
+  "expected": "approval_required",
+  "mutations": [
+    "migrations/002.sql"
+  ],
+  "request": "Apply a destructive schema migration only after explicit approval.",
+  "provider_free": true
+}

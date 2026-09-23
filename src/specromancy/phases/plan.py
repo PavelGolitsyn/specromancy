@@ -126,8 +126,8 @@ def _plan_start_snapshot(paths: RepositoryPaths, run_id: str) -> str:
         )
     latest: str | None = None
     try:
-        lines = events.read_text(encoding="utf-8").splitlines()
-    except (OSError, UnicodeError) as exc:
+        lines = read_text(events).splitlines()
+    except ValidationError as exc:
         raise ValidationError("Run event log could not be read.") from exc
     for line_number, line in enumerate(lines, start=1):
         if not line.strip():

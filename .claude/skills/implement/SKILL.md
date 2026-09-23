@@ -10,6 +10,8 @@ description: Execute an approved Specromancy plan, preserve pre-existing work, r
 
 Implement only the current digest-approved plan and leave a durable handoff that an independent reviewer can evaluate without chat history.
 
+Do not open likely secret-bearing files such as `.env`, credential stores, private keys, or token caches unless the approved plan explicitly requires that access and the user has clearly authorized it. Redaction and secret scanning are defense in depth, not permission to inspect secrets.
+
 ## Inputs
 
 - Active Specromancy run ID and `run.json`.
@@ -39,4 +41,3 @@ Implement only the current digest-approved plan and leave a durable handoff that
 10. Run `specromancy phase complete <run-id> implementation`. Completion rechecks approval, HEAD, changed paths, command records, deviations, and repair finding coverage immediately before the transition.
 
 Use `specromancy phase abort <run-id> implementation --reason TEXT` only for a genuine blocker. It preserves all changes and evidence and moves the run to `blocked`; it does not roll back user or implementation work.
-

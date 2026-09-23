@@ -13,16 +13,10 @@ from .clock import Clock, SystemClock, utc_timestamp
 from .errors import ExternalCommandError, InvalidInputError, SafetyError, ValidationError
 from .io import atomic_write_json, atomic_write_text, read_text
 from .paths import RepositoryPaths
+from .redaction import bounded_utf8, contains_secret, redact_and_bound, redact_text
 
 
 DEFAULT_OUTPUT_LIMIT = 64 * 1024
-_REDACTIONS = (
-    re.compile(r"(?i)\b(password|passwd|api[_-]?key|access[_-]?token|secret)\s*([:=])\s*([^\s]+)"),
-    re.compile(r"(?i)\b(bearer)\s+[A-Za-z0-9._~+/=-]+"),
-    re.compile(r"\b(?:ghp|github_pat|sk)-[A-Za-z0-9_-]{12,}\b"),
-)
-
-
 @dataclass(frozen=True)
 class CommandRecord:
     command_id: str
@@ -41,21 +35,15 @@ class CommandRecord:
 
 
 def redact_output(value: str) -> str:
-    redacted = value
-    redacted = _REDACTIONS[0].sub(lambda m: f"{m.group(1)}{m.group(2)}[REDACTED]", redacted)
-    redacted = _REDACTIONS[1].sub(lambda m: f"{m.group(1)} [REDACTED]", redacted)
-    redacted = _REDACTIONS[2].sub("[REDACTED]", redacted)
-    return redacted
+    """Compatibility alias for the centralized redactor."""
+
+    return redact_text(value)
 
 
 def _bounded(value: str, limit: int) -> tuple[str, bool]:
-    encoded = value.encode("utf-8", errors="replace")
-    if len(encoded) <= limit:
-        return value, False
-    marker = b"\n[output truncated by specromancy]\n"
-    available = max(0, limit - len(marker))
-    content = encoded[:available].decode("utf-8", errors="ignore") + marker.decode("ascii")
-    return content, True
+    """Compatibility alias for deterministic byte bounding."""
+
+    return bounded_utf8(value, limit)
 
 
 def command_records_dir(paths: RepositoryPaths, run_id: str) -> Path:
@@ -143,7 +131,7 @@ def run_verification_command(
 
     if not argv or any(not isinstance(item, str) or not item or "\x00" in item for item in argv):
         raise InvalidInputError("Verification argv must contain nonempty, NUL-free strings.")
-    if any(redact_output(item) != item or "PRIVATE KEY" in item for item in argv):
+    if any(contains_secret(item) for item in argv):
         raise SafetyError(
             "Verification arguments contain a value that looks like a secret.",
             hint="Pass secrets through an approved external mechanism; command records retain exact argv.",
@@ -174,8 +162,8 @@ def run_verification_command(
     ended = utc_timestamp(clock.now())
     directory = command_records_dir(paths, run_id)
     command_id = _next_command_id(directory)
-    stdout, stdout_truncated = _bounded(redact_output(completed.stdout), output_limit)
-    stderr, stderr_truncated = _bounded(redact_output(completed.stderr), output_limit)
+    stdout, stdout_truncated = redact_and_bound(completed.stdout, output_limit)
+    stderr, stderr_truncated = redact_and_bound(completed.stderr, output_limit)
     stdout_target = directory / f"{command_id}.stdout.txt"
     stderr_target = directory / f"{command_id}.stderr.txt"
     record_target = directory / f"{command_id}.json"

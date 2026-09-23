@@ -7,6 +7,8 @@ description: Research a requested change, understand an unfamiliar codebase, gat
 
 Produce a durable, evidence-backed `research.md` that a planning agent can use without the originating conversation.
 
+Do not open likely secret-bearing files such as `.env`, credential stores, private keys, or token caches unless the research request explicitly requires that access and the user has clearly authorized it. Secret scanning does not grant permission to inspect secrets.
+
 ## Inputs
 
 - Active Specromancy run ID.

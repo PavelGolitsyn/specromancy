@@ -12,14 +12,43 @@ from typing import Any
 from .errors import ValidationError
 
 
-def read_text(path: str | Path) -> str:
+DEFAULT_TEXT_LIMIT = 2 * 1024 * 1024
+
+
+def read_text(path: str | Path, *, max_bytes: int = DEFAULT_TEXT_LIMIT) -> str:
+    """Read bounded UTF-8 text, rejecting oversized managed inputs."""
+
     target = Path(path)
+    if max_bytes < 1:
+        raise ValidationError("Text read limit must be positive.", path=str(target))
     try:
-        return target.read_text(encoding="utf-8")
+        size = target.stat().st_size
+        if size > max_bytes:
+            raise ValidationError(
+                f"Managed text exceeds the {max_bytes}-byte safety limit.",
+                path=str(target),
+                details={"size_bytes": size, "limit_bytes": max_bytes},
+            )
+        data = target.read_bytes()
+        if len(data) > max_bytes:
+            raise ValidationError(
+                f"Managed text exceeds the {max_bytes}-byte safety limit.",
+                path=str(target),
+                details={"size_bytes": len(data), "limit_bytes": max_bytes},
+            )
+        return data.decode("utf-8")
+    except ValidationError:
+        raise
     except (OSError, UnicodeError) as exc:
         raise ValidationError(
             f"Could not read UTF-8 text from {target}.", path=str(target)
         ) from exc
+
+
+def read_text_bounded(path: str | Path, max_bytes: int) -> str:
+    """Compatibility-friendly explicit bounded-read helper."""
+
+    return read_text(path, max_bytes=max_bytes)
 
 
 def canonical_json(value: Any) -> str:

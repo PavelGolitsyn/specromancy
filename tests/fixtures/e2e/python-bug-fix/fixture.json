@@ -1,0 +1,12 @@
+{
+  "schema_version": "1",
+  "fixture": "python-bug-fix",
+  "language": "python",
+  "expected": "passed",
+  "mutations": [
+    "src/example.py",
+    "tests/test_example.py"
+  ],
+  "request": "Fix the off-by-one defect and run tests.",
+  "provider_free": true
+}

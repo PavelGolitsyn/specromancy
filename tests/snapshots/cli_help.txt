@@ -18,6 +18,7 @@ positional arguments:
     resume              validate and resume a run
     cancel              cancel a nonterminal run
     adapters            generate and verify harness discovery adapters
+    doctor              diagnose repository safety and installation health
 
 options:
   -h, --help            show this help message and exit

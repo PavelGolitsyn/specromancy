@@ -17,6 +17,7 @@ from .. import __version__
 from ..errors import SafetyError, ValidationError
 from ..io import atomic_write_json, atomic_write_text, normalized_text
 from ..paths import RepositoryPaths
+from ..security import validate_canonical_skills
 
 
 ADAPTER_MANIFEST_VERSION = 1
@@ -188,23 +189,8 @@ def canonical_sources(root: Path) -> tuple[Path, tuple[Path, ...]]:
             path=str(agents),
             hint="Create the canonical project instructions before generating adapters.",
         )
-    skills: list[Path] = []
-    for name in CANONICAL_SKILLS:
-        skill = root / ".agents" / "skills" / name / "SKILL.md"
-        if not skill.is_file():
-            raise ValidationError(
-                f"Canonical skill '{name}' is missing.",
-                path=str(skill),
-                hint="All five canonical Specromancy skills must be present.",
-            )
-        try:
-            _validate_skill_frontmatter(skill, name)
-        except (OSError, UnicodeError) as exc:
-            raise ValidationError(
-                f"Could not read canonical skill '{name}'.", path=str(skill)
-            ) from exc
-        skills.append(skill)
-    return agents, tuple(skills)
+    skills = validate_canonical_skills(root, CANONICAL_SKILLS)
+    return agents, skills
 
 
 def _portable_source_mode(root: Path, source: Path) -> int:

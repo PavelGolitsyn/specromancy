@@ -32,7 +32,7 @@ class WheelAdapterTests(unittest.TestCase):
                 skill = repository / ".agents" / "skills" / name
                 skill.mkdir(parents=True)
                 (skill / "SKILL.md").write_text(
-                    f"---\nname: {name}\ndescription: Fixture {name}.\n---\n\n# {name}\n",
+                    f"---\nname: {name}\ndescription: Use for fixture {name} validation.\n---\n\n# {name}\n",
                     encoding="utf-8",
                 )
             subprocess.run(

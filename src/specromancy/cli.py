@@ -17,6 +17,7 @@ from .adapters import (
     list_adapters,
 )
 from .contracts import ContractVersions, validate_contracts
+from .doctor import render_doctor, run_doctor
 from .errors import ExitCode, InvalidInputError, SpecromancyError, normalize_exception
 from .locking import inspect_run_lock
 from .orchestrator import (
@@ -76,6 +77,7 @@ COMMANDS = (
     "resume",
     "cancel",
     "adapters",
+    "doctor",
 )
 
 
@@ -321,6 +323,13 @@ def build_parser() -> Parser:
                 help="back up and replace colliding user-authored files",
             )
     adapter_actions.add_parser("list", parents=[common], add_help=False)
+    subparsers.add_parser(
+        "doctor",
+        parents=[common],
+        add_help=False,
+        help="diagnose repository safety and installation health",
+        description="Report safe, side-effect-free Specromancy diagnostics.",
+    )
     parser.set_defaults(format="text", repo=None, version=False, help=False)
     return parser
 
@@ -416,6 +425,9 @@ def _run(args: argparse.Namespace, versions: ContractVersions, parser: Parser) -
     root = discover_repository(args.repo)
     paths = RepositoryPaths(root)
     if args.command != "adapters":
+        if args.command == "doctor":
+            report = run_doctor(root)
+            return Result.success("doctor", render_doctor(report), report.as_dict())
         if args.command == "init":
             result = initialize_run(
                 root,
@@ -722,7 +734,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         args = parser.parse_args(arguments)
         output_format = args.format
         command = args.command or ("version" if args.version else "help")
-        versions = validate_contracts()
+        if command == "doctor":
+            try:
+                versions = validate_contracts()
+            except SpecromancyError:
+                # Doctor owns contract-integrity reporting and must remain callable
+                # when the packaged contracts are exactly what needs diagnosis.
+                versions = ContractVersions(pipeline="unavailable", schema="unavailable")
+        else:
+            versions = validate_contracts()
         result = _run(args, versions, parser)
         if result.command == "help" and output_format == "text":
             print(result.message)
