@@ -97,7 +97,7 @@ jobs:
         with:
           name: distributions
           path: dist
-      - run: python -m pip install --no-index --no-deps --only-binary :all: --find-links dist specromancy
+      - run: 'python -m pip install --no-index --no-deps --only-binary :all: --find-links dist specromancy'
       - name: Verify installed resources and CLI
         working-directory: ${{ runner.temp }}
         run: python -c "from specromancy.contracts import validate_contracts; from specromancy.cli import main; assert validate_contracts().pipeline == '1'; assert main(['--version']) == 0"
