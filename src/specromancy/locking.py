@@ -205,9 +205,51 @@ def inspect_run_lock(
     return _decode_lock(paths, run_id)
 
 
+def _windows_pid_is_alive(pid: int) -> bool:
+    """Check process state without using Windows' terminating ``os.kill``."""
+
+    import ctypes
+    from ctypes import wintypes
+
+    process_query_limited_information = 0x1000
+    error_access_denied = 5
+    error_invalid_parameter = 87
+    still_active = 259
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    open_process = kernel32.OpenProcess
+    open_process.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    open_process.restype = wintypes.HANDLE
+    get_exit_code_process = kernel32.GetExitCodeProcess
+    get_exit_code_process.argtypes = (wintypes.HANDLE, wintypes.LPDWORD)
+    get_exit_code_process.restype = wintypes.BOOL
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = (wintypes.HANDLE,)
+    close_handle.restype = wintypes.BOOL
+
+    handle = open_process(process_query_limited_information, False, pid)
+    if not handle:
+        error_code = ctypes.get_last_error()
+        if error_code == error_invalid_parameter:
+            return False
+        if error_code == error_access_denied:
+            return True
+        raise ctypes.WinError(error_code)
+
+    try:
+        exit_code = wintypes.DWORD()
+        if not get_exit_code_process(handle, ctypes.byref(exit_code)):
+            raise ctypes.WinError(ctypes.get_last_error())
+        return exit_code.value == still_active
+    finally:
+        close_handle(handle)
+
+
 def _pid_is_alive(pid: int) -> bool:
     if pid <= 0:
         return False
+    if os.name == "nt":
+        return _windows_pid_is_alive(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
