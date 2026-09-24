@@ -8,6 +8,13 @@ from functools import lru_cache
 from importlib import resources
 from typing import Any, Final
 
+from .compatibility import (
+    ADAPTER_MANIFEST_VERSION,
+    ARTIFACT_SCHEMA_VERSION,
+    PIPELINE_CONTRACT_VERSION,
+    RUN_MANIFEST_SCHEMA_VERSION,
+    require_supported_version,
+)
 from .errors import ValidationError
 
 
@@ -25,7 +32,15 @@ CONTRACT_NAMES: Final = (
 @dataclass(frozen=True)
 class ContractVersions:
     pipeline: str
-    schema: str
+    run_manifest_schema: str
+    artifact_schema: str
+    adapter_manifest: int
+
+    @property
+    def schema(self) -> str:
+        """Legacy combined schema value retained for CLI compatibility."""
+
+        return self.run_manifest_schema
 
 
 def _contract_resource(name: str):
@@ -81,11 +96,20 @@ def validate_contracts() -> ContractVersions:
     pipeline_version = pipeline.get("contract_version")
     if not isinstance(pipeline_version, str) or not pipeline_version:
         raise ValidationError("The pipeline contract does not declare a version.")
+    require_supported_version(
+        "Pipeline contract", pipeline_version, PIPELINE_CONTRACT_VERSION
+    )
     if exits.get("contract_version") != pipeline_version:
         raise ValidationError("The exit-code and pipeline contract versions differ.")
 
     run_version = _schema_version(run_schema, "schema_version")
     artifact_version = _schema_version(artifact_schema, "schema-version")
+    require_supported_version(
+        "Run manifest schema", run_version, RUN_MANIFEST_SCHEMA_VERSION
+    )
+    require_supported_version(
+        "Artifact schema", artifact_version, ARTIFACT_SCHEMA_VERSION
+    )
     if run_version != artifact_version or run_version != pipeline_version:
         raise ValidationError("The packaged pipeline and schema versions differ.")
     for evaluation_schema in (evaluation_case_schema, evaluation_result_schema):
@@ -141,7 +165,12 @@ def validate_contracts() -> ContractVersions:
     if set(required or ()) != {"ok", "command", "message", "data", "errors"}:
         raise ValidationError("The JSON envelope contract is incomplete.")
 
-    return ContractVersions(pipeline=pipeline_version, schema=run_version)
+    return ContractVersions(
+        pipeline=pipeline_version,
+        run_manifest_schema=run_version,
+        artifact_schema=artifact_version,
+        adapter_manifest=ADAPTER_MANIFEST_VERSION,
+    )
 
 
 def pipeline_contract() -> dict[str, Any]:

@@ -37,8 +37,18 @@ class CliTests(unittest.TestCase):
         self.assertTrue(envelope["ok"])
         self.assertEqual(envelope["command"], "version")
         self.assertEqual(
-            set(envelope["data"]), {"version", "pipeline_version", "schema_version"}
+            set(envelope["data"]),
+            {
+                "version",
+                "pipeline_version",
+                "schema_version",
+                "run_manifest_schema_version",
+                "artifact_schema_version",
+                "adapter_manifest_version",
+            },
         )
+        self.assertEqual(envelope["data"]["schema_version"], "1")
+        self.assertEqual(envelope["data"]["adapter_manifest_version"], 1)
 
     def test_help_json_uses_result_envelope(self) -> None:
         code, output = invoke("--help", "--format", "json")

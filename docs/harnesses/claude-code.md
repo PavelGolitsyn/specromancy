@@ -1,37 +1,33 @@
 # Claude Code
 
-## Setup and discovery
+Tested documentation target: Specromancy 0.1.0 on 2026-09-23. Deterministic adapter generation/checks were run; no provider-backed Claude Code session is claimed by the automated suite.
 
-Generate the Claude Code compatibility files:
+## Discovery and trust
+
+The adapter generates `CLAUDE.md` from `AGENTS.md` and complete skill copies under `.claude/skills/`. Copies preserve relative references and executable modes, normalize text, and carry provenance. `.agents/skills/` remains authoritative. Review repository skills before trusting them.
 
 ```bash
 specromancy adapters generate --harness claude
 specromancy adapters check --harness claude
+specromancy init --id minimal-greeting --request examples/minimal/request.md
 ```
 
-The command creates `CLAUDE.md` from canonical `AGENTS.md` and copies each complete canonical skill directory to `.claude/skills/`. Copies use ordinary files, preserve relative references and executable metadata, normalize text line endings to LF, and carry generated provenance. Claude Code loads project instructions from `CLAUDE.md` and exposes `.claude/skills/<name>/SKILL.md` as slash-invocable skills; see <https://code.claude.com/docs/en/claude-directory>.
+## Shared minimal example and invocation
 
-Discovery rules were reviewed on 2026-09-22; no minimum Claude Code version is asserted by the adapter manifest.
+Invoke `/pipeline Continue run minimal-greeting.` Individual phases are `/research Research run minimal-greeting.`, `/plan Plan run minimal-greeting.`, `/implement Implement run minimal-greeting.`, and `/review Review run minimal-greeting.`
 
-## Invocation
+At `plan_ready`, inspect the plan and record `specromancy approve minimal-greeting plan --by YOUR_IDENTITY`, then continue `/pipeline`.
 
-```text
-/pipeline Continue run RUN_ID.
-/research Research run RUN_ID.
-/plan Plan run RUN_ID.
-/implement Implement run RUN_ID.
-/review Review run RUN_ID.
-```
+## Permissions, resume, and cleanup
 
-Resume a later session with `/pipeline Continue run RUN_ID.` The generated skills remain launch surfaces; `.agents/skills` and the CLI remain authoritative.
+Project or user Claude settings may tighten tool access. Specromancy does not generate `settings.json`, choose a model, or claim that every surface technically enforces read-only review. Resume with `/pipeline Continue run minimal-greeting.` after checking durable status.
 
-## Permissions and limitations
+`specromancy adapters clean --harness claude` removes only unmodified manifest-owned copies; modified files and backups are retained. It never removes canonical skills, source, or runs.
 
-Project or user Claude settings may tighten tool access. Specromancy does not generate `settings.json`, choose a model, or imply that review is technically read-only on every surface. A generated skill can be stale when its canonical source changes; run `adapters check` in development verification.
+## Known limitations and troubleshooting
 
-## Troubleshooting
-
-- Missing command: confirm `.claude/skills/<name>/SKILL.md` exists and start a fresh session.
-- Broken relative reference: regenerate the entire Claude adapter rather than copying only `SKILL.md`.
-- Modified generated file: restore or move the edit. Use `--force` only when you want Specromancy to preserve the old file under `specromancy/adapters/backups/<sha256>/` and replace it.
-- Drift after changing a canonical skill: run `specromancy adapters generate --harness claude`.
+- No minimum Claude Code version is asserted.
+- Missing command: confirm `.claude/skills/<name>/SKILL.md` and restart discovery.
+- Broken reference or drift: regenerate the whole adapter rather than copying one file.
+- Collision: reconcile the file; use `--force` only for intentional backed-up replacement.
+- Run `specromancy doctor` and [the general checklist](../troubleshooting.md).

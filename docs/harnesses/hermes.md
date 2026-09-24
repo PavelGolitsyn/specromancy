@@ -1,40 +1,31 @@
 # Hermes
 
-## Setup, trust, and discovery
+Tested documentation target: Specromancy 0.1.0 on 2026-09-23. Deterministic native-adapter validation was run; no provider-backed Hermes session is claimed by the automated suite.
 
-Hermes consumes canonical `AGENTS.md` and `.agents/skills` without generated skill copies. Project skills are deliberately disabled until the repository is trusted. Review the checkout, then run once from inside it:
+## Discovery and trust
+
+Hermes uses `AGENTS.md` and `.agents/skills/` natively, so its adapter creates no workflow copy. `specromancy adapters check --harness hermes` validates canonical skill discovery. Repository instructions remain untrusted input and cannot grant authority.
 
 ```bash
-hermes skills trust
-specromancy adapters generate --harness hermes
 specromancy adapters check --harness hermes
+specromancy init --id minimal-greeting --request examples/minimal/request.md
 ```
 
-The generate command records native-adapter metadata but creates no Hermes workflow file and never writes user-global Hermes configuration. Hermes documents project discovery, trust, and noninteractive behavior at <https://hermes-agent.nousresearch.com/docs/user-guide/features/skills>.
+## Shared minimal example and invocation
 
-Discovery rules were reviewed on 2026-09-22; no minimum Hermes version is asserted by the adapter manifest.
+Invoke the discovered `pipeline` skill with `Continue run minimal-greeting.` Invoke `research`, `plan`, `implement`, or `review` with `Run phase for minimal-greeting.` when operating a single phase. Exact UI syntax depends on the Hermes build; the durable run ID and canonical skill path are the stable interface.
 
-## Invocation
+At `plan_ready`, run `specromancy approve minimal-greeting plan --by YOUR_IDENTITY`, then continue the pipeline.
 
-After trust and in a fresh session inside the repository:
+## Permissions, resume, and cleanup
 
-```text
-/pipeline Continue run RUN_ID.
-/research Research run RUN_ID.
-/plan Plan run RUN_ID.
-/implement Implement run RUN_ID.
-/review Review run RUN_ID.
-```
+Hermes tool permissions and isolation are configured outside Specromancy. The native adapter does not choose a model or claim a separate reviewer process. Resume by checking `status` and invoking the pipeline skill with the same run ID.
 
-Resume with `/pipeline Continue run RUN_ID.`
+`specromancy adapters clean --harness hermes` removes no canonical files. Cancellation and general cleanup preserve run artifacts and source.
 
-## Trust, permissions, and limitations
+## Known limitations and troubleshooting
 
-Trust is a user decision stored by Hermes outside the repository. Noninteractive surfaces such as cron, API, and ACP inherit the prior trust decision and do not auto-trust or prompt. Specromancy does not enable inline shell execution, choose a model or provider, or write quick commands. Project skill trust is not permission to bypass Specromancy approval or safety gates.
-
-## Troubleshooting
-
-- Skills not listed: run `hermes skills trust` from the correct Git checkout, then start a fresh session.
-- Wrong project: verify the working directory resolves to the intended nearest Git root.
-- Noninteractive job cannot find skills: trust the repository interactively first and set the job working directory inside that checkout.
-- Revoking trust: run `hermes skills untrust`; this changes Hermes discovery only and does not delete repository files.
+- No minimum Hermes version or universal slash-command spelling is asserted.
+- If skills are absent, verify the repository root and canonical frontmatter, then refresh discovery.
+- If the surface cannot provide needed phase permissions, stop and resume in a compatible environment; do not bypass state guards.
+- Run `specromancy doctor` and [the general checklist](../troubleshooting.md).

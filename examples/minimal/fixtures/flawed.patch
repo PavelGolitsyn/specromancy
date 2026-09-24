@@ -1,0 +1,11 @@
+diff --git a/greeting.py b/greeting.py
+--- a/greeting.py
++++ b/greeting.py
+@@ -4,6 +4,6 @@ def greet(name: str) -> str:
+     """Return a friendly greeting for a nonblank name."""
+ 
+-    normalized = name.strip()
++    normalized = name
+     if not normalized:
+         raise ValueError("name must not be blank")
+     return f"Hello, {normalized}!"

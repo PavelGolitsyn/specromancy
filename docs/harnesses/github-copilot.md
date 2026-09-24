@@ -1,33 +1,33 @@
 # GitHub Copilot
 
-## Setup and discovery
+Tested documentation target: Specromancy 0.1.0 on 2026-09-23. Deterministic adapter checks were run; prompt-file availability and provider-backed execution vary by Copilot surface and are not claimed as release passes.
+
+## Discovery and trust
+
+The adapter mirrors `AGENTS.md` into `.github/copilot-instructions.md` and creates thin `.github/prompts/*.prompt.md` launchers. It does not copy canonical skills to `.github/skills`; `.agents/skills/` remains authoritative. Review instructions and skills before granting tools.
 
 ```bash
 specromancy adapters generate --harness copilot
 specromancy adapters check --harness copilot
+specromancy init --id minimal-greeting --request examples/minimal/request.md
 ```
 
-The adapter mirrors canonical repository guidance into `.github/copilot-instructions.md` and creates thin manual launchers under `.github/prompts/*.prompt.md`. It deliberately does not copy skills to `.github/skills`; `.agents/skills` remains canonical. GitHub documents repository-wide instructions and prompt-file support at <https://docs.github.com/en/copilot/reference/customization-cheat-sheet>.
+## Shared minimal example and invocation
 
-Discovery rules were reviewed on 2026-09-22; Copilot prompt files remain a preview feature and no minimum version is asserted.
+Where prompt files are supported, select `pipeline` and provide `Continue run minimal-greeting.` Select `research`, `plan`, `implement`, or `review` for an individual phase and name the same run. On a surface without prompt files, explicitly ask it to load `.agents/skills/pipeline/SKILL.md` and continue that run.
 
-## Invocation
+At `plan_ready`, use `specromancy approve minimal-greeting plan --by YOUR_IDENTITY`, then invoke the pipeline again.
 
-In an IDE surface that supports prompt files, select `pipeline`, `research`, `plan`, `implement`, or `review`, then provide `RUN_ID` in chat. On another Copilot surface, ask it directly to load the matching `.agents/skills/<name>/SKILL.md` and operate on `RUN_ID`.
+## Surface differences, resume, and cleanup
 
-Resume by invoking the `pipeline` prompt and naming the existing run ID.
+IDE chat, Copilot CLI, coding agent, and code review discover different customization files. Prompt visibility on one surface does not imply another can use it. Native permissions may tighten access; generated prompts do not grant write access or enforce review isolation.
 
-## Surface and permission differences
+Resume by selecting the pipeline prompt and naming `minimal-greeting`. `specromancy adapters clean --harness copilot` safely removes unmodified generated instructions/prompts only; it preserves user changes, backups, source, and runs.
 
-- IDE chat: prompt files are manual entry points where supported.
-- Copilot CLI: reads repository instructions including `AGENTS.md` and `.github/copilot-instructions.md`, but IDE prompt-file affordances do not imply CLI availability.
-- Coding agent/cloud agent: repository instructions and skills depend on the enabled product surface and repository configuration.
-- Code review: instruction support differs from agent execution; the review launcher does not claim filesystem enforcement.
+## Known limitations and troubleshooting
 
-Native permissions may tighten access, but the adapter does not grant write access, choose a model, or weaken phase semantics.
-
-## Troubleshooting
-
-- Prompt missing: confirm the client supports `.github/prompts/*.prompt.md` and refresh its workspace customization index.
-- Conflicting guidance: compare `AGENTS.md` and `.github/copilot-instructions.md`; regenerate the mirror and remove user-authored conflicting instructions.
-- Review tries to edit: stop the run and use a surface or permission profile that enforces the desired isolation; the prompt alone is not a sandbox.
+- Prompt files may be preview-only in a client; no minimum version is asserted.
+- Missing prompt: refresh the workspace customization index and confirm `.github/prompts/` support.
+- Conflicting guidance: review both instruction files and regenerate after resolving user-owned content.
+- If review attempts edits, stop it and reinvoke the canonical review skill under suitable permissions.
+- Run `specromancy doctor` and [the general checklist](../troubleshooting.md).

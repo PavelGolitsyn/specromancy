@@ -1,36 +1,31 @@
 # Codex
 
-## Setup and discovery
+Tested documentation target: Specromancy 0.1.0 on 2026-09-23. Deterministic adapter checks were run; no provider-backed Codex session is claimed by the automated suite.
 
-Codex consumes the repository's canonical `AGENTS.md` and `.agents/skills/<name>/SKILL.md` files directly, so `specromancy adapters generate --harness codex` creates no harness-specific workflow copy. The adapter check still verifies that all five canonical skills exist.
+## Discovery and trust
 
-Official Codex documentation describes repository skill discovery from `.agents/skills` and explicit `$skill-name` invocation: <https://learn.chatgpt.com/docs/build-skills>. Discovery rules were reviewed on 2026-09-22; no minimum Codex version is asserted by the adapter manifest.
+Codex reads the repository's `AGENTS.md` and canonical `.agents/skills/<name>/SKILL.md` files directly. `specromancy adapters generate --harness codex` creates no workflow copy, while `adapters check` validates all five canonical skills. Review repository instructions and skills before trusting the project; discovery does not grant them extra authority.
 
-## Invocation
+## Shared minimal example
 
-From the repository root, invoke the complete workflow or an individual phase:
-
-```text
-$pipeline Continue run RUN_ID.
-$research Research run RUN_ID.
-$plan Plan run RUN_ID.
-$implement Implement run RUN_ID.
-$review Review run RUN_ID.
+```bash
+specromancy adapters check --harness codex
+specromancy init --id minimal-greeting --request examples/minimal/request.md
 ```
 
-The skill reads durable state from `.specromancy/runs/RUN_ID/` and uses the CLI for transitions. Resume a later session with `$pipeline Continue run RUN_ID.`
+Invoke the complete pipeline with `$pipeline Continue run minimal-greeting.` Individual phases are `$research Research run minimal-greeting.`, `$plan Plan run minimal-greeting.`, `$implement Implement run minimal-greeting.`, and `$review Review run minimal-greeting.`
 
-## Permissions and limitations
+When the plan is ready, inspect it and run `specromancy approve minimal-greeting plan --by YOUR_IDENTITY`; then invoke `$pipeline Continue run minimal-greeting.` again.
 
-Codex permissions come from the user's Codex configuration and execution environment. They can require extra approvals but do not replace Specromancy's phase gates. This adapter selects no model, reasoning level, provider, or paid service.
+## Permissions, resume, and cleanup
 
-No live Codex process is started by the automated adapter suite. Use the smoke test below after meaningful discovery changes.
+Codex permissions come from the user's execution environment. They may add tool approvals but cannot replace Specromancy's digest-bound gate. The adapter chooses no model, reasoning level, or paid service. Procedural review independence is required, but the adapter does not claim a separate operating-system identity.
 
-## Smoke test and troubleshooting
+Resume any later session with `$pipeline Continue run minimal-greeting.` and confirm `specromancy status minimal-greeting` first. `specromancy adapters clean --harness codex` removes no canonical file. Cancellation and adapter cleanup preserve `.specromancy/runs/` and user source.
 
-1. Run `specromancy adapters check --harness codex`.
-2. Start a fresh Codex session at the repository root.
-3. Confirm `$pipeline`, `$research`, `$plan`, `$implement`, and `$review` appear in skill selection.
-4. Invoke each skill with a disposable run and confirm it reads its matching `.agents/skills` source.
+## Known limitations and troubleshooting
 
-If a skill is missing, verify its directory and `SKILL.md` name, its `name` and `description` frontmatter, and the current working directory. Restart Codex if a newly changed skill is not shown.
+- No minimum Codex version is asserted and no live provider run is release-blocking.
+- If a skill is missing, verify `.agents/skills/<name>/SKILL.md`, its `name`/`description` frontmatter, and repository root discovery; then restart the session.
+- If state and chat disagree, trust `status`, `next`, and validated artifacts.
+- Run `specromancy doctor` and [the general checklist](../troubleshooting.md) before recovering locks or artifacts.

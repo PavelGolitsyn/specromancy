@@ -367,12 +367,17 @@ def _version_result(versions: ContractVersions) -> Result:
         "version",
         (
             f"specromancy {__version__} "
-            f"(pipeline {versions.pipeline}, schema {versions.schema})"
+            f"(pipeline {versions.pipeline}, run schema {versions.run_manifest_schema}, "
+            f"artifact schema {versions.artifact_schema}, "
+            f"adapter manifest {versions.adapter_manifest})"
         ),
         {
             "version": __version__,
             "pipeline_version": versions.pipeline,
             "schema_version": versions.schema,
+            "run_manifest_schema_version": versions.run_manifest_schema,
+            "artifact_schema_version": versions.artifact_schema,
+            "adapter_manifest_version": versions.adapter_manifest,
         },
     )
 
@@ -740,7 +745,12 @@ def main(argv: Sequence[str] | None = None) -> int:
             except SpecromancyError:
                 # Doctor owns contract-integrity reporting and must remain callable
                 # when the packaged contracts are exactly what needs diagnosis.
-                versions = ContractVersions(pipeline="unavailable", schema="unavailable")
+                versions = ContractVersions(
+                    pipeline="unavailable",
+                    run_manifest_schema="unavailable",
+                    artifact_schema="unavailable",
+                    adapter_manifest=0,
+                )
         else:
             versions = validate_contracts()
         result = _run(args, versions, parser)

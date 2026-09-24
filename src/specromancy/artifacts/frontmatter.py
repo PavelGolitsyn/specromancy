@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Final, Mapping
 
+from ..compatibility import ARTIFACT_SCHEMA_VERSION, require_supported_version
 from ..errors import ValidationError
 from ..io import normalized_text
 
@@ -119,11 +120,15 @@ def parse_frontmatter(
             "Artifact frontmatter fields are not in the version 1 order.",
             "Order fields as schema-version, run-id, stage, status, created-at.",
         )
-    if metadata["schema-version"] != "1":
+    try:
+        require_supported_version(
+            "Artifact schema", metadata["schema-version"], ARTIFACT_SCHEMA_VERSION
+        )
+    except ValidationError as exc:
         raise _invalid(
             "Artifact schema version is not supported.",
-            'Set schema-version to "1" or use a compatible Specromancy release.',
-        )
+            f'Set schema-version to "{ARTIFACT_SCHEMA_VERSION}" or use a compatible Specromancy release.',
+        ) from exc
     if _RUN_ID.fullmatch(metadata["run-id"]) is None:
         raise _invalid(
             "Artifact run ID is malformed.",

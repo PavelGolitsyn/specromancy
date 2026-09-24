@@ -15,6 +15,11 @@ from typing import Any, Mapping
 from urllib.parse import urlsplit
 
 from .clock import Clock, RunIdGenerator, SystemClock, utc_timestamp
+from .compatibility import (
+    ARTIFACT_SCHEMA_VERSION,
+    RUN_MANIFEST_SCHEMA_VERSION,
+    require_supported_version,
+)
 from .contracts import pipeline_contract, run_schema
 from .errors import InvalidInputError, SafetyError, ValidationError
 from .events import verify_event_projection
@@ -80,7 +85,7 @@ def _request_document(run_id: str, content: str, created_at: str) -> str:
     body = _request_body(content)
     return (
         "---\n"
-        'schema-version: "1"\n'
+        f'schema-version: "{ARTIFACT_SCHEMA_VERSION}"\n'
         f'run-id: "{run_id}"\n'
         'stage: "request"\n'
         'status: "ready"\n'
@@ -154,7 +159,7 @@ def initialize_run(
         atomic_write_text(request_target, request_document)
         request_relative = f".specromancy/runs/{selected_id}/request.md"
         manifest: dict[str, Any] = {
-            "schema_version": "1",
+            "schema_version": RUN_MANIFEST_SCHEMA_VERSION,
             "run_id": selected_id,
             "title": normalized_title,
             "created_at": created_at,
@@ -179,7 +184,7 @@ def initialize_run(
                     "path": request_relative,
                     "sha256": sha256_file(request_target),
                     "validated_at": created_at,
-                    "schema_version": "1",
+                    "schema_version": ARTIFACT_SCHEMA_VERSION,
                     "bindings": {},
                 }
             },
@@ -196,7 +201,7 @@ def initialize_run(
         }
         atomic_write_json(manifest_target, manifest)
         event = {
-            "schema_version": "1",
+            "schema_version": RUN_MANIFEST_SCHEMA_VERSION,
             "event_type": "run_initialized",
             "run_id": selected_id,
             "phase": "run",
@@ -287,7 +292,12 @@ def validate_manifest(
             "Run manifest fields do not match the version 1 schema.",
             details={"missing_fields": missing, "unexpected_fields": extras},
         )
-    if manifest.get("schema_version") != "1" or manifest.get("run_id") != run_id:
+    require_supported_version(
+        "Run manifest schema",
+        manifest.get("schema_version"),
+        RUN_MANIFEST_SCHEMA_VERSION,
+    )
+    if manifest.get("run_id") != run_id:
         raise ValidationError("Run manifest identity does not match its directory.")
     if Path(str(manifest.get("repository_root", ""))).resolve() != paths.root:
         raise ValidationError(

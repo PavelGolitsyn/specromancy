@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "specromancy"
 version = "0.1.0"
-description = "Harness-agnostic tooling for artifact-driven, spec-driven development"
+description = "Proof-of-concept tooling for durable, artifact-driven development workflows"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -14,6 +14,20 @@ authors = [
   { name = "Pavel Golitsyn" },
 ]
 dependencies = []
+keywords = ["agents", "development-workflow", "specification"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
+
+[project.urls]
+Repository = "https://github.com/PavelGolitsyn/specromancy"
 
 [project.optional-dependencies]
 dev = [

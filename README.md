@@ -1,117 +1,95 @@
 # Specromancy
 
-Specromancy is a harness-agnostic toolkit for artifact-driven, spec-driven development. Its proof of concept coordinates a durable `request -> research -> plan -> implement -> review` workflow without making a model provider or chat session the source of truth.
+Specromancy 0.1.0 is an unpublished proof of concept for durable, artifact-driven development. It coordinates a harness-agnostic `request -> research -> plan -> implementation -> review` workflow without making one chat session or model provider the source of truth.
 
-## POC terminology
+It is alpha software: use it on a disposable branch or worktree, inspect every plan and artifact, and keep normal source-control backups.
 
-- **Run:** One durable execution of the pipeline for a request, stored under `.specromancy/runs/<run-id>/`.
-- **Phase:** One canonical unit of work: research, plan, implementation, or review. Orchestration coordinates phases but does not perform them.
-- **Status:** The persisted state of a run, such as `research_ready`, `plan_approved`, or `passed`.
-- **Artifact:** A Markdown phase handoff with restricted, versioned frontmatter and phase-specific validated content.
-- **Manifest:** `run.json`, the current-state projection containing artifact digests, approvals, repository identity, and repair-cycle state.
-- **Event log:** `events.jsonl`, the append-only audit history used to explain and replay manifest state.
-- **Approval:** An explicit CLI record binding an approver-supplied identity to the exact validated plan digest. Approval in prose or chat does not count.
-- **Canonical skill:** A workflow procedure in `.agents/skills/<name>/`; it is the source from which any harness-specific copy or launcher is generated.
-- **Harness:** Codex, Claude Code, GitHub Copilot, Hermes, or OpenCode—the environment that invokes a skill and provides agent tools.
-- **Adapter:** A generated harness discovery or invocation file. It contains no unique pipeline policy.
-- **Repair cycle:** A bounded return from `changes_requested` to implementation, followed by a fresh review.
-- **Validator:** Deterministic code that checks a manifest, artifact, repository subject, or transition guard before state can advance.
+## Requirements and installation
 
-The version 1 architecture and public contracts are documented in [the POC architecture](docs/architecture/poc.md).
-
-## Install and run
-
-Specromancy requires Python 3.11 or later and has no runtime dependencies outside the standard library.
+Specromancy requires Git and Python 3.11 or newer. Runtime code uses only the Python standard library.
 
 ```bash
-python -m pip install .
-specromancy --help
-specromancy --version --format json
+python3 -m venv .venv
+.venv/bin/python -m pip install .
+.venv/bin/specromancy --version
+.venv/bin/specromancy doctor
 ```
 
-The module entry point is equivalent when a console-script launcher is unavailable:
+Windows environments use `.venv\Scripts\python` and `.venv\Scripts\specromancy`. The module entry point, `python -m specromancy`, is equivalent to the console script.
+
+## Quick start
+
+The checked-in [minimal greeting example](examples/minimal/README.md) is shared by every harness guide:
 
 ```bash
-python -m specromancy --help
+specromancy adapters generate
+specromancy adapters check
+specromancy init --id minimal-greeting --request examples/minimal/request.md
+specromancy status minimal-greeting
 ```
 
-For development, install the optional build tooling with `python -m pip install -e '.[dev]'`. Run the full verification with:
+Invoke the selected harness's pipeline skill with `Continue run minimal-greeting.` The pipeline creates evidence-backed research and a traceable plan, then stops. Inspect the plan before recording approval:
 
 ```bash
-python -m unittest discover -s tests -p 'test_*.py'
-python -m specromancy adapters check
-python -m build
+specromancy artifact verify minimal-greeting plan
+specromancy approve minimal-greeting plan --by YOUR_IDENTITY
 ```
 
-The `build` package is development-only and is deliberately absent from the runtime dependency set.
+Invoke the pipeline again to implement and review. Durable state and redacted command evidence live under `.specromancy/runs/minimal-greeting/`. Start with the complete [under-fifteen-minute guide](docs/getting-started.md).
 
-The POC implements durable research, planning, implementation, review, orchestration, resume, and harness-adapter commands. Plan approval is explicit and digest-bound; prose approval never substitutes for the CLI gate.
+## How it works
 
-Run safe installation and repository diagnostics in text or JSON form:
+- `AGENTS.md` defines repository-wide constraints; canonical procedures live in `.agents/skills/`.
+- The CLI validates state and persists transitions. It does not perform model work.
+- Markdown artifacts and SHA-256 bindings carry state across sessions.
+- Plan approval is an explicit CLI record bound to the exact validated plan digest.
+- Implementation is limited to the approved change inventory and records every verification command.
+- Review independently inspects durable inputs, the actual diff, and verification evidence.
+- Requested changes enter at most three repair cycles by default; exhausted work becomes blocked.
+
+See [Concepts](docs/concepts.md) and [Run artifacts](docs/artifacts.md) for the state and trust model.
+
+## Harnesses
+
+Specromancy supports deterministic discovery surfaces for [Codex](docs/harnesses/codex.md), [Claude Code](docs/harnesses/claude-code.md), [GitHub Copilot](docs/harnesses/github-copilot.md), [Hermes](docs/harnesses/hermes.md), and [OpenCode](docs/harnesses/opencode.md). Capabilities are not assumed uniform. The dated [smoke observation table](docs/harnesses/smoke-observations.md) separates executable availability, deterministic adapter checks, and provider-backed runs.
+
+Generated adapters contain no unique workflow policy. Generation refuses collisions; `--force` creates content-addressed backups. Cleanup is conservative:
 
 ```bash
-specromancy doctor
-specromancy doctor --format json
+specromancy adapters clean
 ```
 
-The doctor reports versions, repository and run-directory health, packaged contracts, canonical skills, adapter drift, stale locks, risky configuration, and optional harness availability. It does not print environment variables, tokens, executable paths, or full user configuration.
+It removes only manifest-owned files whose bytes still match the generated digest. It never removes user source, modified generated files, backups, canonical skills, or run artifacts.
 
-For an initialized run, the research lifecycle is:
+## Documentation
+
+- [Getting started](docs/getting-started.md) — install and complete the shared workflow.
+- [Concepts](docs/concepts.md) — authority, state, permissions, approval, review, and repair.
+- [Artifacts](docs/artifacts.md) — run layout, bindings, command records, retention, and recovery.
+- [CLI reference](docs/cli.md) — every command, state, side effect, exit code, and recovery path.
+- [Troubleshooting](docs/troubleshooting.md) — symptom-led safe recovery.
+- [Security model](docs/security.md) — threats, controls, redaction limits, and residual risk.
+- [Testing](docs/testing.md) — deterministic suites, fixtures, evaluations, and smoke policy.
+- [Versioning](docs/versioning.md) — package and independent format compatibility.
+- [Release checklist](docs/release-checklist.md) — reproducible local release gate.
+
+## Development and release verification
+
+Install the development-only build tool with `python3 -m pip install -e '.[dev]'`, then run:
 
 ```bash
-specromancy phase start RUN_ID research
-specromancy artifact path RUN_ID research
-specromancy validate RUN_ID research
-specromancy phase complete RUN_ID research
+python3 -m unittest discover -s tests -p 'test_*.py'
+python3 -m specromancy adapters check
+python3 -m specromancy doctor --format json
+python3 -m build
 ```
 
-The canonical procedure is in `.agents/skills/research/`. Completion validates the evidence-backed artifact, enforces research-only write scope, records its digest and request binding in `run.json`, and appends audit events.
+The sdist includes the documentation, canonical skills, tests, and minimal example. The wheel includes runtime modules, contracts, artifact templates, and license metadata. Local `build/`, `dist/`, caches, backups, and `.specromancy/runs/` are excluded. Built artifacts and `dist/SHA256SUMS` are local release evidence; 0.1.0 is not published or tagged by this stage.
 
-After research reaches `research_ready`, the planning lifecycle is:
+## Compatibility and limitations
 
-```bash
-specromancy phase start RUN_ID plan
-specromancy artifact path RUN_ID plan
-specromancy validate RUN_ID plan
-specromancy phase complete RUN_ID plan
-specromancy approve RUN_ID plan --by IDENTITY
-```
+The package follows semantic versioning. Pipeline contract, run manifest, artifact schema, and adapter manifest use independent integer versions, currently all version 1. The legacy CLI `schema_version` output remains available. Unsupported future data is rejected, and Specromancy never silently migrates artifacts.
 
-The canonical procedure is in `.agents/skills/plan/`. A plan must trace every initialized requirement to current research evidence, file-level changes, and verification. Approval binds the supplied identity to the exact validated plan digest; chat prose is never approval. Replanning after approval begins with:
+Known POC limits include procedural rather than guaranteed process isolation for review, no signed skill bundles, no remote artifact store, no multi-repository run, no web UI, no built-in provider runner, no CI/PR service integration, and no provider-backed smoke test in the required suite. Repository skills are untrusted input, and redaction is not permission to inspect secrets.
 
-```bash
-specromancy approval revoke RUN_ID plan --by IDENTITY --reason TEXT
-specromancy phase start RUN_ID plan
-```
-
-## Harness adapters
-
-Generate, verify, inspect, or safely remove discovery adapters with:
-
-```bash
-specromancy adapters generate [--harness NAME]
-specromancy adapters check [--harness NAME]
-specromancy adapters clean [--harness NAME]
-specromancy adapters list
-```
-
-Codex and Hermes use `AGENTS.md` and `.agents/skills` natively. Claude Code receives generated `CLAUDE.md` and complete skill copies; GitHub Copilot receives instructions and thin prompt launchers; OpenCode receives thin slash-command launchers. Generated paths and source digests are recorded in `specromancy/adapters/manifest.json`.
-
-Generation refuses to overwrite user-authored or hand-edited files. `--force` preserves each replaced file under `specromancy/adapters/backups/<sha256>/<original-path>` before replacement. `clean` removes only manifest-declared files whose bytes still match their generated digest; backups are never cleaned automatically.
-
-See the harness-specific setup and limitations under [`docs/harnesses/`](docs/harnesses/).
-
-## Reliability and security
-
-- [Testing and evaluation](docs/testing.md) explains validation layers, deterministic fixtures, behavioral scoring, CI, and opt-in smoke practice.
-- [Security model](docs/security.md) documents threats, controls, approval boundaries, redaction limits, and residual risk.
-- [Harness smoke observations](docs/harnesses/smoke-observations.md) records versioned availability and limitations without treating missing live runs as passes.
-- Normalized evaluation case and result contracts are packaged under `src/specromancy/resources/contracts/`.
-
-## Repository map
-
-- `src/specromancy/` — CLI, artifact validators, phase handlers, templates, and reusable runtime primitives.
-- `src/specromancy/resources/contracts/` — packaged version 1 pipeline contracts.
-- `tests/unit/`, `tests/contract/`, `tests/security/`, `tests/integration/`, and `tests/evals/` — focused, adversarial, workflow, and behavioral checks.
-- `docs/architecture/` — architectural decisions and trust boundaries.
-- `docs/poc/implementation-plan/` — staged implementation plans.
+See [CHANGELOG.md](CHANGELOG.md) for the release notes and disclosed breaking-change policy. The MIT license covers the code and repository-shipped templates and canonical skills.

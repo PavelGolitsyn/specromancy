@@ -1,1 +1,1 @@
-specromancy 0.1.0 (pipeline 1, schema 1)
+specromancy 0.1.0 (pipeline 1, run schema 1, artifact schema 1, adapter manifest 1)

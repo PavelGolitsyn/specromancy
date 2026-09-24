@@ -14,6 +14,9 @@ class ContractTests(unittest.TestCase):
         versions = validate_contracts()
         self.assertEqual(versions.pipeline, "1")
         self.assertEqual(versions.schema, "1")
+        self.assertEqual(versions.run_manifest_schema, "1")
+        self.assertEqual(versions.artifact_schema, "1")
+        self.assertEqual(versions.adapter_manifest, 1)
 
     def test_python_exit_codes_match_packaged_contract(self) -> None:
         rows = load_contract("exit-codes.json")["exit_codes"]
@@ -24,4 +27,3 @@ class ContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

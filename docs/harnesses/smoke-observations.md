@@ -1,6 +1,6 @@
 # Harness smoke observations
 
-Observation date: 2026-09-23. Repository subject: Stage 8 implementation baseline on branch `poc`.
+Observation date: 2026-09-23. Documentation target: Specromancy 0.1.0 release candidate on branch `poc`; executable probes originated at the Stage 8 baseline and deterministic adapters were rechecked for Stage 9.
 
 | Harness | Executable observation | Deterministic adapter observation | Live provider run | Known limitation |
 | --- | --- | --- | --- | --- |

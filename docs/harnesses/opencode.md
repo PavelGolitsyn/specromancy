@@ -1,37 +1,33 @@
 # OpenCode
 
-## Setup and discovery
+Tested documentation target: Specromancy 0.1.0 on 2026-09-23. Deterministic command-adapter generation/checks were run; no provider-backed OpenCode session is claimed by the automated suite.
 
-OpenCode reads canonical `AGENTS.md` and `.agents/skills` directly. Generate only the convenience commands:
+## Discovery and trust
+
+The adapter creates thin launchers under `.opencode/commands/`. Each launcher points back to one canonical `.agents/skills/<name>/SKILL.md`; it does not duplicate workflow policy. Review repository instructions and skills before tool use.
 
 ```bash
 specromancy adapters generate --harness opencode
 specromancy adapters check --harness opencode
+specromancy init --id minimal-greeting --request examples/minimal/request.md
 ```
 
-The adapter creates `.opencode/commands/<phase>.md` launchers. Each launcher loads the matching canonical skill and forwards command arguments through `$ARGUMENTS`. It does not create `opencode.json`, pin a model, redefine an agent, or change skill permissions. See OpenCode's [skills](https://opencode.ai/docs/skills) and [commands](https://opencode.ai/docs/commands/) documentation.
+## Shared minimal example and invocation
 
-Discovery rules were reviewed on 2026-09-22; no minimum OpenCode version is asserted by the adapter manifest.
+Invoke `/pipeline Continue run minimal-greeting.` Individual commands are `/research Research run minimal-greeting.`, `/plan Plan run minimal-greeting.`, `/implement Implement run minimal-greeting.`, and `/review Review run minimal-greeting.`
 
-## Invocation
+At `plan_ready`, inspect and record `specromancy approve minimal-greeting plan --by YOUR_IDENTITY`, then continue `/pipeline`.
 
-```text
-/pipeline RUN_ID
-/research RUN_ID
-/plan RUN_ID
-/implement RUN_ID
-/review RUN_ID
-```
+## Permissions, resume, and cleanup
 
-Resume with `/pipeline RUN_ID` from the repository workspace.
+OpenCode configuration controls tools and models. The launchers grant no extra permission and do not prove technical reviewer isolation. Resume with `/pipeline Continue run minimal-greeting.` after checking durable status.
 
-## Permissions and limitations
+`specromancy adapters clean --harness opencode` removes only unmodified manifest-owned launchers. Modified launchers, backups, source, canonical skills, and runs remain.
 
-If the user's OpenCode configuration denies the `skill` permission, canonical skills can be hidden or rejected. Specromancy intentionally does not rewrite that configuration. Permission changes can tighten the execution environment but cannot authorize a forbidden phase transition.
+## Known limitations and troubleshooting
 
-## Troubleshooting
-
-- Command missing: verify `.opencode/commands/<name>.md` and restart or refresh the OpenCode session.
-- Skill missing: check the selected agent's `skill` permission and `.agents/skills/<name>/SKILL.md` frontmatter.
-- Arguments ignored: pass the run ID after the slash command and inspect the generated file for the literal `$ARGUMENTS` placeholder.
-- Stale launcher: regenerate after changing canonical skills.
+- No minimum OpenCode version is asserted.
+- Missing command: verify `.opencode/commands/<name>.md`, refresh discovery, and check adapter drift.
+- Stale command text: regenerate from the canonical skill; do not hand-maintain a launcher.
+- Permission failure: adjust the OpenCode environment or resume elsewhere without changing run state by hand.
+- Run `specromancy doctor` and [the general checklist](../troubleshooting.md).
