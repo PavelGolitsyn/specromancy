@@ -1,6 +1,6 @@
 ---
 name: research
-description: Inspect repository evidence and uncertainties for the active research phase.
+description: Inspect repository evidence and uncertainties when the current Specromancy phase is research.
 license: MIT
 compatibility: Specromancy pipeline schema version 1.
 metadata:
@@ -9,6 +9,21 @@ metadata:
 
 # Research
 
-Follow the current action packet. Preserve the read-only mutation policy and
-write the requested evidence artifact at its exact output path.
+Use this procedure only when the user invocation supplies a `RUN_ID`.
 
+1. Run `bin/specromancy status RUN_ID --json` and verify that the recorded
+   current phase is `research`. If it is not, stop and report the recorded next
+   action.
+2. Run `bin/specromancy phase RUN_ID research --json` to start or resume the
+   visit and treat its action packet as authoritative.
+3. Read only the resolved input paths in the packet and the repository context
+   needed to summarize relevant evidence and uncertainty.
+4. Preserve the packet's `read-only` mutation policy. Write only the research
+   artifact at `action.output.absolute_path`, using the resolved template and
+   every required heading.
+5. If a declared stop condition applies, run `bin/specromancy block RUN_ID`
+   with its reason and details, then stop.
+6. Run the packet's final validation command exactly. Do not infer completion
+   from the artifact or conversation.
+7. Run `bin/specromancy status RUN_ID --json` and report its recorded status,
+   next command, or terminal result.
