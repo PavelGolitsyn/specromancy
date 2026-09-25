@@ -41,9 +41,18 @@ EVENT_SCHEMA_VERSION = 1
 RUN_ID_PATTERN = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$")
 EVENT_TYPE_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 RUN_STATUSES = frozenset(
+    {
+        "active",
+        "awaiting-agent",
+        "awaiting-approval",
+        "completed",
+        "failed",
+        "blocked",
+    }
+)
+VISIT_STATUSES = frozenset(
     {"pending", "active", "awaiting-approval", "completed", "failed", "blocked"}
 )
-VISIT_STATUSES = RUN_STATUSES
 
 
 def utc_now() -> datetime:
@@ -244,7 +253,7 @@ class RunStore:
                     "path": relative_path(pipeline.path, self.repository_root),
                     "sha256": pipeline.config_hash,
                 },
-                "status": "pending",
+                "status": "awaiting-agent",
                 "current_visit": None,
                 "request": {"path": request_path, "sha256": request_hash},
                 "git": {"base": git_base, "head": git_head},
@@ -320,65 +329,16 @@ class RunStore:
             manifest = self._read_manifest(directory, run_id)
             events = self._ensure_event_consistency(directory, manifest)
             self._require_pipeline(manifest, pipeline)
-            try:
-                phase = pipeline.phase(phase_id)
-            except KeyError as exc:
-                raise RunStoreError(
-                    f"pipeline has no phase {phase_id!r}",
-                    diagnostic_code="phase-not-found",
-                    details={"phase": phase_id},
-                    code=ExitCode.NOT_FOUND,
-                ) from exc
-            ordinal = len(manifest["visits"]) + 1
-            attempt = sum(
-                visit["phase_id"] == phase_id for visit in manifest["visits"]
-            ) + 1
-            inputs = [
-                resolve_input_reference(reference, manifest, directory)
-                for reference in phase.inputs
-            ]
-            output_path = render_output_path(pipeline, phase, ordinal)
-            reserved_paths = {
-                visit["output"]["path"] for visit in manifest["visits"]
-            }
-            if output_path in reserved_paths or (directory / output_path).exists():
-                raise ArtifactError(
-                    f"visit output path would overwrite an earlier artifact: {output_path}",
-                    diagnostic_code="artifact-path-collision",
-                    details={"path": output_path, "visit_number": ordinal},
-                )
-            skill = {
-                "path": relative_path(phase.skill_path, self.repository_root),
-                "sha256": sha256_file(phase.skill_path),
-            }
-            template = None
-            if phase.output_template_path is not None:
-                template = {
-                    "path": relative_path(
-                        phase.output_template_path, self.repository_root
-                    ),
-                    "sha256": sha256_file(phase.output_template_path),
-                }
-            visit = {
-                "phase_id": phase_id,
-                "ordinal": ordinal,
-                "attempt": attempt,
-                "status": "active",
-                "inputs": inputs,
-                "output": {"path": output_path, "sha256": None},
-                "mutation_policy": phase.mutation,
-                "mutation_baseline": mutation_baseline,
-                "mutation_result": None,
-                "validation_checks": [],
-                "command_results": [],
-                "chosen_outcome": None,
-                "transition_target": None,
-                "skill": skill,
-                "template": template,
-                "started_at": self._timestamp(),
-                "completed_at": None,
-                "deviations": list(deviations or []),
-            }
+            visit = self._new_visit(
+                directory,
+                manifest,
+                pipeline,
+                phase_id,
+                status="active",
+                mutation_baseline=mutation_baseline,
+                deviations=deviations,
+            )
+            ordinal = visit["ordinal"]
             updated = copy.deepcopy(manifest)
             updated["revision"] += 1
             updated["updated_at"] = self._timestamp()
@@ -391,11 +351,98 @@ class RunStore:
                 events,
                 "visit-started",
                 ordinal,
-                {"phase_id": phase_id, "attempt": attempt},
+                {"phase_id": phase_id, "attempt": visit["attempt"]},
             )
             return copy.deepcopy(visit)
 
     create_visit = start_visit
+
+    def prepare_visit(
+        self,
+        run_id: str,
+        pipeline: PipelineConfig,
+        phase_id: str,
+        *,
+        deviations: list[Any] | None = None,
+    ) -> dict[str, Any]:
+        """Create the next pending visit and resolve its immutable inputs."""
+
+        directory = self.run_directory(run_id)
+        with RunLock(directory / ".lock", clock=self._clock):
+            manifest = self._read_manifest(directory, run_id)
+            events = self._ensure_event_consistency(directory, manifest)
+            self._require_pipeline(manifest, pipeline)
+            visit = self._new_visit(
+                directory,
+                manifest,
+                pipeline,
+                phase_id,
+                status="pending",
+                mutation_baseline=None,
+                deviations=deviations,
+            )
+            updated = copy.deepcopy(manifest)
+            updated["revision"] += 1
+            updated["updated_at"] = self._timestamp()
+            updated["status"] = "awaiting-agent"
+            updated["current_visit"] = visit["ordinal"]
+            updated["visits"].append(visit)
+            self._commit_locked(
+                directory,
+                updated,
+                events,
+                "visit-prepared",
+                visit["ordinal"],
+                {"phase_id": phase_id, "attempt": visit["attempt"]},
+            )
+            return copy.deepcopy(visit)
+
+    def activate_visit(
+        self,
+        run_id: str,
+        pipeline: PipelineConfig,
+        visit_number: int,
+        *,
+        mutation_baseline: Any = None,
+    ) -> dict[str, Any]:
+        """Activate a pending visit, returning an active visit unchanged on retry."""
+
+        directory = self.run_directory(run_id)
+        with RunLock(directory / ".lock", clock=self._clock):
+            manifest = self._read_manifest(directory, run_id)
+            events = self._ensure_event_consistency(directory, manifest)
+            self._require_pipeline(manifest, pipeline)
+            existing = self._visit(manifest, visit_number)
+            if existing["status"] == "active":
+                return copy.deepcopy(existing)
+            if existing["status"] != "pending":
+                raise RunStoreError(
+                    f"visit {visit_number} cannot be activated from {existing['status']}",
+                    diagnostic_code="illegal-visit-status",
+                    details={
+                        "visit_number": visit_number,
+                        "status": existing["status"],
+                        "expected": "pending",
+                    },
+                    code=ExitCode.ILLEGAL_TRANSITION,
+                )
+            updated = copy.deepcopy(manifest)
+            visit = self._visit(updated, visit_number)
+            visit["status"] = "active"
+            visit["mutation_baseline"] = mutation_baseline
+            visit["started_at"] = self._timestamp()
+            updated["revision"] += 1
+            updated["updated_at"] = self._timestamp()
+            updated["status"] = "active"
+            self._commit_locked(
+                directory,
+                updated,
+                events,
+                "visit-activated",
+                visit_number,
+                {"phase_id": visit["phase_id"]},
+            )
+            return copy.deepcopy(visit)
 
     def write_visit_output(
         self, run_id: str, visit_number: int, content: str | bytes
@@ -471,6 +518,100 @@ class RunStore:
             )
             return copy.deepcopy(visit)
 
+    def transition_visit(
+        self,
+        run_id: str,
+        pipeline: PipelineConfig,
+        visit_number: int,
+        *,
+        outcome: str,
+        transition_target: str | None,
+        terminal_result: Any = None,
+        validation_checks: list[Any] | None = None,
+        command_results: list[Any] | None = None,
+        mutation_result: Any = None,
+    ) -> dict[str, Any]:
+        """Complete a visit and atomically prepare its configured successor."""
+
+        directory = self.run_directory(run_id)
+        with RunLock(directory / ".lock", clock=self._clock):
+            manifest = self._read_manifest(directory, run_id)
+            events = self._ensure_event_consistency(directory, manifest)
+            self._require_pipeline(manifest, pipeline)
+            existing = self._visit(manifest, visit_number)
+            if existing["status"] == "completed":
+                if (
+                    existing["chosen_outcome"] == outcome
+                    and existing["transition_target"] == transition_target
+                ):
+                    return copy.deepcopy(manifest)
+                raise RunStoreError(
+                    f"visit {visit_number} already completed with another transition",
+                    diagnostic_code="visit-already-completed",
+                    details={"visit_number": visit_number},
+                    code=ExitCode.ILLEGAL_TRANSITION,
+                )
+            if existing["status"] not in {"active", "awaiting-approval"}:
+                raise RunStoreError(
+                    f"visit {visit_number} cannot complete from {existing['status']}",
+                    diagnostic_code="illegal-visit-status",
+                    details={
+                        "visit_number": visit_number,
+                        "status": existing["status"],
+                    },
+                    code=ExitCode.ILLEGAL_TRANSITION,
+                )
+            output = artifact_record(directory, existing["output"]["path"])
+            updated = copy.deepcopy(manifest)
+            visit = self._visit(updated, visit_number)
+            visit["status"] = "completed"
+            visit["output"]["sha256"] = output["sha256"]
+            visit["mutation_result"] = mutation_result
+            visit["validation_checks"] = list(validation_checks or [])
+            visit["command_results"] = list(command_results or [])
+            visit["chosen_outcome"] = outcome
+            visit["transition_target"] = transition_target
+            visit["completed_at"] = self._timestamp()
+
+            next_visit = None
+            if transition_target is None:
+                updated["status"] = "completed"
+                updated["terminal_result"] = (
+                    terminal_result
+                    if terminal_result is not None
+                    else {"outcome": outcome, "visit_number": visit_number}
+                )
+            else:
+                next_visit = self._new_visit(
+                    directory,
+                    updated,
+                    pipeline,
+                    transition_target,
+                    status="pending",
+                    mutation_baseline=None,
+                )
+                updated["visits"].append(next_visit)
+                updated["current_visit"] = next_visit["ordinal"]
+                updated["status"] = "awaiting-agent"
+            updated["revision"] += 1
+            updated["updated_at"] = self._timestamp()
+            self._commit_locked(
+                directory,
+                updated,
+                events,
+                "visit-transitioned",
+                visit_number,
+                {
+                    "phase_id": visit["phase_id"],
+                    "outcome": outcome,
+                    "target": transition_target,
+                    "next_visit": (
+                        next_visit["ordinal"] if next_visit is not None else None
+                    ),
+                },
+            )
+            return copy.deepcopy(updated)
+
     def mutate(
         self,
         run_id: str,
@@ -521,6 +662,75 @@ class RunStore:
         return self.mutate(
             run_id, "run-completed", change, payload={"result": result}
         )
+
+    def _new_visit(
+        self,
+        directory: Path,
+        manifest: dict[str, Any],
+        pipeline: PipelineConfig,
+        phase_id: str,
+        *,
+        status: str,
+        mutation_baseline: Any,
+        deviations: list[Any] | None = None,
+    ) -> dict[str, Any]:
+        if status not in {"pending", "active"}:
+            raise ValueError(f"invalid initial visit status: {status!r}")
+        try:
+            phase = pipeline.phase(phase_id)
+        except KeyError as exc:
+            raise RunStoreError(
+                f"pipeline has no phase {phase_id!r}",
+                diagnostic_code="phase-not-found",
+                details={"phase": phase_id},
+                code=ExitCode.NOT_FOUND,
+            ) from exc
+        ordinal = len(manifest["visits"]) + 1
+        attempt = sum(
+            visit["phase_id"] == phase_id for visit in manifest["visits"]
+        ) + 1
+        inputs = [
+            resolve_input_reference(reference, manifest, directory)
+            for reference in phase.inputs
+        ]
+        output_path = render_output_path(pipeline, phase, ordinal)
+        reserved_paths = {visit["output"]["path"] for visit in manifest["visits"]}
+        if output_path in reserved_paths or (directory / output_path).exists():
+            raise ArtifactError(
+                f"visit output path would overwrite an earlier artifact: {output_path}",
+                diagnostic_code="artifact-path-collision",
+                details={"path": output_path, "visit_number": ordinal},
+            )
+        skill = {
+            "path": relative_path(phase.skill_path, self.repository_root),
+            "sha256": sha256_file(phase.skill_path),
+        }
+        template = None
+        if phase.output_template_path is not None:
+            template = {
+                "path": relative_path(phase.output_template_path, self.repository_root),
+                "sha256": sha256_file(phase.output_template_path),
+            }
+        return {
+            "phase_id": phase_id,
+            "ordinal": ordinal,
+            "attempt": attempt,
+            "status": status,
+            "inputs": inputs,
+            "output": {"path": output_path, "sha256": None},
+            "mutation_policy": phase.mutation,
+            "mutation_baseline": mutation_baseline,
+            "mutation_result": None,
+            "validation_checks": [],
+            "command_results": [],
+            "chosen_outcome": None,
+            "transition_target": None,
+            "skill": skill,
+            "template": template,
+            "started_at": self._timestamp() if status == "active" else None,
+            "completed_at": None,
+            "deviations": list(deviations or []),
+        }
 
     def _prepare_runs_root(self) -> None:
         self.runs_root.mkdir(parents=True, exist_ok=True)
@@ -914,7 +1124,10 @@ class RunStore:
             if not isinstance(visit["template"], dict):
                 self._invalid_manifest(run_id, "visit template provenance is invalid")
             self._validate_provenance(visit["template"], run_id)
-        self._validate_timestamp(visit["started_at"], run_id)
+        if visit["started_at"] is not None:
+            self._validate_timestamp(visit["started_at"], run_id)
+        if visit["status"] != "pending" and visit["started_at"] is None:
+            self._invalid_manifest(run_id, "started visit lacks a start timestamp")
         if visit["completed_at"] is not None:
             self._validate_timestamp(visit["completed_at"], run_id)
         if visit["status"] == "completed" and visit["completed_at"] is None:

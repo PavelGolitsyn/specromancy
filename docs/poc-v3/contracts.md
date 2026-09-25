@@ -22,10 +22,10 @@ The reserved commands are:
 init DESCRIPTION
 phase RUN_ID PHASE
 <dynamic-phase> RUN_ID
-validate RUN_ID [PHASE]
+validate RUN_ID [PHASE] [--outcome OUTCOME]
 approve RUN_ID PHASE
-request-approval RUN_ID
-block RUN_ID
+request-approval RUN_ID [--reason CODE] [--details TEXT] [--outcome OUTCOME]
+block RUN_ID [--reason CODE] [--details TEXT]
 status RUN_ID
 resume RUN_ID
 run RUN_ID
@@ -33,6 +33,10 @@ adapters generate
 ```
 
 All commands accept `--root PATH`, `--pipeline PATH`, `--json`, and `--quiet`. Built-in commands are resolved before dynamic phase aliases; pipeline phase names therefore cannot shadow a reserved command.
+
+`--reason` may be omitted only when the current phase declares exactly one
+reason of the relevant kind. `validate --outcome` is required when a phase has
+multiple non-blocking outcomes and is rejected when there is only one.
 
 Both `bin/specromancy` and `python -m specromancy` invoke the same package entry point. The repository root is found by walking upward to a `.git` directory or worktree marker. `--root` supplies an explicit root for fixtures and non-Git directories.
 
@@ -88,3 +92,16 @@ record.
 | 12 | `INTERNAL_ERROR` | Internal or corrupt-state error |
 
 Human-readable successful and actionable responses use stdout; errors use stderr. With `--json`, every response is exactly one JSON object. Expected errors contain `code`, `message`, and, when relevant, `details`.
+
+Successful and actionable JSON responses use response schema version 1 and
+contain stable `schema_version`, `kind`, `code`, and `message` keys. An
+actionable phase response additionally contains `action`; approval boundaries
+contain `approval` and `status`; read-only and terminal responses contain
+`status`.
+
+An action packet uses schema version 1 and contains stable keys for `run_id`,
+`visit_id`, `visit_attempt`, `visit_status`, `phase`, `skill`, `inputs`,
+`output`, `template`, `mutation`, `completion_criteria`, `validation`,
+`approval_conditions`, `stop_conditions`, `outcomes`, and
+`final_validation_command`. Literal artifact records retain repository- or
+run-relative paths and add `absolute_path` for direct harness use.

@@ -11,8 +11,12 @@ from pathlib import Path
 from typing import Any, TextIO
 
 from .contracts import RESERVED_COMMANDS
+from .actions import render_action_packet
+from .config import load_pipeline
+from .engine import Engine
 from .errors import SpecromancyError, UsageError
 from .exit_codes import EXIT_CODE_DESCRIPTIONS, ExitCode
+from .status import render_status
 
 ACTIONABLE_CODES = frozenset(
     {
@@ -136,7 +140,13 @@ def build_parser(dynamic_phases: Iterable[str] = ()) -> CommandParser:
         subparsers,
         "init",
         "create a run for DESCRIPTION",
-        [(("description",), {"metavar": "DESCRIPTION"})],
+        [
+            (("description",), {"metavar": "DESCRIPTION", "nargs": "?"}),
+            (
+                ("--description-file",),
+                {"metavar": "PATH", "help": "read DESCRIPTION from a UTF-8 file"},
+            ),
+        ],
     )
     _add_command(
         subparsers,
@@ -154,6 +164,7 @@ def build_parser(dynamic_phases: Iterable[str] = ()) -> CommandParser:
         [
             (("run_id",), {"metavar": "RUN_ID"}),
             (("phase",), {"metavar": "PHASE", "nargs": "?"}),
+            (("--outcome",), {"metavar": "OUTCOME"}),
         ],
     )
     _add_command(
@@ -165,9 +176,28 @@ def build_parser(dynamic_phases: Iterable[str] = ()) -> CommandParser:
             (("phase",), {"metavar": "PHASE"}),
         ],
     )
+    _add_command(
+        subparsers,
+        "request-approval",
+        "request approval for the current visit",
+        [
+            (("run_id",), {"metavar": "RUN_ID"}),
+            (("--reason",), {"metavar": "CODE"}),
+            (("--details",), {"metavar": "TEXT"}),
+            (("--outcome",), {"metavar": "OUTCOME"}),
+        ],
+    )
+    _add_command(
+        subparsers,
+        "block",
+        "mark a run blocked",
+        [
+            (("run_id",), {"metavar": "RUN_ID"}),
+            (("--reason",), {"metavar": "CODE"}),
+            (("--details",), {"metavar": "TEXT"}),
+        ],
+    )
     for name, help_text in (
-        ("request-approval", "request approval for the current visit"),
-        ("block", "mark a run blocked"),
         ("status", "show run status"),
         ("resume", "resume a run"),
         ("run", "advance a run"),
@@ -223,8 +253,97 @@ def _write_payload(payload: dict[str, Any], stream: TextIO, as_json: bool) -> No
         stream.write(json.dumps(payload, sort_keys=True, separators=(",", ":")))
         stream.write("\n")
         return
-    stream.write(payload["message"])
+    if payload.get("kind") == "action":
+        stream.write(payload["message"])
+        stream.write("\n\n")
+        stream.write(render_action_packet(payload["action"]))
+    elif payload.get("kind") == "status":
+        stream.write(payload["message"])
+        stream.write("\n\n")
+        stream.write(render_status(payload["status"]))
+    elif payload.get("kind") == "approval":
+        stream.write(payload["message"])
+        approval = payload.get("approval")
+        if approval is not None:
+            stream.write(
+                f"\nReason: {approval['reason']}\nPhase: {approval['phase_id']}"
+            )
+    else:
+        stream.write(payload["message"])
     stream.write("\n")
+
+
+def _raw_option(raw_args: Sequence[str], name: str) -> str | None:
+    for index, value in enumerate(raw_args):
+        if value == name and index + 1 < len(raw_args):
+            return raw_args[index + 1]
+        prefix = name + "="
+        if value.startswith(prefix):
+            return value.removeprefix(prefix)
+    return None
+
+
+def _pipeline_path(root: Path, declared: str | None) -> Path:
+    if declared is not None:
+        path = Path(declared).expanduser()
+        return (root / path).resolve() if not path.is_absolute() else path.resolve()
+    canonical = root / "specromancy" / "pipeline.toml"
+    return canonical if canonical.is_file() else root / "pipeline.toml"
+
+
+def _description(arguments: argparse.Namespace, root: Path) -> str:
+    inline = arguments.description
+    declared_file = getattr(arguments, "description_file", None)
+    if inline is not None and declared_file is not None:
+        raise UsageError("pass DESCRIPTION or --description-file, not both")
+    if declared_file is None:
+        if inline is None:
+            raise UsageError("DESCRIPTION or --description-file is required")
+        return inline
+    path = Path(declared_file).expanduser()
+    path = (root / path).resolve() if not path.is_absolute() else path.resolve()
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeError) as exc:
+        raise UsageError(
+            f"cannot read description file: {path}", {"path": str(path)}
+        ) from exc
+
+
+def _dispatch(
+    arguments: argparse.Namespace, root: Path, pipeline: Any
+) -> dict[str, Any]:
+    if arguments.command == "adapters":
+        return _placeholder_result(arguments, root)
+    engine = Engine(pipeline)
+    if arguments.command == "init":
+        return engine.initialize(_description(arguments, root))
+    if arguments.command in {"phase", "dynamic-phase"}:
+        return engine.start_phase(arguments.run_id, arguments.phase)
+    if arguments.command == "validate":
+        return engine.validate(
+            arguments.run_id, arguments.phase, outcome=arguments.outcome
+        )
+    if arguments.command == "request-approval":
+        return engine.request_approval(
+            arguments.run_id,
+            reason=arguments.reason,
+            details=arguments.details,
+            outcome=arguments.outcome,
+        )
+    if arguments.command == "approve":
+        return engine.approve(arguments.run_id, arguments.phase)
+    if arguments.command == "block":
+        return engine.block(
+            arguments.run_id, reason=arguments.reason, details=arguments.details
+        )
+    if arguments.command == "status":
+        return engine.status(arguments.run_id)
+    if arguments.command == "resume":
+        return engine.resume(arguments.run_id)
+    if arguments.command == "run":
+        return engine.run(arguments.run_id)
+    raise UsageError(f"unsupported command: {arguments.command}")
 
 
 def main(
@@ -256,7 +375,12 @@ def main(
         return int(ExitCode.SUCCESS)
 
     try:
-        arguments = build_parser().parse_args(raw_args)
+        root = discover_repository_root(
+            explicit_root=_raw_option(raw_args, "--root")
+        )
+        path = _pipeline_path(root, _raw_option(raw_args, "--pipeline"))
+        pipeline = load_pipeline(path, root)
+        arguments = build_parser(pipeline.phase_ids).parse_args(raw_args)
         if arguments.command is None:
             raise UsageError("a command is required")
         if arguments.command == "adapters" and not getattr(
@@ -264,11 +388,10 @@ def main(
         ):
             raise UsageError("an adapters command is required")
 
-        root = discover_repository_root(explicit_root=getattr(arguments, "root", None))
-        payload = _placeholder_result(arguments, root)
+        payload = _dispatch(arguments, root, pipeline)
         if wants_json or not wants_quiet:
             _write_payload(payload, output, wants_json)
-        return int(ExitCode.AGENT_ACTION_REQUIRED)
+        return int(payload["code"])
     except SpecromancyError as exc:
         payload = exc.as_dict()
         # Approval, agent-action, and blocked statuses are actionable responses;
