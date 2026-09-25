@@ -1,0 +1,9 @@
+# Repository instructions
+
+- Support Python 3.11 and newer. The POC has no third-party runtime dependencies.
+- Run the full suite with `python -m unittest discover`.
+- Canonical workflow configuration and templates live under `specromancy/`; canonical phase procedures live under `.agents/skills/`. Harness adapters are generated files recorded in `adapters/manifest.json` and must contain no unique workflow logic.
+- Keep the engine generic: phase names belong in pipeline configuration, never in engine code.
+- Treat run artifacts as immutable visit outputs, mechanically enforce read-only phases, and invalidate approval when an approved artifact changes. Every state change must be atomic, validated, and reflected in both `run.json` and `events.jsonl`; runtime correctness must not depend on chat history.
+- The CLI owns only `.specromancy/runs/<run-id>/`, manifest-recorded adapter paths, and temporary files adjacent to a manifest during atomic replacement. It must never delete, reset, stage, or commit repository work.
+- A code change is done when its public contracts remain documented, focused and full tests pass, generated files are reproducible, and no unrelated repository content is modified.

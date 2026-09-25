@@ -1,0 +1,4 @@
+.specromancy/
+__pycache__/
+*.py[cod]
+
