@@ -34,6 +34,7 @@ class CliContractTests(unittest.TestCase):
                 start = "compose"
                 terminal_outcomes = ["done"]
                 artifact_pattern = "artifacts/{visit:03}-{phase}.md"
+                allow_non_git = true
                 [[phases]]
                 id = "compose"
                 skill = "compose"
@@ -115,4 +116,3 @@ class CliContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

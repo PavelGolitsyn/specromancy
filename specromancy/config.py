@@ -73,6 +73,8 @@ class ValidatorConfig:
     required_headings: tuple[str, ...] = ()
     declared_path: str | None = None
     resolved_path: Path | None = None
+    heading_occurrence: str = "exactly-once"
+    json_schema: Mapping[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +118,7 @@ class PipelineConfig:
     start: str
     terminal_outcomes: tuple[str, ...]
     artifact_pattern: str
+    allow_non_git: bool
     phases: tuple[PhaseConfig, ...]
     path: Path
     repository_root: Path
@@ -350,6 +353,7 @@ class _Loader:
             "start",
             "terminal_outcomes",
             "artifact_pattern",
+            "allow_non_git",
             "phases",
         }
         self.check_unknown(raw, allowed_top)
@@ -376,6 +380,15 @@ class _Loader:
         artifact_pattern = self.require_string(
             raw.get("artifact_pattern"), "artifact_pattern"
         )
+        allow_non_git = raw.get("allow_non_git", False)
+        if not isinstance(allow_non_git, bool):
+            self.fail(
+                "invalid-field-type",
+                "allow_non_git must be a boolean",
+                field="allow_non_git",
+                value=allow_non_git,
+                remediation="use true or false",
+            )
         _validate_output_pattern(
             artifact_pattern, "artifact_pattern", self.fail, output_name="output.md"
         )
@@ -407,6 +420,7 @@ class _Loader:
             start,
             terminal_outcomes,
             artifact_pattern,
+            allow_non_git,
             phases,
         )
         canonical_json = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
@@ -418,6 +432,7 @@ class _Loader:
             start=start,
             terminal_outcomes=terminal_outcomes,
             artifact_pattern=artifact_pattern,
+            allow_non_git=allow_non_git,
             phases=phases,
             path=self.path,
             repository_root=self.repository_root,
@@ -459,6 +474,7 @@ class _Loader:
             "validator",
             "validator_path",
             "required_headings",
+            "heading_occurrence",
             "commands",
             "validation_commands",
             "approval_conditions",
@@ -605,13 +621,22 @@ class _Loader:
     ) -> ValidatorConfig:
         raw = phase_raw.get("validator")
         required_headings_raw: Any = phase_raw.get("required_headings", [])
+        heading_occurrence_raw: Any = phase_raw.get(
+            "heading_occurrence", "exactly-once"
+        )
         declared_path_raw: Any = phase_raw.get("validator_path")
         if isinstance(raw, str):
             validator_type = self.require_string(raw, "validator", phase=phase_id)
         elif isinstance(raw, Mapping):
             self.check_unknown(
                 raw,
-                {"type", "required_headings", "path", "schema"},
+                {
+                    "type",
+                    "required_headings",
+                    "heading_occurrence",
+                    "path",
+                    "schema",
+                },
                 phase=phase_id,
             )
             validator_type = self.require_string(
@@ -628,6 +653,17 @@ class _Loader:
                         remediation="declare headings either beside or inside validator",
                     )
                 required_headings_raw = raw["required_headings"]
+            if "heading_occurrence" in raw:
+                if "heading_occurrence" in phase_raw:
+                    self.fail(
+                        "conflicting-fields",
+                        "heading_occurrence is declared twice",
+                        phase=phase_id,
+                        field="heading_occurrence",
+                        value=heading_occurrence_raw,
+                        remediation="declare it either beside or inside validator",
+                    )
+                heading_occurrence_raw = raw["heading_occurrence"]
             if "path" in raw and "schema" in raw:
                 self.fail(
                     "conflicting-fields",
@@ -681,8 +717,30 @@ class _Loader:
                 value=required_headings,
                 remediation="remove the headings or use validator = 'markdown'",
             )
+        heading_occurrence = self.require_string(
+            heading_occurrence_raw, "heading_occurrence", phase=phase_id
+        )
+        if heading_occurrence not in {"exactly-once", "at-least-once"}:
+            self.fail(
+                "invalid-heading-occurrence",
+                "heading_occurrence must be exactly-once or at-least-once",
+                phase=phase_id,
+                field="heading_occurrence",
+                value=heading_occurrence,
+                remediation="choose exactly-once or at-least-once",
+            )
+        if validator_type != "markdown" and heading_occurrence_raw != "exactly-once":
+            self.fail(
+                "invalid-validator-rule",
+                "heading_occurrence is supported only by the markdown validator",
+                phase=phase_id,
+                field="heading_occurrence",
+                value=heading_occurrence,
+                remediation="remove the setting or use validator = 'markdown'",
+            )
         declared_path: str | None = None
         resolved_path: Path | None = None
+        json_schema: Mapping[str, Any] | None = None
         if declared_path_raw is not None:
             declared_path = self.require_string(
                 declared_path_raw, "validator_path", phase=phase_id
@@ -690,11 +748,35 @@ class _Loader:
             resolved_path = self.existing_path(
                 declared_path, "validator_path", phase=phase_id
             )
+            if validator_type != "json":
+                self.fail(
+                    "invalid-validator-rule",
+                    "a validator schema path is supported only by the JSON validator",
+                    phase=phase_id,
+                    field="validator_path",
+                    value=declared_path,
+                    remediation="remove the path or use validator = 'json'",
+                )
+            from .validation import SchemaDefinitionError, load_json_schema
+
+            try:
+                json_schema = load_json_schema(resolved_path)
+            except SchemaDefinitionError as exc:
+                self.fail(
+                    "unsupported-json-schema",
+                    f"invalid JSON validator schema at {exc.location}: {exc}",
+                    phase=phase_id,
+                    field="validator_path",
+                    value=declared_path,
+                    remediation="use only type, required, properties, items, enum, pattern, and additionalProperties",
+                )
         return ValidatorConfig(
             type=validator_type,
             required_headings=required_headings,
+            heading_occurrence=heading_occurrence,
             declared_path=declared_path,
             resolved_path=resolved_path,
+            json_schema=json_schema,
         )
 
     def parse_commands(
@@ -866,9 +948,11 @@ def _canonical_document(
     start: str,
     terminal_outcomes: tuple[str, ...],
     artifact_pattern: str,
+    allow_non_git: bool,
     phases: tuple[PhaseConfig, ...],
 ) -> dict[str, Any]:
     return {
+        "allow_non_git": allow_non_git,
         "artifact_pattern": artifact_pattern,
         "id": pipeline_id,
         "phases": [
@@ -903,6 +987,7 @@ def _canonical_document(
                     )
                 ],
                 "validator": {
+                    "heading_occurrence": phase.validator.heading_occurrence,
                     "path": phase.validator.declared_path,
                     "required_headings": list(phase.validator.required_headings),
                     "type": phase.validator.type,

@@ -347,6 +347,15 @@ class ConfigTests(unittest.TestCase):
             (self.fixture.root / "config" / "templates" / "result.md").resolve(),
         )
 
+    def test_unsupported_json_schema_keyword_is_rejected_at_load(self) -> None:
+        schema = self.fixture.root / "config" / "result.schema.json"
+        schema.write_text('{"type":"string","minLength":1}', encoding="utf-8")
+        phase = PHASE.replace(
+            'validator = "file"',
+            'validator = { type = "json", schema = "result.schema.json" }',
+        )
+        self.assert_error(document(phase), "unsupported-json-schema")
+
 
 if __name__ == "__main__":
     unittest.main()

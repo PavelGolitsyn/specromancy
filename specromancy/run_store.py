@@ -467,6 +467,39 @@ class RunStore:
                 replace=(directory / visit["output"]["path"]).exists(),
             )
 
+    def record_validation_attempt(
+        self,
+        run_id: str,
+        visit_number: int,
+        *,
+        validation_checks: list[Any] | None = None,
+        command_results: list[Any] | None = None,
+        mutation_result: Any = None,
+        diagnostic: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Persist resumable validation evidence without completing a visit."""
+
+        def change(manifest: dict[str, Any]) -> None:
+            visit = self._visit(manifest, visit_number)
+            if visit["status"] not in {"active", "awaiting-approval"}:
+                raise RunStoreError(
+                    "validation evidence can be recorded only for an active visit",
+                    diagnostic_code="illegal-visit-status",
+                    details={"visit_number": visit_number, "status": visit["status"]},
+                    code=ExitCode.ILLEGAL_TRANSITION,
+                )
+            visit["validation_checks"] = list(validation_checks or [])
+            visit["command_results"] = list(command_results or [])
+            visit["mutation_result"] = mutation_result
+
+        return self.mutate(
+            run_id,
+            "validation-failed",
+            change,
+            visit_number=visit_number,
+            payload=dict(diagnostic or {}),
+        )
+
     def complete_visit(
         self,
         run_id: str,
@@ -504,6 +537,10 @@ class RunStore:
             visit["chosen_outcome"] = outcome
             visit["transition_target"] = transition_target
             visit["completed_at"] = self._timestamp()
+            if isinstance(mutation_result, dict) and isinstance(
+                mutation_result.get("head"), dict
+            ):
+                updated["git"]["head"] = mutation_result["head"]
             if deviations is not None:
                 visit["deviations"] = list(deviations)
             updated["revision"] += 1
@@ -564,6 +601,31 @@ class RunStore:
             output = artifact_record(directory, existing["output"]["path"])
             updated = copy.deepcopy(manifest)
             visit = self._visit(updated, visit_number)
+            limit_block = self._transition_limit_block(
+                manifest, pipeline, visit, outcome, transition_target
+            )
+            if limit_block is not None:
+                visit["status"] = "blocked"
+                visit["mutation_result"] = mutation_result
+                visit["validation_checks"] = list(validation_checks or [])
+                visit["command_results"] = list(command_results or [])
+                updated["status"] = "blocked"
+                updated["block_reason"] = limit_block
+                if isinstance(mutation_result, dict) and isinstance(
+                    mutation_result.get("head"), dict
+                ):
+                    updated["git"]["head"] = mutation_result["head"]
+                updated["revision"] += 1
+                updated["updated_at"] = self._timestamp()
+                self._commit_locked(
+                    directory,
+                    updated,
+                    events,
+                    "loop-limit-exceeded",
+                    visit_number,
+                    limit_block,
+                )
+                return copy.deepcopy(updated)
             visit["status"] = "completed"
             visit["output"]["sha256"] = output["sha256"]
             visit["mutation_result"] = mutation_result
@@ -572,6 +634,10 @@ class RunStore:
             visit["chosen_outcome"] = outcome
             visit["transition_target"] = transition_target
             visit["completed_at"] = self._timestamp()
+            if isinstance(mutation_result, dict) and isinstance(
+                mutation_result.get("head"), dict
+            ):
+                updated["git"]["head"] = mutation_result["head"]
 
             next_visit = None
             if transition_target is None:
@@ -611,6 +677,60 @@ class RunStore:
                 },
             )
             return copy.deepcopy(updated)
+
+    def _transition_limit_block(
+        self,
+        manifest: dict[str, Any],
+        pipeline: PipelineConfig,
+        visit: dict[str, Any],
+        outcome: str,
+        transition_target: str | None,
+    ) -> dict[str, Any] | None:
+        """Return a persisted block record before a disallowed loop traversal."""
+
+        phase = pipeline.phase(visit["phase_id"])
+        transition = next(
+            item for item in phase.transitions if item.outcome == outcome
+        )
+        timestamp = self._timestamp()
+        if transition.max_traversals is not None:
+            traversals = sum(
+                item["phase_id"] == phase.id
+                and item.get("chosen_outcome") == outcome
+                for item in manifest["visits"]
+            )
+            if traversals >= transition.max_traversals:
+                return {
+                    "reason": "transition-traversal-limit",
+                    "phase_id": phase.id,
+                    "visit_number": visit["ordinal"],
+                    "outcome": outcome,
+                    "target": transition_target,
+                    "limit": transition.max_traversals,
+                    "recorded_at": timestamp,
+                    "required_action": "new-run",
+                    "remediation": "start a new run; this pipeline declares no counter-reset approval",
+                }
+        if transition_target is not None:
+            target_phase = pipeline.phase(transition_target)
+            if target_phase.max_visits is not None:
+                visits = sum(
+                    item["phase_id"] == transition_target
+                    for item in manifest["visits"]
+                )
+                if visits >= target_phase.max_visits:
+                    return {
+                        "reason": "phase-visit-limit",
+                        "phase_id": transition_target,
+                        "source_phase": phase.id,
+                        "visit_number": visit["ordinal"],
+                        "outcome": outcome,
+                        "limit": target_phase.max_visits,
+                        "recorded_at": timestamp,
+                        "required_action": "new-run",
+                        "remediation": "start a new run; this pipeline declares no counter-reset approval",
+                    }
+        return None
 
     def mutate(
         self,

@@ -68,6 +68,8 @@ def build_action_packet(
         "validation": {
             "type": phase.validator.type,
             "required_headings": list(phase.validator.required_headings),
+            "heading_occurrence": phase.validator.heading_occurrence,
+            "schema": phase.validator.declared_path,
             "commands": [
                 {
                     "argv": list(command.argv),
@@ -118,4 +120,3 @@ def render_action_packet(packet: dict[str, Any]) -> str:
 
 def _repository_record(root: Path, record: dict[str, Any]) -> dict[str, Any]:
     return {**record, "absolute_path": str(root / record["path"])}
-

@@ -18,6 +18,7 @@ version = 1
 start = "survey"
 terminal_outcomes = ["done", "blocked"]
 artifact_pattern = "artifacts/{visit:03}-{phase}.md"
+allow_non_git = true
 
 [[phases]]
 id = "survey"

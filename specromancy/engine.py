@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
-import subprocess
 from pathlib import Path
 from typing import Any
 
 from .actions import build_action_packet
+from .approvals import approval_integrity_errors, build_approval_record
 from .artifacts import ArtifactError, artifact_record, verify_manifest_artifacts
+from .commands import execute_validation_commands, first_required_failure
 from .config import PhaseConfig, PipelineConfig
 from .errors import SpecromancyError, UsageError
 from .exit_codes import ExitCode
+from .git import GitError, capture_repository_snapshot, enforce_mutation_policy
 from .hashing import relative_path, sha256_file
 from .run_store import RunStore, format_timestamp, utc_now
 from .status import build_status
+from .validation import ValidationFailure, validate_artifact
 
 
 RESPONSE_SCHEMA_VERSION = 1
@@ -43,7 +46,18 @@ class Engine:
     def initialize(self, description: str) -> dict[str, Any]:
         if not description.strip():
             raise UsageError("DESCRIPTION must not be empty")
-        git = capture_git_metadata(self.pipeline.repository_root)
+        try:
+            git = capture_repository_snapshot(
+                self.pipeline.repository_root,
+                allow_non_git=self.pipeline.allow_non_git,
+            )
+        except GitError as exc:
+            raise EngineError(
+                ExitCode.INVALID_PIPELINE,
+                exc.message,
+                exc.diagnostic_code,
+                **exc.details,
+            ) from exc
         manifest = self.store.create(
             self.pipeline,
             description,
@@ -74,13 +88,23 @@ class Engine:
                 status=manifest["status"],
             )
         if visit["status"] == "pending":
+            try:
+                baseline = capture_repository_snapshot(
+                    self.pipeline.repository_root,
+                    allow_non_git=self.pipeline.allow_non_git,
+                )
+            except GitError as exc:
+                raise EngineError(
+                    ExitCode.VALIDATION_FAILED,
+                    exc.message,
+                    exc.diagnostic_code,
+                    **exc.details,
+                ) from exc
             visit = self.store.activate_visit(
                 run_id,
                 self.pipeline,
                 visit["ordinal"],
-                mutation_baseline=capture_git_metadata(
-                    self.pipeline.repository_root, include_status=True
-                ),
+                mutation_baseline=baseline,
             )
             manifest = self.store.load(run_id)
         elif visit["status"] != "active":
@@ -131,7 +155,9 @@ class Engine:
         phase = self.pipeline.phase(visit["phase_id"])
         selected = self._select_outcome(phase, outcome)
         transition = next(item for item in phase.transitions if item.outcome == selected)
-        check = self._validate_output(manifest, visit)
+        checks, mutation_result, command_results = self._perform_validation(
+            manifest, visit, phase
+        )
         updated = self.store.transition_visit(
             run_id,
             self.pipeline,
@@ -143,7 +169,9 @@ class Engine:
                 "phase": phase.id,
                 "visit_number": visit["ordinal"],
             },
-            validation_checks=[check],
+            validation_checks=checks,
+            mutation_result=mutation_result,
+            command_results=command_results,
         )
         return self._after_transition(updated, selected)
 
@@ -162,7 +190,10 @@ class Engine:
         phase = self.pipeline.phase(visit["phase_id"])
         chosen_reason = _declared_reason(reason, phase.approval_conditions, "approval")
         selected_outcome = self._select_outcome(phase, outcome)
-        check = self._validate_output(manifest, visit)
+        checks, mutation_result, command_results = self._perform_validation(
+            manifest, visit, phase
+        )
+        check = checks[0]
         existing = self._pending_approval(manifest, visit["ordinal"])
         if existing is not None:
             if (
@@ -180,26 +211,25 @@ class Engine:
             return self._advance_approved(manifest, visit, approved)
 
         requested_at = format_timestamp(utc_now())
-        approval = {
-            "run_id": run_id,
-            "phase_id": phase.id,
-            "visit_number": visit["ordinal"],
-            "reason": chosen_reason,
-            "details": details,
-            "artifact_sha256": check["sha256"],
-            "pipeline_sha256": self.pipeline.config_hash,
-            "outcome": selected_outcome,
-            "status": "pending",
-            "decision": None,
-            "actor": None,
-            "requested_at": requested_at,
-            "decided_at": None,
-        }
+        approval = build_approval_record(
+            run_id=run_id,
+            phase_id=phase.id,
+            visit_number=visit["ordinal"],
+            reason=chosen_reason,
+            details=details,
+            artifact_sha256=check["sha256"],
+            pipeline_sha256=self.pipeline.config_hash,
+            outcome=selected_outcome,
+            requested_at=requested_at,
+        )
 
         def change(value: dict[str, Any]) -> None:
             current = self._current_visit(value)
             assert current is not None
             current["status"] = "awaiting-approval"
+            current["validation_checks"] = checks
+            current["mutation_result"] = mutation_result
+            current["command_results"] = command_results
             value["status"] = "awaiting-approval"
             value["approvals"].append(approval)
 
@@ -213,7 +243,10 @@ class Engine:
         return self._approval_response(manifest, approval, "approval is required")
 
     def approve(self, run_id: str, phase_id: str) -> dict[str, Any]:
-        manifest = self._load(run_id)
+        # Approval verification intentionally loads persisted state before
+        # enforcing the current pipeline hash so drift can be recorded as a
+        # stale approval instead of becoming an unaudited early error.
+        manifest = self.store.load(run_id)
         visit = self._current_visit(manifest)
         if visit is None:
             return self._idempotent_approval_result(manifest, phase_id)
@@ -225,17 +258,33 @@ class Engine:
             if approved is not None:
                 return self._advance_approved(manifest, visit, approved)
             raise self._illegal("visit has no pending approval request", manifest)
-        current_hash = self._validate_output(manifest, visit)["sha256"]
-        if (
-            current_hash != approval["artifact_sha256"]
-            or approval["pipeline_sha256"] != self.pipeline.config_hash
-        ):
+        try:
+            current_hash = self._artifact_hash(manifest, visit)
+        except EngineError:
+            current_hash = ""
+        mismatches = approval_integrity_errors(
+            approval,
+            artifact_sha256=current_hash,
+            pipeline_sha256=self.pipeline.config_hash,
+        )
+        if mismatches:
+            self._invalidate_approval(manifest, visit, approval, mismatches)
             raise EngineError(
                 ExitCode.APPROVAL_REQUIRED,
                 "approval request is stale because its artifact or pipeline changed",
                 "stale-approval",
                 phase=phase_id,
                 visit_number=visit["ordinal"],
+                mismatches=mismatches,
+            )
+        provenance_warnings = self._provenance_warnings(manifest)
+        if provenance_warnings:
+            warning = provenance_warnings[0]
+            raise EngineError(
+                ExitCode.INTERNAL_ERROR,
+                warning["message"],
+                warning["code"],
+                **warning.get("details", {}),
             )
         decided_at = format_timestamp(utc_now())
 
@@ -356,7 +405,29 @@ class Engine:
         visit: dict[str, Any],
         approval: dict[str, Any],
     ) -> dict[str, Any]:
+        try:
+            current_hash = self._artifact_hash(manifest, visit)
+        except EngineError:
+            current_hash = ""
+        mismatches = approval_integrity_errors(
+            approval,
+            artifact_sha256=current_hash,
+            pipeline_sha256=self.pipeline.config_hash,
+        )
+        if mismatches:
+            self._invalidate_approval(manifest, visit, approval, mismatches)
+            raise EngineError(
+                ExitCode.APPROVAL_REQUIRED,
+                "approval is stale because its artifact or pipeline changed",
+                "stale-approval",
+                phase=visit["phase_id"],
+                visit_number=visit["ordinal"],
+                mismatches=mismatches,
+            )
         phase = self.pipeline.phase(visit["phase_id"])
+        checks, mutation_result, command_results = self._perform_validation(
+            manifest, visit, phase
+        )
         transition = next(
             item for item in phase.transitions if item.outcome == approval["outcome"]
         )
@@ -372,19 +443,19 @@ class Engine:
                 "visit_number": visit["ordinal"],
                 "approval_reason": approval["reason"],
             },
-            validation_checks=[
-                {
-                    "type": "file",
-                    "status": "passed",
-                    "sha256": approval["artifact_sha256"],
-                }
-            ],
+            validation_checks=checks,
+            mutation_result=mutation_result,
+            command_results=command_results,
         )
         return self._after_transition(updated, approval["outcome"])
 
     def _after_transition(
         self, manifest: dict[str, Any], outcome: str
     ) -> dict[str, Any]:
+        if manifest["status"] == "blocked":
+            return self._blocked_response(
+                manifest, "run blocked because a configured loop limit was reached"
+            )
         if manifest["status"] == "completed":
             return self._status_response(
                 manifest, f"run completed with outcome {outcome!r}"
@@ -484,23 +555,126 @@ class Engine:
             "sha256": self.pipeline.config_hash,
         }
 
-    def _validate_output(
-        self, manifest: dict[str, Any], visit: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _perform_validation(
+        self,
+        manifest: dict[str, Any],
+        visit: dict[str, Any],
+        phase: PhaseConfig,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
+        checks: list[dict[str, Any]] = []
+        command_results: list[dict[str, Any]] = []
+        mutation_result: dict[str, Any] | None = None
         try:
-            record = artifact_record(
-                self.store.run_directory(manifest["run_id"]), visit["output"]["path"]
+            check = validate_artifact(
+                self.store.run_directory(manifest["run_id"]),
+                visit["output"]["path"],
+                phase.validator,
+                template_path=phase.output_template_path,
             )
-            path = self.store.run_directory(manifest["run_id"]) / record["path"]
-            if not path.read_bytes().strip():
-                raise EngineError(
-                    ExitCode.VALIDATION_FAILED,
-                    f"output artifact is empty: {record['path']}",
-                    "empty-output",
-                    path=record["path"],
+            checks.append(check)
+        except ValidationFailure as exc:
+            failed = {
+                "type": phase.validator.type,
+                "status": "failed",
+                "error_code": exc.diagnostic_code,
+                **exc.details,
+            }
+            self._record_validation_failure(
+                manifest,
+                visit,
+                [failed],
+                command_results,
+                mutation_result,
+                exc.diagnostic_code,
+            )
+            raise EngineError(
+                ExitCode.VALIDATION_FAILED,
+                exc.message,
+                exc.diagnostic_code,
+                **exc.details,
+            ) from exc
+
+        command_results = execute_validation_commands(
+            phase.validation_commands,
+            self.pipeline.repository_root,
+            self.store.run_directory(manifest["run_id"]),
+            visit["ordinal"],
+        )
+        command_failure = first_required_failure(command_results)
+        try:
+            baseline = visit.get("mutation_baseline")
+            if not isinstance(baseline, dict):
+                raise GitError(
+                    "missing-mutation-baseline",
+                    "the visit has no repository mutation baseline",
                 )
-        except EngineError:
-            raise
+            current = capture_repository_snapshot(
+                self.pipeline.repository_root,
+                allow_non_git=self.pipeline.allow_non_git,
+            )
+            mutation_result = enforce_mutation_policy(
+                baseline, current, phase.mutation, phase.allowlist
+            )
+        except GitError as exc:
+            mutation_result = exc.details.get("mutation_result")
+            self._record_validation_failure(
+                manifest,
+                visit,
+                checks,
+                command_results,
+                mutation_result,
+                exc.diagnostic_code,
+            )
+            raise EngineError(
+                ExitCode.VALIDATION_FAILED,
+                exc.message,
+                exc.diagnostic_code,
+                **exc.details,
+            ) from exc
+        if command_failure is not None:
+            self._record_validation_failure(
+                manifest,
+                visit,
+                checks,
+                command_results,
+                mutation_result,
+                "validation-command-failed",
+            )
+            raise EngineError(
+                ExitCode.VALIDATION_FAILED,
+                "a required validation command failed",
+                "validation-command-failed",
+                command=command_failure,
+            )
+        assert mutation_result is not None
+        return checks, mutation_result, command_results
+
+    def _record_validation_failure(
+        self,
+        manifest: dict[str, Any],
+        visit: dict[str, Any],
+        checks: list[dict[str, Any]],
+        command_results: list[dict[str, Any]],
+        mutation_result: dict[str, Any] | None,
+        diagnostic_code: str,
+    ) -> None:
+        self.store.record_validation_attempt(
+            manifest["run_id"],
+            visit["ordinal"],
+            validation_checks=checks,
+            command_results=command_results,
+            mutation_result=mutation_result,
+            diagnostic={"error_code": diagnostic_code},
+        )
+
+    def _artifact_hash(
+        self, manifest: dict[str, Any], visit: dict[str, Any]
+    ) -> str:
+        try:
+            return artifact_record(
+                self.store.run_directory(manifest["run_id"]),
+                visit["output"]["path"],
+            )["sha256"]
         except (ArtifactError, OSError) as exc:
             details = dict(getattr(exc, "details", None) or {"error": str(exc)})
             details.pop("error_code", None)
@@ -510,7 +684,39 @@ class Engine:
                 "invalid-output",
                 **details,
             ) from exc
-        return {"type": "file", "status": "passed", "sha256": record["sha256"]}
+
+    def _invalidate_approval(
+        self,
+        manifest: dict[str, Any],
+        visit: dict[str, Any],
+        approval: dict[str, Any],
+        mismatches: list[str],
+    ) -> None:
+        decided_at = format_timestamp(utc_now())
+
+        def invalidate(value: dict[str, Any]) -> None:
+            record = next(
+                item
+                for item in value["approvals"]
+                if item.get("visit_number") == visit["ordinal"]
+                and item.get("requested_at") == approval.get("requested_at")
+            )
+            record["status"] = "stale"
+            record["decision"] = "invalidated"
+            record["actor"] = "system"
+            record["decided_at"] = decided_at
+            current = self._current_visit(value)
+            assert current is not None
+            current["status"] = "awaiting-approval"
+            value["status"] = "awaiting-approval"
+
+        self.store.mutate(
+            manifest["run_id"],
+            "approval-invalidated",
+            invalidate,
+            visit_number=visit["ordinal"],
+            payload={"mismatches": mismatches},
+        )
 
     def _select_outcome(self, phase: PhaseConfig, requested: str | None) -> str:
         outcomes = [
@@ -679,35 +885,16 @@ class Engine:
 
 
 def capture_git_metadata(root: Path, *, include_status: bool = False) -> dict[str, Any]:
-    """Capture the small Git baseline needed by Stage 04 without mutating Git."""
+    """Backward-compatible alias for content-level repository capture."""
 
-    def git(*arguments: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(
-            ["git", "-C", str(root), *arguments],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-
-    try:
-        worktree = git("rev-parse", "--is-inside-work-tree")
-    except (OSError, subprocess.TimeoutExpired):
-        return {"is_worktree": False, "head": None, "branch": None, "status": []}
-    if worktree.returncode != 0 or worktree.stdout.strip() != "true":
-        return {"is_worktree": False, "head": None, "branch": None, "status": []}
-    head = git("rev-parse", "HEAD")
-    branch = git("symbolic-ref", "--quiet", "--short", "HEAD")
-    status: list[str] = []
+    snapshot = capture_repository_snapshot(root, allow_non_git=True)
     if include_status:
-        result = git("status", "--short", "--untracked-files=all")
-        if result.returncode == 0:
-            status = result.stdout.splitlines()
+        return {**snapshot, "status": []}
     return {
-        "is_worktree": True,
-        "head": head.stdout.strip() if head.returncode == 0 else None,
-        "branch": branch.stdout.strip() if branch.returncode == 0 else None,
-        "status": status,
+        "is_worktree": snapshot["is_worktree"],
+        "head": snapshot["head"],
+        "branch": snapshot["branch"],
+        "status": [],
     }
 
 

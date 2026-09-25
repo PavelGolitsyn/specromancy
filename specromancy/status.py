@@ -70,7 +70,14 @@ def next_command(manifest: dict[str, Any]) -> list[str] | None:
     if manifest["status"] == "active" and current is not None:
         return ["specromancy", "validate", run_id, current["phase_id"]]
     if manifest["status"] == "awaiting-approval" and current is not None:
-        return ["specromancy", "approve", run_id, current["phase_id"]]
+        pending = any(
+            approval.get("visit_number") == current["ordinal"]
+            and approval.get("status") == "pending"
+            for approval in manifest["approvals"]
+        )
+        if pending:
+            return ["specromancy", "approve", run_id, current["phase_id"]]
+        return ["specromancy", "request-approval", run_id]
     if manifest["status"] == "blocked":
         return ["specromancy", "status", run_id]
     return None
@@ -109,4 +116,3 @@ def _current_visit(manifest: dict[str, Any]) -> dict[str, Any] | None:
         if visit["ordinal"] == ordinal:
             return visit
     return None
-

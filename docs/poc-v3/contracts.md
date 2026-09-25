@@ -105,3 +105,29 @@ An action packet uses schema version 1 and contains stable keys for `run_id`,
 `approval_conditions`, `stop_conditions`, `outcomes`, and
 `final_validation_command`. Literal artifact records retain repository- or
 run-relative paths and add `absolute_path` for direct harness use.
+
+## Validation and safety
+
+Pipelines require a real Git worktree by default. A pipeline intended for a
+non-Git fixture or repository must explicitly set `allow_non_git = true`.
+Repository snapshots include every tracked and non-ignored untracked path and
+record file content, mode, and symlink target without following symlinks.
+`.git/` and CLI-owned `.specromancy/` storage are excluded.
+
+Markdown validators require configured headings exactly once by default;
+`heading_occurrence = "at-least-once"` relaxes duplicate handling. JSON
+validators may reference a schema file and support only `type`, `required`,
+`properties`, `items`, `enum`, `pattern`, and `additionalProperties`.
+Unsupported schema keywords make the pipeline invalid at load time.
+
+Validation commands are trusted repository configuration and execute from the
+repository root with the user's permissions. They are argument arrays, never
+shell strings. Full stdout and stderr remain in ignored run storage; manifests
+contain byte-limited summaries with values from secret-like environment
+variables redacted. The environment itself is never persisted.
+
+Approval records bind the run, phase, visit, reason, output hash, pipeline hash,
+outcome, actor, decision, and timestamps. Artifact or pipeline drift marks the
+record stale and leaves the visit awaiting a fresh approval. Phase-visit and
+transition-edge limits are checked atomically before a successor visit is
+created; exceeding a limit blocks the run without resetting its counters.
