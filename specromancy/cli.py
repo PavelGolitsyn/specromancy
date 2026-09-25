@@ -10,24 +10,9 @@ from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import Any, TextIO
 
+from .contracts import RESERVED_COMMANDS
 from .errors import SpecromancyError, UsageError
 from .exit_codes import EXIT_CODE_DESCRIPTIONS, ExitCode
-
-
-RESERVED_COMMANDS = frozenset(
-    {
-        "init",
-        "phase",
-        "validate",
-        "approve",
-        "request-approval",
-        "block",
-        "status",
-        "resume",
-        "run",
-        "adapters",
-    }
-)
 
 ACTIONABLE_CODES = frozenset(
     {

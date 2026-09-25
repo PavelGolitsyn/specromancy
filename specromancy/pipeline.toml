@@ -1,0 +1,97 @@
+schema_version = 1
+id = "default"
+version = 1
+start = "research"
+terminal_outcomes = ["approved", "blocked"]
+artifact_pattern = "artifacts/{visit:03}-{phase}.md"
+
+[[phases]]
+id = "research"
+skill = "research"
+inputs = ["request"]
+output_name = "{visit:03}-research.md"
+output_template = "templates/research.md"
+mutation = "read-only"
+completion_criteria = ["Record repository evidence and unresolved questions."]
+validator = "markdown"
+required_headings = ["Summary", "Evidence", "Open Questions"]
+approval_conditions = []
+stop_conditions = ["insufficient-information"]
+max_visits = 1
+
+[[phases.transitions]]
+outcome = "validated"
+target = "plan"
+
+[[phases.transitions]]
+outcome = "blocked"
+
+[[phases]]
+id = "plan"
+skill = "plan"
+inputs = ["request", "latest:research"]
+output_name = "{visit:03}-plan.md"
+output_template = "templates/plan.md"
+mutation = "read-only"
+completion_criteria = ["Map requirements to files, tests, verification, and risks."]
+validator = "markdown"
+required_headings = ["Scope", "Requirement Mapping", "Intended Files", "Tests", "Verification", "Risks and Approvals"]
+approval_conditions = ["material-scope-change"]
+stop_conditions = ["insufficient-information"]
+max_visits = 1
+
+[[phases.transitions]]
+outcome = "validated"
+target = "implement"
+
+[[phases.transitions]]
+outcome = "blocked"
+
+[[phases]]
+id = "implement"
+skill = "implement"
+inputs = ["request", "latest:plan"]
+output_name = "{visit:03}-implementation.md"
+output_template = "templates/implementation.md"
+mutation = "repository-write"
+completion_criteria = ["Implement the plan and record changes, deviations, and verification."]
+validator = "markdown"
+required_headings = ["Changes", "Deviations", "Verification"]
+approval_conditions = ["destructive-action", "external-side-effect", "material-scope-change", "new-production-dependency"]
+stop_conditions = ["insufficient-information"]
+
+[[phases.commands]]
+argv = ["python", "-m", "unittest", "discover"]
+timeout_seconds = 300
+required = true
+
+[[phases.transitions]]
+outcome = "validated"
+target = "review"
+
+[[phases.transitions]]
+outcome = "blocked"
+
+[[phases]]
+id = "review"
+skill = "review"
+inputs = ["request", "latest:plan", "latest:implement"]
+output_name = "{visit:03}-review.md"
+output_template = "templates/review.md"
+mutation = "read-only"
+completion_criteria = ["Record a verdict and actionable findings."]
+validator = "markdown"
+required_headings = ["Verdict", "Findings", "Verification"]
+approval_conditions = []
+stop_conditions = ["insufficient-information"]
+
+[[phases.transitions]]
+outcome = "approved"
+
+[[phases.transitions]]
+outcome = "changes-requested"
+target = "implement"
+max_traversals = 3
+
+[[phases.transitions]]
+outcome = "blocked"

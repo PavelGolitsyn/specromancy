@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specromancy.dev/schemas/pipeline.schema.json",
+  "title": "Specromancy pipeline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "id",
+    "version",
+    "start",
+    "terminal_outcomes",
+    "artifact_pattern",
+    "phases"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "id": {"$ref": "#/$defs/identifier"},
+    "version": {"type": "integer", "minimum": 1},
+    "start": {"$ref": "#/$defs/identifier"},
+    "terminal_outcomes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identifier"}
+    },
+    "artifact_pattern": {"type": "string", "minLength": 1},
+    "phases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/phase"}
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "stringList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "validator": {
+      "oneOf": [
+        {"enum": ["markdown", "json", "file"]},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": {
+            "type": {"enum": ["markdown", "json", "file"]},
+            "required_headings": {"$ref": "#/$defs/stringList"},
+            "path": {"type": "string", "minLength": 1},
+            "schema": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "command": {
+      "oneOf": [
+        {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["argv"],
+          "properties": {
+            "argv": {
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "string", "minLength": 1}
+            },
+            "timeout_seconds": {"type": "number", "exclusiveMinimum": 0},
+            "required": {"type": "boolean"}
+          }
+        }
+      ]
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome"],
+      "properties": {
+        "outcome": {"$ref": "#/$defs/identifier"},
+        "target": {"$ref": "#/$defs/identifier"},
+        "max_traversals": {"type": "integer", "minimum": 1}
+      }
+    },
+    "phase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "skill",
+        "inputs",
+        "output_name",
+        "mutation",
+        "completion_criteria",
+        "validator",
+        "approval_conditions",
+        "stop_conditions",
+        "transitions"
+      ],
+      "properties": {
+        "id": {"$ref": "#/$defs/identifier"},
+        "skill": {"$ref": "#/$defs/identifier"},
+        "inputs": {"$ref": "#/$defs/stringList"},
+        "output_name": {"type": "string", "minLength": 1},
+        "output_template": {"type": "string", "minLength": 1},
+        "mutation": {"enum": ["read-only", "repository-write", "allowlist"]},
+        "allowlist": {"$ref": "#/$defs/stringList"},
+        "mutation_allowlist": {"$ref": "#/$defs/stringList"},
+        "completion_criteria": {
+          "allOf": [{"$ref": "#/$defs/stringList"}, {"minItems": 1}]
+        },
+        "validator": {"$ref": "#/$defs/validator"},
+        "validator_path": {"type": "string", "minLength": 1},
+        "required_headings": {"$ref": "#/$defs/stringList"},
+        "commands": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/command"}
+        },
+        "validation_commands": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/command"}
+        },
+        "approval_conditions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "stop_conditions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "transitions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/transition"}
+        },
+        "max_visits": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}
