@@ -46,6 +46,30 @@ The CLI may create or replace files only in:
 
 The CLI never deletes, resets, stages, or commits repository work. Cleanup is limited to generated paths owned by the previous adapter manifest.
 
+## Run persistence
+
+Run IDs use a UTC timestamp and eight lowercase hexadecimal characters, for
+example `20260922T142501Z-a1b2c3d4`. Only IDs matching that form may be used to
+address `.specromancy/runs/`.
+
+`run.json` is the validated current snapshot. Each mutation increments its
+`revision`, atomically replaces the file, and appends an `events.jsonl` record
+that contains the revision and canonical manifest hash. If interruption occurs
+after replacement but before the event append, the next load appends a
+`recovery` event. A malformed manifest, a malformed event, a non-contiguous
+event sequence, or any other manifest/event disagreement is corrupt state and
+is not repaired heuristically.
+
+Each run uses an exclusive `.lock` file containing the owner PID and acquisition
+time. Locks are never expired based on age alone. After verifying that its owner
+is no longer running, a stale lock must be removed manually.
+
+Artifact paths in manifests are normalized relative paths. Symbolic inputs are
+resolved once, when a visit starts, to literal paths and SHA-256 hashes. Request
+artifacts and completed visit outputs are immutable; hash drift is a corrupt
+state diagnostic rather than an instruction to rewrite either the file or its
+record.
+
 ## Exit codes and output
 
 | Code | Name | Meaning |
@@ -64,4 +88,3 @@ The CLI never deletes, resets, stages, or commits repository work. Cleanup is li
 | 12 | `INTERNAL_ERROR` | Internal or corrupt-state error |
 
 Human-readable successful and actionable responses use stdout; errors use stderr. With `--json`, every response is exactly one JSON object. Expected errors contain `code`, `message`, and, when relevant, `details`.
-

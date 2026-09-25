@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specromancy.dev/schemas/run.schema.json",
+  "title": "Specromancy run manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "revision",
+    "run_id",
+    "pipeline",
+    "status",
+    "current_visit",
+    "request",
+    "git",
+    "created_at",
+    "updated_at",
+    "visits",
+    "approvals",
+    "terminal_result",
+    "block_reason"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "revision": {"type": "integer", "minimum": 1},
+    "run_id": {"$ref": "#/$defs/runId"},
+    "pipeline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "path", "sha256"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "version": {"type": "integer", "minimum": 1},
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "status": {"$ref": "#/$defs/status"},
+    "current_visit": {
+      "oneOf": [{"type": "null"}, {"type": "integer", "minimum": 1}]
+    },
+    "request": {"$ref": "#/$defs/sealedArtifact"},
+    "git": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base", "head"],
+      "properties": {"base": {}, "head": {}}
+    },
+    "created_at": {"$ref": "#/$defs/timestamp"},
+    "updated_at": {"$ref": "#/$defs/timestamp"},
+    "visits": {"type": "array", "items": {"$ref": "#/$defs/visit"}},
+    "approvals": {"type": "array", "items": {"type": "object"}},
+    "terminal_result": {},
+    "block_reason": {}
+  },
+  "$defs": {
+    "runId": {
+      "type": "string",
+      "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$"
+    },
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "path": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\).+$"},
+    "timestamp": {"type": "string", "pattern": "Z$"},
+    "status": {
+      "enum": ["pending", "active", "awaiting-approval", "completed", "failed", "blocked"]
+    },
+    "sealedArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "inputArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference", "path", "sha256"],
+      "properties": {
+        "reference": {"type": "string", "minLength": 1},
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "outputArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/hash"}]}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "visit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "phase_id",
+        "ordinal",
+        "attempt",
+        "status",
+        "inputs",
+        "output",
+        "mutation_policy",
+        "mutation_baseline",
+        "mutation_result",
+        "validation_checks",
+        "command_results",
+        "chosen_outcome",
+        "transition_target",
+        "skill",
+        "template",
+        "started_at",
+        "completed_at",
+        "deviations"
+      ],
+      "properties": {
+        "phase_id": {"type": "string", "minLength": 1},
+        "ordinal": {"type": "integer", "minimum": 1},
+        "attempt": {"type": "integer", "minimum": 1},
+        "status": {"$ref": "#/$defs/status"},
+        "inputs": {"type": "array", "items": {"$ref": "#/$defs/inputArtifact"}},
+        "output": {"$ref": "#/$defs/outputArtifact"},
+        "mutation_policy": {"enum": ["read-only", "repository-write", "allowlist"]},
+        "mutation_baseline": {},
+        "mutation_result": {},
+        "validation_checks": {"type": "array"},
+        "command_results": {"type": "array"},
+        "chosen_outcome": {"oneOf": [{"type": "null"}, {"type": "string"}]},
+        "transition_target": {"oneOf": [{"type": "null"}, {"type": "string"}]},
+        "skill": {"$ref": "#/$defs/provenance"},
+        "template": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/provenance"}]},
+        "started_at": {"$ref": "#/$defs/timestamp"},
+        "completed_at": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/timestamp"}]},
+        "deviations": {"type": "array"}
+      }
+    }
+  }
+}
