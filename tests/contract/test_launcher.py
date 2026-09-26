@@ -35,14 +35,14 @@ class LauncherContractTests(unittest.TestCase):
 
     def test_adapter_entry_point_imports_local_package(self) -> None:
         result = subprocess.run(
-            [sys.executable, str(ROOT / "adapters" / "generate.py")],
+            [sys.executable, str(ROOT / "adapters" / "generate.py"), "--check"],
             cwd=ROOT / "docs" / "poc-v3",
             check=False,
             capture_output=True,
             text=True,
         )
-        self.assertEqual(result.returncode, 8, result.stderr)
-        self.assertIn("adapters generate", result.stdout)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("up to date", result.stdout)
 
 
 if __name__ == "__main__":

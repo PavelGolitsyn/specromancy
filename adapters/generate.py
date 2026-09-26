@@ -1,4 +1,4 @@
-"""Reserved entry point for adapter generation implemented in Stage 07."""
+"""Standalone entry point for deterministic adapter generation."""
 
 from pathlib import Path
 import sys
@@ -10,4 +10,4 @@ from specromancy.cli import main  # noqa: E402
 
 
 if __name__ == "__main__":
-    raise SystemExit(main(["adapters", "generate"]))
+    raise SystemExit(main(["adapters", "generate", *sys.argv[1:]]))

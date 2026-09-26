@@ -219,6 +219,11 @@ def build_parser(dynamic_phases: Iterable[str] = ()) -> CommandParser:
         "generate", help="generate harness adapters"
     )
     _add_common_options(generate)
+    generate.add_argument(
+        "--check",
+        action="store_true",
+        help="report adapter drift without writing files",
+    )
     generate.set_defaults(command="adapters", adapter_command="generate")
 
     for phase in dynamic_phases:
@@ -233,19 +238,6 @@ def build_parser(dynamic_phases: Iterable[str] = ()) -> CommandParser:
         alias.set_defaults(command="dynamic-phase", phase=phase)
 
     return parser
-
-
-def _placeholder_result(arguments: argparse.Namespace, root: Path) -> dict[str, Any]:
-    command = arguments.command
-    if command == "adapters":
-        command = f"adapters {getattr(arguments, 'adapter_command', '')}".rstrip()
-    elif command == "dynamic-phase":
-        command = str(arguments.phase)
-    return {
-        "code": int(ExitCode.AGENT_ACTION_REQUIRED),
-        "message": f"command '{command}' is reserved; implementation follows in a later stage",
-        "details": {"command": command, "root": str(root)},
-    }
 
 
 def _write_payload(payload: dict[str, Any], stream: TextIO, as_json: bool) -> None:
@@ -314,7 +306,14 @@ def _dispatch(
     arguments: argparse.Namespace, root: Path, pipeline: Any
 ) -> dict[str, Any]:
     if arguments.command == "adapters":
-        return _placeholder_result(arguments, root)
+        from .adapters import generate_adapters
+
+        return generate_adapters(
+            root,
+            pipeline,
+            adapter_command_metadata(pipeline.phase_ids),
+            check=arguments.check,
+        )
     engine = Engine(pipeline)
     if arguments.command == "init":
         return engine.initialize(_description(arguments, root))
@@ -344,6 +343,24 @@ def _dispatch(
     if arguments.command == "run":
         return engine.run(arguments.run_id)
     raise UsageError(f"unsupported command: {arguments.command}")
+
+
+def adapter_command_metadata(dynamic_phases: Iterable[str] = ()) -> dict[str, Any]:
+    """Return stable command names and help text used as adapter input."""
+
+    parser = build_parser(dynamic_phases)
+    commands: list[dict[str, str]] = []
+    for action in parser._actions:
+        if not isinstance(action, argparse._SubParsersAction):
+            continue
+        for name, command_parser in sorted(action.choices.items()):
+            commands.append(
+                {
+                    "name": name,
+                    "help": command_parser.description or "",
+                }
+            )
+    return {"commands": commands}
 
 
 def main(

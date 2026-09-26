@@ -29,7 +29,7 @@ block RUN_ID [--reason CODE] [--details TEXT]
 status RUN_ID
 resume RUN_ID
 run RUN_ID
-adapters generate
+adapters generate [--check]
 ```
 
 All commands accept `--root PATH`, `--pipeline PATH`, `--json`, and `--quiet`. Built-in commands are resolved before dynamic phase aliases; pipeline phase names therefore cannot shadow a reserved command.
@@ -40,6 +40,12 @@ multiple non-blocking outcomes and is rejected when there is only one.
 
 Both `bin/specromancy` and `python -m specromancy` invoke the same package entry point. The repository root is found by walking upward to a `.git` directory or worktree marker. `--root` supplies an explicit root for fixtures and non-Git directories.
 
+`adapters generate` deterministically renders harness-native adapters from
+`AGENTS.md`, the validated pipeline configuration, canonical `.agents/skills`,
+and CLI command/help metadata. `--check` performs no writes and exits with
+`ADAPTER_DRIFT` when the manifest or managed tree differs from the expected
+rendering.
+
 ## Filesystem ownership
 
 The CLI may create or replace files only in:
@@ -49,6 +55,12 @@ The CLI may create or replace files only in:
 - explicit temporary files adjacent to a manifest during atomic replacement.
 
 The CLI never deletes, resets, stages, or commits repository work. Cleanup is limited to generated paths owned by the previous adapter manifest.
+
+`adapters/manifest.json` is the schema-versioned ownership boundary. It records
+the generator version and regeneration command, canonical source records and
+aggregate hash, every generated adapter path and content hash, and generated or
+native mode for every supported harness. The manifest omits its own hash to
+avoid self-reference and contains no timestamps or absolute paths.
 
 ## Run persistence
 
