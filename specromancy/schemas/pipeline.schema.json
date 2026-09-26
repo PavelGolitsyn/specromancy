@@ -131,6 +131,7 @@
           "type": "array",
           "items": {"$ref": "#/$defs/command"}
         },
+        "approval_required": {"type": "boolean"},
         "approval_conditions": {
           "type": "array",
           "uniqueItems": true,

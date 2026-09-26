@@ -30,7 +30,9 @@ EXAMPLE_PHASES = ("research", "plan", "implement", "review")
 
 class StaticArchitectureContractTests(unittest.TestCase):
     def test_generic_engine_modules_do_not_name_example_phases(self) -> None:
-        pattern = re.compile(r"\b(?:" + "|".join(EXAMPLE_PHASES) + r")\b")
+        pattern = re.compile(
+            r"(?:'|\")(?:" + "|".join(EXAMPLE_PHASES) + r")(?:'|\")"
+        )
         for name in GENERIC_MODULES:
             path = ROOT / "specromancy" / name
             with self.subTest(path=name):

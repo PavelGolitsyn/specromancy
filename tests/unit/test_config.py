@@ -166,6 +166,42 @@ class ConfigTests(unittest.TestCase):
         phase = PHASE.replace('mutation = "read-only"', 'mutation = "sometimes"')
         self.assert_error(document(phase), "invalid-mutation-policy")
 
+    def test_approval_required_is_optional_boolean_and_affects_provenance(self) -> None:
+        omitted = load_pipeline(self.fixture.write(document(), "omitted.toml"))
+        explicit_false = load_pipeline(
+            self.fixture.write(
+                document(
+                    PHASE.replace(
+                        "approval_conditions = []",
+                        "approval_required = false\napproval_conditions = []",
+                    )
+                ),
+                "false.toml",
+            )
+        )
+        required = load_pipeline(
+            self.fixture.write(
+                document(
+                    PHASE.replace(
+                        "approval_conditions = []",
+                        "approval_required = true\napproval_conditions = []",
+                    )
+                ),
+                "required.toml",
+            )
+        )
+        self.assertFalse(omitted.phase("compose").approval_required)
+        self.assertFalse(explicit_false.phase("compose").approval_required)
+        self.assertTrue(required.phase("compose").approval_required)
+        self.assertEqual(omitted.config_hash, explicit_false.config_hash)
+        self.assertNotEqual(omitted.config_hash, required.config_hash)
+
+        invalid = PHASE.replace(
+            "approval_conditions = []",
+            'approval_required = "yes"\napproval_conditions = []',
+        )
+        self.assert_error(document(invalid), "invalid-field-type")
+
     def test_non_finite_command_timeout_is_rejected(self) -> None:
         phase = PHASE.replace(
             "[[phases.transitions]]",

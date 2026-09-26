@@ -77,6 +77,25 @@ The phase skill explains when each code applies. It must call
 `request-approval` or `block` rather than merely mentioning a concern in prose.
 Changing or adding a reason changes the pipeline hash.
 
+To require a human for every successful visit of a phase, add:
+
+```toml
+approval_required = true
+approval_conditions = []
+```
+
+`validate` runs the artifact validator, validation commands, and mutation
+check, then persists a `human-review` approval instead of transitioning. The
+reviewer runs `approve RUN_ID PHASE`; approval rechecks artifact and pipeline
+integrity before applying the already selected outcome. Conditional reasons may
+still be listed in `approval_conditions`; for a mandatory review,
+`human-review` is always accepted and is the default reason.
+
+This approves the completed phase artifact and its selected outcome. It is not
+a mid-phase permission prompt: work that must happen only after a human
+decision belongs in the following phase, with the required gate on the planning
+or decision phase.
+
 ## Mutation policies
 
 - `read-only` rejects every repository path change during the visit, including

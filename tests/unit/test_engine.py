@@ -54,7 +54,7 @@ outcome = "done"
 
 
 class EngineFixture:
-    def __init__(self) -> None:
+    def __init__(self, *, approval_required: bool = False) -> None:
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         (self.root / ".git").mkdir()
@@ -65,7 +65,13 @@ class EngineFixture:
                 f"---\nname: {name}\ndescription: Fixture.\n---\n", encoding="utf-8"
             )
         self.pipeline_path = self.root / "pipeline.toml"
-        self.pipeline_path.write_text(textwrap.dedent(PIPELINE), encoding="utf-8")
+        source = textwrap.dedent(PIPELINE)
+        if approval_required:
+            source = source.replace(
+                'approval_conditions = ["external-effect"]',
+                'approval_required = true\napproval_conditions = ["external-effect"]',
+            )
+        self.pipeline_path.write_text(source, encoding="utf-8")
         self.pipeline = load_pipeline(self.pipeline_path, self.root)
         self.store = RunStore(self.root)
         self.engine = Engine(self.pipeline, self.store)
@@ -136,6 +142,57 @@ class EngineTests(unittest.TestCase):
         repeated = self.fixture.engine.approve(run_id, "publish")
         self.assertEqual(repeated["status"]["status"], "completed")
         self.assertEqual(len(self.fixture.store.load(run_id)["approvals"]), 1)
+
+    def test_required_approval_is_created_by_validate_and_cannot_be_bypassed(self) -> None:
+        fixture = EngineFixture(approval_required=True)
+        try:
+            initialized = fixture.engine.initialize("Require a human review")
+            run_id = initialized["action"]["run_id"]
+            self.assertFalse(initialized["action"]["approval_required"])
+            fixture.engine.start_phase(run_id, "survey")
+            fixture.output(run_id)
+            next_phase = fixture.engine.validate(run_id, "survey")
+            self.assertTrue(next_phase["action"]["approval_required"])
+
+            fixture.engine.start_phase(run_id, "publish")
+            fixture.output(run_id, "review this output\n")
+            gated = fixture.engine.validate(run_id, "publish")
+            self.assertEqual(gated["code"], ExitCode.APPROVAL_REQUIRED)
+            self.assertEqual(gated["approval"]["reason"], "human-review")
+            self.assertEqual(gated["status"]["status"], "awaiting-approval")
+            self.assertEqual(
+                gated["status"]["next_command"],
+                ["specromancy", "approve", run_id, "publish"],
+            )
+            manifest = fixture.store.load(run_id)
+            self.assertEqual(manifest["visits"][-1]["status"], "awaiting-approval")
+            self.assertIsNone(manifest["visits"][-1]["chosen_outcome"])
+
+            completed = fixture.engine.approve(run_id, "publish")
+            self.assertEqual(completed["status"]["status"], "completed")
+            events = fixture.store.read_events(run_id)
+            self.assertIn("approval-requested", [event["type"] for event in events])
+            self.assertIn("approval-granted", [event["type"] for event in events])
+        finally:
+            fixture.close()
+
+    def test_required_approval_never_hides_artifact_validation_failure(self) -> None:
+        fixture = EngineFixture(approval_required=True)
+        try:
+            run_id = fixture.engine.initialize("Reject invalid review input")["action"][
+                "run_id"
+            ]
+            fixture.engine.start_phase(run_id, "survey")
+            fixture.output(run_id)
+            fixture.engine.validate(run_id, "survey")
+            fixture.engine.start_phase(run_id, "publish")
+            fixture.output(run_id, " \n")
+            with self.assertRaises(EngineError) as raised:
+                fixture.engine.validate(run_id, "publish")
+            self.assertEqual(raised.exception.code, ExitCode.VALIDATION_FAILED)
+            self.assertEqual(fixture.store.load(run_id)["approvals"], [])
+        finally:
+            fixture.close()
 
     def test_illegal_phase_empty_output_and_declared_block_are_enforced(self) -> None:
         initialized = self.fixture.engine.initialize("Stop safely")

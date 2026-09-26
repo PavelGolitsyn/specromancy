@@ -114,7 +114,7 @@ contain `approval` and `status`; read-only and terminal responses contain
 An action packet uses schema version 1 and contains stable keys for `run_id`,
 `visit_id`, `visit_attempt`, `visit_status`, `phase`, `skill`, `inputs`,
 `output`, `template`, `mutation`, `completion_criteria`, `validation`,
-`approval_conditions`, `stop_conditions`, `outcomes`, and
+`approval_required`, `approval_conditions`, `stop_conditions`, `outcomes`, and
 `final_validation_command`. Literal artifact records retain repository- or
 run-relative paths and add `absolute_path` for direct harness use.
 
@@ -143,3 +143,10 @@ outcome, actor, decision, and timestamps. Artifact or pipeline drift marks the
 record stale and leaves the visit awaiting a fresh approval. Phase-visit and
 transition-edge limits are checked atomically before a successor visit is
 created; exceeding a limit blocks the run without resetting its counters.
+
+A phase with `approval_required = true` cannot transition through `validate`.
+After artifact, command, and mutation checks pass, validation atomically creates
+a pending `human-review` approval and returns `APPROVAL_REQUIRED`. Only
+`approve RUN_ID PHASE` can record the selected outcome and transition. The
+field defaults to `false`, so pipelines that omit it retain their existing
+conditional-approval behavior.

@@ -83,6 +83,12 @@ hashes of their skill and template. Approval binds the run, visit, selected
 outcome, pipeline hash, and artifact hash; changing the artifact or pipeline
 makes the approval stale.
 
+When a phase declares `approval_required = true`, successful validation creates
+a pending `human-review` record instead of applying the transition. The
+validated outcome remains uncommitted until `approve` rechecks the bound hashes
+and records the transition. This gate is engine-enforced and cannot be bypassed
+by calling `validate` again.
+
 ## Transition and mutation safety
 
 Read-only, repository-write, and allowlist policies compare content-level Git
