@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -39,9 +40,16 @@ class EngineError(SpecromancyError):
 class Engine:
     """Advance runs using only configured outcomes and persisted state."""
 
-    def __init__(self, pipeline: PipelineConfig, store: RunStore | None = None) -> None:
+    def __init__(
+        self,
+        pipeline: PipelineConfig,
+        store: RunStore | None = None,
+        *,
+        command_fault_injector: Callable[[str], None] | None = None,
+    ) -> None:
         self.pipeline = pipeline
         self.store = store or RunStore(pipeline.repository_root)
+        self._command_fault_injector = command_fault_injector
 
     def initialize(self, description: str) -> dict[str, Any]:
         if not description.strip():
@@ -599,6 +607,7 @@ class Engine:
             self.pipeline.repository_root,
             self.store.run_directory(manifest["run_id"]),
             visit["ordinal"],
+            fault_injector=self._command_fault_injector,
         )
         command_failure = first_required_failure(command_results)
         try:

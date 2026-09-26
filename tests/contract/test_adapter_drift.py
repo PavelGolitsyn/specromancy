@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -29,6 +32,43 @@ class AdapterDriftContractTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("up to date", result.stdout)
+
+    def test_modified_generated_adapter_fails_check_without_rewriting(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for relative in ("AGENTS.md", "specromancy", ".agents", "adapters"):
+                source = ROOT / relative
+                destination = root / relative
+                if source.is_dir():
+                    shutil.copytree(source, destination)
+                else:
+                    shutil.copy2(source, destination)
+            for directory in (".claude", ".github", ".opencode"):
+                shutil.copytree(ROOT / directory, root / directory)
+            changed = root / ".opencode" / "commands" / "specromancy-status.md"
+            changed.write_text(changed.read_text(encoding="utf-8") + "drift\n", encoding="utf-8")
+            before = changed.read_bytes()
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "specromancy",
+                    "--root",
+                    str(root),
+                    "--pipeline",
+                    str(root / "specromancy" / "pipeline.toml"),
+                    "adapters",
+                    "generate",
+                    "--check",
+                ],
+                cwd=ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(result.returncode, 11)
+            self.assertIn("drift", result.stderr)
+            self.assertEqual(changed.read_bytes(), before)
 
     def test_manifest_covers_all_harnesses_and_matches_bytes(self) -> None:
         targets = {entry["name"]: entry for entry in self.manifest["targets"]}

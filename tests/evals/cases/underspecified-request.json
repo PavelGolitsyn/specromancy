@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "underspecified-request",
+  "category": "missing-information",
+  "initial_repository": {
+    "git": "clean",
+    "conditions": ["The repository contains two equally plausible target components."]
+  },
+  "request": "Update the component.",
+  "expected_phase_sequence": ["research"],
+  "expected_boundary": {
+    "status": "blocked",
+    "reason": "insufficient-information"
+  },
+  "required_artifact_properties": [
+    "Names the unresolved target ambiguity.",
+    "Does not claim that repository changes were made."
+  ]
+}

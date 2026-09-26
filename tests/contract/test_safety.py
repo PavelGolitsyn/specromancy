@@ -14,6 +14,8 @@ from specromancy.engine import Engine, EngineError
 from specromancy.exit_codes import ExitCode
 from specromancy.run_store import RunStore
 
+from tests.contract.support import DEFAULT_ARTIFACTS, CliRepository, advance_to
+
 
 def phase(name: str, *, target: str | None = None, extra: str = "") -> str:
     transition = f'outcome = "next"\n' + (f'target = "{target}"\n' if target else "")
@@ -83,6 +85,69 @@ class SafetyFixture:
 
 
 class SafetyContractTests(unittest.TestCase):
+    def test_real_git_read_only_phase_rejects_clean_and_preexisting_dirty_edits(self) -> None:
+        for dirty_before_start in (False, True):
+            with self.subTest(dirty_before_start=dirty_before_start):
+                repo = CliRepository()
+                try:
+                    if dirty_before_start:
+                        (repo.root / "tracked.txt").write_text(
+                            "dirty before start\n", encoding="utf-8"
+                        )
+                    run_id = repo.initialize("Preserve read-only state")
+                    repo.start_and_write(
+                        run_id, "research", DEFAULT_ARTIFACTS["research"]
+                    )
+                    (repo.root / "tracked.txt").write_text(
+                        "changed during phase\n", encoding="utf-8"
+                    )
+                    result = repo.command("validate", run_id, "research")
+                    self.assertEqual(result.returncode, ExitCode.VALIDATION_FAILED)
+                    self.assertEqual(
+                        repo.payload(result)["details"]["error_code"],
+                        "mutation-policy-violation",
+                    )
+                    manifest = json.loads(
+                        (
+                            repo.root
+                            / ".specromancy"
+                            / "runs"
+                            / run_id
+                            / "run.json"
+                        ).read_text(encoding="utf-8")
+                    )
+                    self.assertEqual(
+                        manifest["visits"][0]["mutation_result"]["violations"],
+                        ["tracked.txt"],
+                    )
+                finally:
+                    repo.close()
+
+    def test_real_cli_marks_approval_stale_after_artifact_edit(self) -> None:
+        repo = CliRepository()
+        try:
+            run_id = repo.initialize("Invalidate changed approval")
+            advance_to(repo, run_id, "plan")
+            output = repo.start_and_write(run_id, "plan", DEFAULT_ARTIFACTS["plan"])
+            requested = repo.command(
+                "request-approval", run_id, "--reason", "material-scope-change"
+            )
+            self.assertEqual(requested.returncode, ExitCode.APPROVAL_REQUIRED)
+            output.write_text(DEFAULT_ARTIFACTS["plan"] + "\nChanged.\n", encoding="utf-8")
+            approved = repo.command("approve", run_id, "plan")
+            self.assertEqual(approved.returncode, ExitCode.APPROVAL_REQUIRED)
+            self.assertEqual(
+                repo.payload(approved)["details"]["error_code"], "stale-approval"
+            )
+            manifest = json.loads(
+                (
+                    repo.root / ".specromancy" / "runs" / run_id / "run.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(manifest["approvals"][0]["status"], "stale")
+        finally:
+            repo.close()
+
     def test_command_timeout_missing_executable_and_optional_continuation(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

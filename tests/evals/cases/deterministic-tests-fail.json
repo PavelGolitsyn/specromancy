@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "id": "deterministic-tests-fail",
+  "category": "validation-failure",
+  "initial_repository": {
+    "git": "clean",
+    "conditions": ["The configured required validation command exits nonzero."]
+  },
+  "request": "Implement the approved small change.",
+  "expected_phase_sequence": ["research", "plan", "implement"],
+  "expected_boundary": {
+    "status": "validation-failed",
+    "reason": "validation-command-failed"
+  },
+  "required_artifact_properties": [
+    "Records the attempted implementation.",
+    "Does not claim successful completion after the required test failure."
+  ]
+}

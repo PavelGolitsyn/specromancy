@@ -891,6 +891,7 @@ class RunStore:
         self, directory: Path, manifest: dict[str, Any]
     ) -> None:
         target = directory / "run.json"
+        self._fault("before-manifest-temporary-write")
         descriptor, temporary_name = tempfile.mkstemp(
             dir=directory, prefix=".run.json.", suffix=".tmp"
         )
@@ -908,6 +909,7 @@ class RunStore:
                 stream.write("\n")
                 stream.flush()
                 os.fsync(stream.fileno())
+            self._fault("after-manifest-temporary-write")
             self._fault("before-manifest-replace")
             os.replace(temporary, target)
             self._fsync_directory(directory)

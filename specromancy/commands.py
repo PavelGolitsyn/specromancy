@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,7 @@ def execute_validation_commands(
     visit_number: int,
     *,
     summary_bytes: int = DEFAULT_SUMMARY_BYTES,
+    fault_injector: Callable[[str], None] | None = None,
 ) -> list[dict[str, Any]]:
     """Execute commands sequentially, stopping at the first required failure."""
 
@@ -59,8 +61,14 @@ def execute_validation_commands(
             stderr = str(exc).encode("utf-8", "replace")
             exit_code = None
         duration = max(0.0, time.monotonic() - started)
+        if fault_injector is not None:
+            fault_injector("before-command-output-write")
         stdout_path.write_bytes(stdout)
+        if fault_injector is not None:
+            fault_injector("after-command-stdout-write")
         stderr_path.write_bytes(stderr)
+        if fault_injector is not None:
+            fault_injector("after-command-output-write")
         failed = timed_out or missing or exit_code != 0
         result = {
             "executable": command.argv[0],
