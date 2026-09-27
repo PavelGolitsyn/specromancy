@@ -16,7 +16,8 @@ specromancy/cli.py
 specromancy/errors.py
 specromancy/exit_codes.py
 specromancy/schemas/
-specromancy/templates/
+workflow/pipeline.toml
+workflow/templates/
 .agents/skills/
 adapters/generate.py
 tests/unit/
@@ -25,7 +26,10 @@ tests/fixtures/
 tests/evals/
 ```
 
-The package directory will also contain the pipeline configuration. Keeping code and configuration under `specromancy/` is acceptable as long as the loader treats the configuration as data and tests can point it at a fixture-specific configuration.
+The Python package contains only the generic engine and its machine-readable
+contracts. The editable pipeline and templates live under `workflow/`, making
+the customization boundary visible while the loader still accepts
+fixture-specific and alternate configurations.
 
 ## Work items
 
@@ -144,4 +148,3 @@ Do not copy phase procedures into `AGENTS.md`.
 - Public terms, command names, exit codes, and ownership rules are documented.
 - The launcher and placeholder command parser run without dependencies.
 - Stage tests pass with `python -m unittest discover`.
-

@@ -14,7 +14,7 @@ Global options may appear before or after a subcommand:
 ```
 
 `--root` is required when no `.git` directory or worktree marker can be
-discovered. The default pipeline is `specromancy/pipeline.toml`.
+discovered. The default pipeline is `workflow/pipeline.toml`.
 
 ## Workflow commands
 
@@ -51,17 +51,21 @@ bin/specromancy block RUN_ID --reason REASON --details TEXT
 
 Only reasons declared by the current phase are accepted. `--reason` may be
 omitted when exactly one relevant reason is configured. An approval request
-validates the current artifact and binds its hash, pipeline hash, visit, and
-selected outcome. `approve` rechecks those bindings before transition. `block`
-records a declared stop condition; loop-limit blocks are created mechanically.
+validates the current artifact and binds its hash, pipeline hash, repository
+snapshot, visit, and selected outcome. `approve` rechecks those bindings,
+performs final validation while the request remains pending, and atomically
+records the approval and transition. `block` records a declared stop condition;
+loop-limit blocks are created mechanically.
 
 For a phase configured with `approval_required = true`, the ordinary
 `validate` command automatically creates a pending approval with reason
 `human-review` after all validation succeeds. It exits with code 7 and does not
 apply the transition. A human reviews the artifact and repository diff, then
-runs `approve RUN_ID PHASE`. If review changes the artifact, the old request is
-marked stale and `request-approval RUN_ID` creates a new mandatory review
-request after the updated output passes validation.
+runs `approve RUN_ID PHASE`. If review changes the artifact or repository, the
+old request is marked stale and `request-approval RUN_ID` creates a new
+mandatory review request after the updated output passes validation. If final
+validation is interrupted, no approval is recorded and the same pending request
+can be retried.
 
 ## Adapter commands
 

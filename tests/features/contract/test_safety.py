@@ -242,6 +242,28 @@ class SafetyContractTests(unittest.TestCase):
         finally:
             fixture.close()
 
+    def test_repository_edit_invalidates_pending_approval(self) -> None:
+        configured = phase("publish").replace(
+            "approval_conditions = []", 'approval_conditions = ["external-side-effect"]'
+        )
+        fixture = SafetyFixture(configured)
+        try:
+            run_id = fixture.start()
+            fixture.output(run_id, "reviewed output\n")
+            fixture.engine.request_approval(run_id, reason="external-side-effect")
+            (fixture.root / "changed-after-review.txt").write_text(
+                "not reviewed\n", encoding="utf-8"
+            )
+            with self.assertRaises(EngineError) as raised:
+                fixture.engine.approve(run_id, "publish")
+            self.assertEqual(raised.exception.diagnostic_code, "stale-approval")
+            self.assertEqual(raised.exception.details["mismatches"], ["repository"])
+            manifest = fixture.store.load(run_id)
+            self.assertEqual(manifest["status"], "awaiting-approval")
+            self.assertEqual(manifest["approvals"][0]["status"], "stale")
+        finally:
+            fixture.close()
+
     def test_pipeline_edit_invalidates_pending_approval(self) -> None:
         configured = phase("publish").replace(
             "approval_conditions = []", 'approval_conditions = ["external-side-effect"]'
