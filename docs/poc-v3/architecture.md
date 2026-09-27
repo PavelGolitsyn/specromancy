@@ -11,7 +11,8 @@ from files under `.specromancy/`, never from conversation history.
 | --- | --- |
 | Always-on repository constraints | `AGENTS.md` |
 | Phase procedure | `.agents/skills/<skill>/SKILL.md` |
-| Graph, policies, gates, and validators | `specromancy/pipeline.toml` |
+| Graph, policies, gates, and validators | `workflow/pipeline.toml` |
+| Artifact templates | `workflow/templates/` |
 | State transitions and persistence | `specromancy/` Python package |
 | Current run state | `.specromancy/runs/<run-id>/run.json` and artifacts |
 | Audit history | `.specromancy/runs/<run-id>/events.jsonl` |
@@ -102,11 +103,13 @@ bounded, secret-redacted summaries are recorded in the manifest.
 
 ## Canonical and generated content
 
-`AGENTS.md`, `specromancy/pipeline.toml`, `.agents/skills/`, and
-`specromancy/templates/` are canonical. Claude Code, Copilot, and OpenCode
-adapters are deterministic projections. Codex and Hermes consume canonical
-files directly. Generated files contain provenance and invocation glue only;
-they contain no phase graph, approval policy, or unique workflow procedure.
+`AGENTS.md`, `workflow/pipeline.toml`, `.agents/skills/`, and
+`workflow/templates/` are canonical. These customizable workflow sources stay
+outside the generic `specromancy/` engine package. Claude Code, Copilot, and
+OpenCode adapters are deterministic projections. Codex and Hermes consume
+canonical files directly. Generated files contain provenance and invocation
+glue only; they contain no phase graph, approval policy, or unique workflow
+procedure.
 
 ## POC limitations
 

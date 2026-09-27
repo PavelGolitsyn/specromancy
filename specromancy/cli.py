@@ -12,7 +12,7 @@ from typing import Any, TextIO
 
 from .contracts import RESERVED_COMMANDS
 from .actions import render_action_packet
-from .config import load_pipeline
+from .config import DEFAULT_PIPELINE_RELATIVE_PATH, load_pipeline
 from .engine import Engine
 from .errors import SpecromancyError, UsageError
 from .exit_codes import EXIT_CODE_DESCRIPTIONS, ExitCode
@@ -279,7 +279,7 @@ def _pipeline_path(root: Path, declared: str | None) -> Path:
     if declared is not None:
         path = Path(declared).expanduser()
         return (root / path).resolve() if not path.is_absolute() else path.resolve()
-    canonical = root / "specromancy" / "pipeline.toml"
+    canonical = root / DEFAULT_PIPELINE_RELATIVE_PATH
     return canonical if canonical.is_file() else root / "pipeline.toml"
 
 

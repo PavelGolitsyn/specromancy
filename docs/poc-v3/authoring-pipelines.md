@@ -1,5 +1,6 @@
 # Authoring pipelines
 
+The shipped customization map is [`workflow/README.md`](../../workflow/README.md).
 The primary replaceability proof is
 `tests/fixtures/replacement-pipeline/pipeline.toml`. It uses `inspect`,
 `transform`, and `verify` with its own skills and templates; the generic engine
@@ -17,7 +18,8 @@ transitions.
 To add a phase:
 
 1. add `.agents/skills/<name>/SKILL.md` with portable frontmatter;
-2. add any output template under the pipeline's directory;
+2. add any output template under `workflow/templates/` (or, for an alternate
+   pipeline, under that pipeline's directory);
 3. add `[[phases]]` with a unique lowercase identifier;
 4. route an existing transition to it and give it at least one transition;
 5. make every symbolic input available on every incoming route;

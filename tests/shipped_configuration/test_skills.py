@@ -71,7 +71,7 @@ class ShippedSkillTests(unittest.TestCase):
                 self.assertTrue(commands)
                 self.assertTrue(set(commands).issubset(RESERVED_COMMANDS))
                 for relative in re.findall(
-                    r"specromancy/templates/[a-z0-9-]+\.md", text
+                    r"workflow/templates/[a-z0-9-]+\.md", text
                 ):
                     self.assertTrue((ROOT / relative).is_file(), relative)
 
