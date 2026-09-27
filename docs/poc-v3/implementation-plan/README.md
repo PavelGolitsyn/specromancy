@@ -20,7 +20,7 @@ The agent authors and reasons. The CLI enforces and records.
 | --- | --- |
 | Always-on repository rules | `AGENTS.md` |
 | On-demand phase procedures | `.agents/skills/*/SKILL.md` |
-| Phase graph and gates | `specromancy/pipeline.toml` |
+| Phase graph and gates | `workflow/pipeline.toml` |
 | State transitions, hashes, validation, exit codes | `bin/specromancy` and Python package |
 | Cross-phase state | `.specromancy/runs/<run-id>/` artifacts and manifest |
 | Harness conventions | Generated adapters |

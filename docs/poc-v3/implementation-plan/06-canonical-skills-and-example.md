@@ -12,11 +12,11 @@ Provide a small research → plan → implement → review example that demonstr
 .agents/skills/plan/SKILL.md
 .agents/skills/implement/SKILL.md
 .agents/skills/review/SKILL.md
-specromancy/templates/request.md
-specromancy/templates/research.md
-specromancy/templates/plan.md
-specromancy/templates/implementation.md
-specromancy/templates/review.md
+workflow/templates/request.md
+workflow/templates/research.md
+workflow/templates/plan.md
+workflow/templates/implementation.md
+workflow/templates/review.md
 tests/fixtures/replacement-pipeline/
 ```
 

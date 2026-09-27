@@ -30,17 +30,20 @@ class CliRepository:
             self.pipeline = self.root / "pipeline.toml"
         else:
             shutil.copytree(ROOT / ".agents", self.root / ".agents")
-            (self.root / "specromancy" / "templates").mkdir(parents=True)
-            for source in (ROOT / "specromancy" / "templates").glob("*.md"):
-                shutil.copy2(source, self.root / "specromancy" / "templates" / source.name)
-            source = (ROOT / "specromancy" / "pipeline.toml").read_text(
+            (self.root / "workflow" / "templates").mkdir(parents=True)
+            for template in (ROOT / "workflow" / "templates").glob("*.md"):
+                shutil.copy2(
+                    template,
+                    self.root / "workflow" / "templates" / template.name,
+                )
+            source = (ROOT / "workflow" / "pipeline.toml").read_text(
                 encoding="utf-8"
             )
             source = source.replace(
                 '["python", "-m", "unittest", "discover"]',
                 json.dumps([sys.executable, "-c", "pass"]),
             )
-            self.pipeline = self.root / "specromancy" / "pipeline.toml"
+            self.pipeline = self.root / "workflow" / "pipeline.toml"
             self.pipeline.write_text(source, encoding="utf-8")
         (self.root / "tracked.txt").write_text("baseline\n", encoding="utf-8")
         self._git("add", ".")

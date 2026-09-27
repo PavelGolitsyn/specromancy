@@ -14,7 +14,7 @@ Global options may appear before or after a subcommand:
 ```
 
 `--root` is required when no `.git` directory or worktree marker can be
-discovered. The default pipeline is `specromancy/pipeline.toml`.
+discovered. The default pipeline is `workflow/pipeline.toml`.
 
 ## Workflow commands
 

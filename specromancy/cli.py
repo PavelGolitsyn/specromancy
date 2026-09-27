@@ -279,7 +279,7 @@ def _pipeline_path(root: Path, declared: str | None) -> Path:
     if declared is not None:
         path = Path(declared).expanduser()
         return (root / path).resolve() if not path.is_absolute() else path.resolve()
-    canonical = root / "specromancy" / "pipeline.toml"
+    canonical = root / "workflow" / "pipeline.toml"
     return canonical if canonical.is_file() else root / "pipeline.toml"
 
 

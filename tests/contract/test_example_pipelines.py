@@ -22,17 +22,22 @@ class DefaultExamplePipelineTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         shutil.copytree(ROOT / ".agents", self.root / ".agents")
-        (self.root / "specromancy" / "templates").mkdir(parents=True)
-        for template in (ROOT / "specromancy" / "templates").glob("*.md"):
-            shutil.copy2(template, self.root / "specromancy" / "templates" / template.name)
-        source = (ROOT / "specromancy" / "pipeline.toml").read_text(encoding="utf-8")
+        (self.root / "workflow" / "templates").mkdir(parents=True)
+        for template in (ROOT / "workflow" / "templates").glob("*.md"):
+            shutil.copy2(
+                template,
+                self.root / "workflow" / "templates" / template.name,
+            )
+        source = (ROOT / "workflow" / "pipeline.toml").read_text(
+            encoding="utf-8"
+        )
         command = json.dumps([sys.executable, "-c", "pass"])
         source = source.replace("allow_non_git = false", "allow_non_git = true")
         source = source.replace(
             'argv = ["python", "-m", "unittest", "discover"]',
             f"argv = {command}",
         )
-        self.pipeline_path = self.root / "specromancy" / "pipeline.toml"
+        self.pipeline_path = self.root / "workflow" / "pipeline.toml"
         self.pipeline_path.write_text(source, encoding="utf-8")
         self.pipeline = load_pipeline(self.pipeline_path, self.root)
         self.store = RunStore(self.root)

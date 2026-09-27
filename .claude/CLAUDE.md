@@ -9,7 +9,7 @@ The following repository instructions mirror the canonical AGENTS.md.
 
 - Support Python 3.11 and newer. The POC has no third-party runtime dependencies.
 - Run the full suite with `python -m unittest discover`.
-- Canonical workflow configuration and templates live under `specromancy/`; canonical phase procedures live under `.agents/skills/`. Harness adapters are generated files recorded in `adapters/manifest.json` and must contain no unique workflow logic.
+- Canonical workflow configuration and templates live under `workflow/`; canonical phase procedures live under `.agents/skills/`. The generic engine lives under `specromancy/` and must not contain workflow-specific phase names or policies. Harness adapters are generated files recorded in `adapters/manifest.json` and must contain no unique workflow logic.
 - Keep the engine generic: phase names belong in pipeline configuration, never in engine code.
 - Treat run artifacts as immutable visit outputs, mechanically enforce read-only phases, and invalidate approval when an approved artifact changes. Every state change must be atomic, validated, and reflected in both `run.json` and `events.jsonl`; runtime correctness must not depend on chat history.
 - The CLI owns only `.specromancy/runs/<run-id>/`, manifest-recorded adapter paths, and temporary files adjacent to a manifest during atomic replacement. It must never delete, reset, stage, or commit repository work.

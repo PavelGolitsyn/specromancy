@@ -21,6 +21,15 @@ bin/specromancy adapters generate --check
 use its exact output path, skill, mutation policy, and final validation command.
 Runtime data is written only under ignored `.specromancy/runs/` storage.
 
+## Customize the workflow
+
+The editable graph and artifact templates live in [`workflow/`](workflow/).
+Phase procedures live in [`.agents/skills/`](.agents/skills/) for native harness
+discovery, and repository-wide agent constraints live in [`AGENTS.md`](AGENTS.md).
+The Python package under `specromancy/` is the generic engine, not a workflow
+customization surface. Start with the
+[`workflow/README.md`](workflow/README.md) customization map.
+
 ## Documentation
 
 - [Architecture](docs/poc-v3/architecture.md)

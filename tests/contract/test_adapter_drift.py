@@ -36,7 +36,13 @@ class AdapterDriftContractTests(unittest.TestCase):
     def test_modified_generated_adapter_fails_check_without_rewriting(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
-            for relative in ("AGENTS.md", "specromancy", ".agents", "adapters"):
+            for relative in (
+                "AGENTS.md",
+                "specromancy",
+                "workflow",
+                ".agents",
+                "adapters",
+            ):
                 source = ROOT / relative
                 destination = root / relative
                 if source.is_dir():
@@ -56,7 +62,7 @@ class AdapterDriftContractTests(unittest.TestCase):
                     "--root",
                     str(root),
                     "--pipeline",
-                    str(root / "specromancy" / "pipeline.toml"),
+                    str(root / "workflow" / "pipeline.toml"),
                     "adapters",
                     "generate",
                     "--check",

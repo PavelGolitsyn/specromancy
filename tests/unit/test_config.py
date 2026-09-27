@@ -102,6 +102,10 @@ class ConfigTests(unittest.TestCase):
         return error
 
     def test_default_pipeline_loads_as_immutable_domain_objects(self) -> None:
+        self.assertEqual(
+            DEFAULT_PIPELINE_PATH,
+            ROOT / "workflow" / "pipeline.toml",
+        )
         pipeline = load_pipeline(DEFAULT_PIPELINE_PATH)
         self.assertEqual(pipeline.start, "research")
         self.assertEqual(pipeline.phase_ids, ("research", "plan", "implement", "review"))

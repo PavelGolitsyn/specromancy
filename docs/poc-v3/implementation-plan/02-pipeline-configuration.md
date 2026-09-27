@@ -7,7 +7,7 @@ Load an arbitrary declarative pipeline and reject configurations that cannot be 
 ## Files introduced or completed
 
 ```text
-specromancy/pipeline.toml
+workflow/pipeline.toml
 specromancy/config.py
 specromancy/graph.py
 specromancy/schemas/pipeline.schema.json

@@ -29,6 +29,19 @@ EXAMPLE_PHASES = ("research", "plan", "implement", "review")
 
 
 class StaticArchitectureContractTests(unittest.TestCase):
+    def test_engine_package_contains_no_customizable_workflow_files(self) -> None:
+        customizable_suffixes = {".md", ".toml"}
+        found = sorted(
+            path.relative_to(ROOT).as_posix()
+            for path in (ROOT / "specromancy").rglob("*")
+            if path.is_file() and path.suffix in customizable_suffixes
+        )
+        self.assertEqual(found, [])
+
+        self.assertTrue((ROOT / "workflow" / "README.md").is_file())
+        self.assertTrue((ROOT / "workflow" / "pipeline.toml").is_file())
+        self.assertTrue((ROOT / "workflow" / "templates").is_dir())
+
     def test_generic_engine_modules_do_not_name_example_phases(self) -> None:
         pattern = re.compile(r"\b(?:" + "|".join(EXAMPLE_PHASES) + r")\b")
         for name in GENERIC_MODULES:
@@ -130,7 +143,7 @@ class StaticArchitectureContractTests(unittest.TestCase):
 
     def test_every_shipped_pipeline_has_only_bounded_cycles(self) -> None:
         paths = [
-            ROOT / "specromancy" / "pipeline.toml",
+            ROOT / "workflow" / "pipeline.toml",
             *sorted((ROOT / "tests" / "fixtures").glob("**/pipeline.toml")),
         ]
         for path in paths:

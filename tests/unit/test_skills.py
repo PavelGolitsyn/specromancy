@@ -71,7 +71,7 @@ class CanonicalSkillTests(unittest.TestCase):
                 self.assertTrue(commands)
                 self.assertTrue(set(commands).issubset(RESERVED_COMMANDS))
                 for relative in re.findall(
-                    r"specromancy/templates/[a-z0-9-]+\.md", text
+                    r"workflow/templates/[a-z0-9-]+\.md", text
                 ):
                     self.assertTrue((ROOT / relative).is_file(), relative)
 
@@ -103,7 +103,7 @@ class CanonicalSkillTests(unittest.TestCase):
         self.assertIn("never edit `run.json`", orchestrator)
 
     def test_default_templates_satisfy_declared_contracts(self) -> None:
-        pipeline = load_pipeline(ROOT / "specromancy" / "pipeline.toml", ROOT)
+        pipeline = load_pipeline(ROOT / "workflow" / "pipeline.toml", ROOT)
         for phase in pipeline.phases:
             with self.subTest(phase=phase.id):
                 self.assertIsNotNone(phase.output_template_path)
@@ -113,7 +113,7 @@ class CanonicalSkillTests(unittest.TestCase):
                 for heading in phase.validator.required_headings:
                     self.assertEqual(headings.get(heading), 1)
         request_headings = markdown_heading_counts(
-            (ROOT / "specromancy" / "templates" / "request.md").read_text(
+            (ROOT / "workflow" / "templates" / "request.md").read_text(
                 encoding="utf-8"
             )
         )
