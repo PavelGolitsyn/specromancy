@@ -139,10 +139,11 @@ contain byte-limited summaries with values from secret-like environment
 variables redacted. The environment itself is never persisted.
 
 Approval records bind the run, phase, visit, reason, output hash, pipeline hash,
-outcome, actor, decision, and timestamps. Artifact or pipeline drift marks the
-record stale and leaves the visit awaiting a fresh approval. Phase-visit and
-transition-edge limits are checked atomically before a successor visit is
-created; exceeding a limit blocks the run without resetting its counters.
+repository snapshot, outcome, actor, decision, and timestamps. Artifact,
+pipeline, or repository drift marks the record stale and leaves the visit
+awaiting a fresh approval. Phase-visit and transition-edge limits are checked
+atomically before a successor visit is created; exceeding a limit blocks the
+run without resetting its counters.
 
 A phase with `approval_required = true` cannot transition through `validate`.
 After artifact, command, and mutation checks pass, validation atomically creates
@@ -150,3 +151,10 @@ a pending `human-review` approval and returns `APPROVAL_REQUIRED`. Only
 `approve RUN_ID PHASE` can record the selected outcome and transition. The
 field defaults to `false`, so pipelines that omit it retain their existing
 conditional-approval behavior.
+
+`approve` performs final validation while the request remains pending, then
+atomically records the decision and configured transition in one manifest
+revision. An interrupted validation therefore leaves the original request
+pending and retriable; there is no observable approved-but-untransitioned
+state. Runs created by older versions that contain that legacy state resume
+through `run RUN_ID`.

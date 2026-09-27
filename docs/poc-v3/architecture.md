@@ -81,14 +81,16 @@ state rather than guessed back into shape.
 
 Request and completed output artifacts are hash-bound. Visits also record the
 hashes of their skill and template. Approval binds the run, visit, selected
-outcome, pipeline hash, and artifact hash; changing the artifact or pipeline
-makes the approval stale.
+outcome, pipeline hash, artifact hash, and repository snapshot; changing any
+reviewed input makes the approval stale.
 
 When a phase declares `approval_required = true`, successful validation creates
 a pending `human-review` record instead of applying the transition. The
-validated outcome remains uncommitted until `approve` rechecks the bound hashes
-and records the transition. This gate is engine-enforced and cannot be bypassed
-by calling `validate` again.
+validated outcome remains uncommitted until `approve` rechecks the bound state,
+reruns validation, and atomically records both the human decision and the
+transition. An interruption before that commit leaves the pending request
+unchanged and retriable. This gate is engine-enforced and cannot be bypassed by
+calling `validate` again.
 
 ## Transition and mutation safety
 

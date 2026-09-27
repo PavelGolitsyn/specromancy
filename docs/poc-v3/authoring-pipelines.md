@@ -88,8 +88,9 @@ approval_conditions = []
 
 `validate` runs the artifact validator, validation commands, and mutation
 check, then persists a `human-review` approval instead of transitioning. The
-reviewer runs `approve RUN_ID PHASE`; approval rechecks artifact and pipeline
-integrity before applying the already selected outcome. Conditional reasons may
+reviewer runs `approve RUN_ID PHASE`; approval rechecks artifact, pipeline, and
+repository integrity, reruns validation, and atomically applies the decision
+and already selected outcome. Conditional reasons may
 still be listed in `approval_conditions`; for a mandatory review,
 `human-review` is always accepted and is the default reason.
 
