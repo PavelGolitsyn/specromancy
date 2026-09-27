@@ -21,6 +21,7 @@ from .validation import ValidationFailure, validate_artifact
 
 
 RESPONSE_SCHEMA_VERSION = 1
+REQUIRED_APPROVAL_REASON = "human-review"
 
 
 class EngineError(SpecromancyError):
@@ -166,6 +167,18 @@ class Engine:
         checks, mutation_result, command_results = self._perform_validation(
             manifest, visit, phase
         )
+        if phase.approval_required:
+            return self._record_approval_request(
+                manifest,
+                visit,
+                reason=REQUIRED_APPROVAL_REASON,
+                details="phase configuration requires human review before transition",
+                outcome=selected,
+                checks=checks,
+                mutation_result=mutation_result,
+                command_results=command_results,
+                message="human review is required before this phase can transition",
+            )
         updated = self.store.transition_visit(
             run_id,
             self.pipeline,
@@ -196,19 +209,56 @@ class Engine:
         if visit is None or visit["status"] not in {"active", "awaiting-approval"}:
             raise self._illegal("only an active visit can request approval", manifest)
         phase = self.pipeline.phase(visit["phase_id"])
-        chosen_reason = _declared_reason(reason, phase.approval_conditions, "approval")
+        declared_reasons = phase.approval_conditions
+        if phase.approval_required:
+            declared_reasons = (
+                REQUIRED_APPROVAL_REASON,
+                *(item for item in declared_reasons if item != REQUIRED_APPROVAL_REASON),
+            )
+            if reason is None:
+                reason = REQUIRED_APPROVAL_REASON
+        chosen_reason = _declared_reason(reason, declared_reasons, "approval")
         selected_outcome = self._select_outcome(phase, outcome)
         checks, mutation_result, command_results = self._perform_validation(
             manifest, visit, phase
         )
+        return self._record_approval_request(
+            manifest,
+            visit,
+            reason=chosen_reason,
+            details=details,
+            outcome=selected_outcome,
+            checks=checks,
+            mutation_result=mutation_result,
+            command_results=command_results,
+            message="approval is required",
+        )
+
+    def _record_approval_request(
+        self,
+        manifest: dict[str, Any],
+        visit: dict[str, Any],
+        *,
+        reason: str,
+        details: str | None,
+        outcome: str,
+        checks: list[dict[str, Any]],
+        mutation_result: dict[str, Any],
+        command_results: list[dict[str, Any]],
+        message: str,
+    ) -> dict[str, Any]:
+        """Persist one validated approval boundary without advancing the visit."""
+
+        run_id = manifest["run_id"]
+        phase = self.pipeline.phase(visit["phase_id"])
         check = checks[0]
         existing = self._pending_approval(manifest, visit["ordinal"])
         if existing is not None:
             if (
-                existing["reason"] == chosen_reason
+                existing["reason"] == reason
                 and existing["details"] == details
                 and existing["artifact_sha256"] == check["sha256"]
-                and existing["outcome"] == selected_outcome
+                and existing["outcome"] == outcome
             ):
                 return self._approval_response(
                     manifest, existing, "approval is already pending"
@@ -223,11 +273,11 @@ class Engine:
             run_id=run_id,
             phase_id=phase.id,
             visit_number=visit["ordinal"],
-            reason=chosen_reason,
+            reason=reason,
             details=details,
             artifact_sha256=check["sha256"],
             pipeline_sha256=self.pipeline.config_hash,
-            outcome=selected_outcome,
+            outcome=outcome,
             requested_at=requested_at,
         )
 
@@ -246,9 +296,9 @@ class Engine:
             "approval-requested",
             change,
             visit_number=visit["ordinal"],
-            payload={"reason": chosen_reason, "outcome": selected_outcome},
+            payload={"reason": reason, "outcome": outcome},
         )
-        return self._approval_response(manifest, approval, "approval is required")
+        return self._approval_response(manifest, approval, message)
 
     def approve(self, run_id: str, phase_id: str) -> dict[str, Any]:
         # Approval verification intentionally loads persisted state before

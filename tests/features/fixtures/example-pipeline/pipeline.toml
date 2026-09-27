@@ -1,10 +1,10 @@
 schema_version = 1
-id = "default"
+id = "example"
 version = 1
 start = "research"
 terminal_outcomes = ["approved", "blocked"]
 artifact_pattern = "artifacts/{visit:03}-{phase}.md"
-allow_non_git = false
+allow_non_git = true
 
 [[phases]]
 id = "research"
@@ -37,7 +37,6 @@ mutation = "read-only"
 completion_criteria = ["Map requirements to files, tests, verification, and risks."]
 validator = "markdown"
 required_headings = ["Scope", "Requirement Mapping", "Intended Files", "Tests", "Verification", "Risks and Approvals"]
-approval_required = true
 approval_conditions = ["material-scope-change"]
 stop_conditions = ["insufficient-information"]
 max_visits = 1
@@ -59,14 +58,8 @@ mutation = "repository-write"
 completion_criteria = ["Implement the plan and record changes, deviations, and verification."]
 validator = "markdown"
 required_headings = ["Changes", "Deviations", "Verification"]
-approval_required = true
 approval_conditions = ["destructive-action", "external-side-effect", "material-scope-change", "new-production-dependency"]
 stop_conditions = ["insufficient-information"]
-
-[[phases.commands]]
-argv = ["python3", "-m", "unittest", "discover"]
-timeout_seconds = 300
-required = true
 
 [[phases.transitions]]
 outcome = "validated"

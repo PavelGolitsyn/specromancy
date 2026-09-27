@@ -98,6 +98,7 @@ class PhaseConfig:
     completion_criteria: tuple[str, ...]
     validator: ValidatorConfig
     commands: tuple[ValidationCommand, ...]
+    approval_required: bool
     approval_conditions: tuple[str, ...]
     stop_conditions: tuple[str, ...]
     transitions: tuple[TransitionConfig, ...]
@@ -477,6 +478,7 @@ class _Loader:
             "heading_occurrence",
             "commands",
             "validation_commands",
+            "approval_required",
             "approval_conditions",
             "stop_conditions",
             "transitions",
@@ -567,6 +569,16 @@ class _Loader:
         )
         validator = self.parse_validator(raw, phase_id)
         commands = self.parse_commands(raw, phase_id)
+        approval_required = raw.get("approval_required", False)
+        if not isinstance(approval_required, bool):
+            self.fail(
+                "invalid-field-type",
+                "approval_required must be a boolean",
+                phase=phase_id,
+                field="approval_required",
+                value=approval_required,
+                remediation="use true or false",
+            )
         approval_conditions = self.string_list(
             raw.get("approval_conditions"),
             "approval_conditions",
@@ -610,6 +622,7 @@ class _Loader:
             completion_criteria=completion_criteria,
             validator=validator,
             commands=commands,
+            approval_required=approval_required,
             approval_conditions=approval_conditions,
             stop_conditions=stop_conditions,
             transitions=transitions,
@@ -958,6 +971,11 @@ def _canonical_document(
         "phases": [
             {
                 "allowlist": list(phase.allowlist),
+                **(
+                    {"approval_required": True}
+                    if phase.approval_required
+                    else {}
+                ),
                 "approval_conditions": list(phase.approval_conditions),
                 "commands": [
                     {

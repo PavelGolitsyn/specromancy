@@ -55,6 +55,14 @@ validates the current artifact and binds its hash, pipeline hash, visit, and
 selected outcome. `approve` rechecks those bindings before transition. `block`
 records a declared stop condition; loop-limit blocks are created mechanically.
 
+For a phase configured with `approval_required = true`, the ordinary
+`validate` command automatically creates a pending approval with reason
+`human-review` after all validation succeeds. It exits with code 7 and does not
+apply the transition. A human reviews the artifact and repository diff, then
+runs `approve RUN_ID PHASE`. If review changes the artifact, the old request is
+marked stale and `request-approval RUN_ID` creates a new mandatory review
+request after the updated output passes validation.
+
 ## Adapter commands
 
 ```bash

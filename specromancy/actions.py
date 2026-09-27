@@ -79,6 +79,7 @@ def build_action_packet(
                 for command in phase.validation_commands
             ],
         },
+        "approval_required": phase.approval_required,
         "approval_conditions": list(phase.approval_conditions),
         "stop_conditions": list(phase.stop_conditions),
         "outcomes": [transition.outcome for transition in phase.transitions],
@@ -100,6 +101,7 @@ def render_action_packet(packet: dict[str, Any]) -> str:
     allowlist = packet["mutation"]["allowlist"]
     if allowlist:
         mutation += f" ({', '.join(allowlist)})"
+    approval = "required" if packet["approval_required"] else "conditional only"
     return "\n".join(
         (
             f"Run: {packet['run_id']}",
@@ -110,6 +112,7 @@ def render_action_packet(packet: dict[str, Any]) -> str:
             inputs or "- none",
             f"Output: {packet['output']['absolute_path']}",
             f"Mutation: {mutation}",
+            f"Human approval: {approval}",
             "Completion criteria:",
             criteria or "- none",
             "Validate: "
