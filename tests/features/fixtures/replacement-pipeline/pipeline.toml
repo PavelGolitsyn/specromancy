@@ -1,0 +1,73 @@
+schema_version = 1
+id = "replacement"
+version = 1
+start = "inspect"
+terminal_outcomes = ["accepted", "rejected", "blocked"]
+artifact_pattern = "artifacts/{visit:03}-{phase}.md"
+allow_non_git = true
+
+[[phases]]
+id = "inspect"
+skill = "inspect"
+inputs = ["request"]
+output_name = "{visit:03}-observations.md"
+output_template = "templates/observations.md"
+mutation = "read-only"
+completion_criteria = ["Identify the source value and selected operation."]
+validator = "markdown"
+required_headings = ["Observations", "Selected Operation"]
+approval_conditions = []
+stop_conditions = ["unreadable-source"]
+max_visits = 1
+
+[[phases.transitions]]
+outcome = "transformable"
+target = "transform"
+
+[[phases.transitions]]
+outcome = "blocked"
+
+[[phases]]
+id = "transform"
+skill = "transform"
+inputs = ["request", "latest:inspect"]
+output_name = "{visit:03}-result.md"
+output_template = "templates/result.md"
+mutation = "allowlist"
+allowlist = ["workspace/**"]
+completion_criteria = ["Apply the selected operation and record its result."]
+validator = "markdown"
+required_headings = ["Operation", "Result"]
+approval_conditions = []
+stop_conditions = ["unsupported-operation"]
+max_visits = 1
+
+[[phases.transitions]]
+outcome = "transformed"
+target = "verify"
+
+[[phases.transitions]]
+outcome = "blocked"
+
+[[phases]]
+id = "verify"
+skill = "verify"
+inputs = ["request", "latest:inspect", "latest:transform"]
+output_name = "{visit:03}-decision.md"
+output_template = "templates/decision.md"
+mutation = "read-only"
+completion_criteria = ["Check the transformation and record a decision."]
+validator = "markdown"
+required_headings = ["Checks", "Decision"]
+approval_conditions = []
+stop_conditions = ["inconclusive"]
+max_visits = 1
+
+[[phases.transitions]]
+outcome = "accepted"
+
+[[phases.transitions]]
+outcome = "rejected"
+
+[[phases.transitions]]
+outcome = "blocked"

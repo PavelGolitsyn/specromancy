@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "excessive-review-repairs",
+  "category": "bounded-loop",
+  "initial_repository": {
+    "git": "clean",
+    "conditions": ["Review continues to select changes-requested after every repair."]
+  },
+  "request": "Implement and review the requested change.",
+  "expected_phase_sequence": [
+    "research",
+    "plan",
+    "implement",
+    "review",
+    "implement",
+    "review",
+    "implement",
+    "review",
+    "implement",
+    "review"
+  ],
+  "expected_boundary": {
+    "status": "blocked",
+    "reason": "transition-traversal-limit"
+  },
+  "required_artifact_properties": [
+    "Keeps every repair and review as a distinct visit artifact.",
+    "Records a mechanical loop-limit block instead of another repair visit."
+  ]
+}

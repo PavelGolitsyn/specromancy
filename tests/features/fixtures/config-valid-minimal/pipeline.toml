@@ -1,0 +1,22 @@
+schema_version = 1
+id = "minimal"
+version = 1
+start = "compose"
+terminal_outcomes = ["done"]
+artifact_pattern = "artifacts/{visit:03}-{phase}.md"
+
+[[phases]]
+id = "compose"
+skill = "research"
+inputs = ["request"]
+output_name = "{visit:03}-result.md"
+mutation = "read-only"
+completion_criteria = ["Produce a non-empty result."]
+validator = "file"
+approval_conditions = []
+stop_conditions = []
+max_visits = 1
+
+[[phases.transitions]]
+outcome = "done"
+
