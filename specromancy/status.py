@@ -70,21 +70,13 @@ def next_command(manifest: dict[str, Any]) -> list[str] | None:
     if manifest["status"] == "active" and current is not None:
         return ["specromancy", "validate", run_id, current["phase_id"]]
     if manifest["status"] == "awaiting-approval" and current is not None:
-        current_approvals = [
-            approval
-            for approval in manifest["approvals"]
-            if approval.get("visit_number") == current["ordinal"]
-        ]
         pending = any(
-            approval.get("status") == "pending" for approval in current_approvals
+            approval.get("visit_number") == current["ordinal"]
+            and approval.get("status") == "pending"
+            for approval in manifest["approvals"]
         )
         if pending:
             return ["specromancy", "approve", run_id, current["phase_id"]]
-        approved = any(
-            approval.get("status") == "approved" for approval in current_approvals
-        )
-        if approved:
-            return ["specromancy", "run", run_id]
         return ["specromancy", "request-approval", run_id]
     if manifest["status"] == "blocked":
         return ["specromancy", "status", run_id]

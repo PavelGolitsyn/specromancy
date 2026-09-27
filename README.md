@@ -5,14 +5,6 @@ artifact-based agent workflows. A declarative pipeline and canonical skills
 define the work; a small CLI validates transitions and persists recoverable run
 state independently of any harness conversation.
 
-## Customize the workflow
-
-Start with [`workflow/README.md`](workflow/README.md). Workflow graph, policy,
-and template changes belong under `workflow/`; phase procedures belong under
-`.agents/skills/`; repository-wide agent constraints belong in `AGENTS.md`.
-The `specromancy/` package is the generic engine and does not contain editable
-workflow definitions.
-
 ## Quickstart
 
 From a Git checkout:
@@ -32,7 +24,6 @@ Runtime data is written only under ignored `.specromancy/runs/` storage.
 ## Documentation
 
 - [Architecture](docs/poc-v3/architecture.md)
-- [Workflow customization map](workflow/README.md)
 - [CLI reference](docs/poc-v3/cli.md)
 - [Pipeline authoring](docs/poc-v3/authoring-pipelines.md)
 - [Harness usage](docs/poc-v3/harnesses.md)

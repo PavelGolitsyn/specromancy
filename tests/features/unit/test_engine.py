@@ -2,14 +2,13 @@ from __future__ import annotations
 
 import tempfile
 import textwrap
-import threading
 import unittest
 from pathlib import Path
 
 from specromancy.config import load_pipeline
 from specromancy.engine import Engine, EngineError
 from specromancy.exit_codes import ExitCode
-from specromancy.run_store import RunStore, RunStoreError
+from specromancy.run_store import RunStore
 
 
 PIPELINE = """
@@ -138,148 +137,11 @@ class EngineTests(unittest.TestCase):
             run_id, reason="external-effect", details="User must decide"
         )
         self.assertEqual(pending["code"], ExitCode.APPROVAL_REQUIRED)
-        before_approval = self.fixture.store.load(run_id)
         completed = self.fixture.engine.approve(run_id, "publish")
         self.assertEqual(completed["status"]["status"], "completed")
-        after_approval = self.fixture.store.load(run_id)
-        self.assertEqual(after_approval["revision"], before_approval["revision"] + 1)
-        self.assertEqual(after_approval["approvals"][0]["status"], "approved")
-        self.assertEqual(
-            self.fixture.store.read_events(run_id)[-1]["type"], "approval-granted"
-        )
         repeated = self.fixture.engine.approve(run_id, "publish")
         self.assertEqual(repeated["status"]["status"], "completed")
         self.assertEqual(len(self.fixture.store.load(run_id)["approvals"]), 1)
-
-    def test_interrupted_approval_validation_leaves_request_pending(self) -> None:
-        initialized = self.fixture.engine.initialize("Keep approval transactional")
-        run_id = initialized["action"]["run_id"]
-        self.fixture.engine.start_phase(run_id, "survey")
-        self.fixture.output(run_id)
-        self.fixture.engine.validate(run_id, "survey")
-        self.fixture.engine.start_phase(run_id, "publish")
-        self.fixture.output(run_id, "review me\n")
-        self.fixture.engine.request_approval(run_id, reason="external-effect")
-        original = self.fixture.engine._perform_validation
-
-        def interrupt(*args: object, **kwargs: object) -> object:
-            original(*args, **kwargs)
-            raise RuntimeError("approval validation interrupted")
-
-        self.fixture.engine._perform_validation = interrupt  # type: ignore[method-assign]
-        with self.assertRaisesRegex(RuntimeError, "approval validation interrupted"):
-            self.fixture.engine.approve(run_id, "publish")
-
-        manifest = self.fixture.store.load(run_id)
-        self.assertEqual(manifest["status"], "awaiting-approval")
-        self.assertEqual(manifest["approvals"][0]["status"], "pending")
-        self.assertNotIn(
-            "approval-granted",
-            [event["type"] for event in self.fixture.store.read_events(run_id)],
-        )
-
-    def test_status_sees_pending_request_during_approval_validation(self) -> None:
-        initialized = self.fixture.engine.initialize("Observe approval atomically")
-        run_id = initialized["action"]["run_id"]
-        self.fixture.engine.start_phase(run_id, "survey")
-        self.fixture.output(run_id)
-        self.fixture.engine.validate(run_id, "survey")
-        self.fixture.engine.start_phase(run_id, "publish")
-        self.fixture.output(run_id, "review me\n")
-        self.fixture.engine.request_approval(run_id, reason="external-effect")
-        original = self.fixture.engine._perform_validation
-        validation_started = threading.Event()
-        allow_validation = threading.Event()
-        results: list[dict[str, object]] = []
-        failures: list[BaseException] = []
-
-        def pause_validation(*args: object, **kwargs: object) -> object:
-            validation_started.set()
-            if not allow_validation.wait(timeout=5):
-                raise RuntimeError("timed out waiting to finish approval validation")
-            return original(*args, **kwargs)
-
-        def approve() -> None:
-            try:
-                results.append(self.fixture.engine.approve(run_id, "publish"))
-            except BaseException as exc:  # pragma: no cover - asserted below
-                failures.append(exc)
-
-        self.fixture.engine._perform_validation = pause_validation  # type: ignore[method-assign]
-        worker = threading.Thread(target=approve)
-        worker.start()
-        try:
-            self.assertTrue(validation_started.wait(timeout=5))
-            status = self.fixture.engine.status(run_id)["status"]
-            self.assertEqual(status["status"], "awaiting-approval")
-            self.assertEqual(status["pending_approval"]["status"], "pending")
-            self.assertEqual(
-                status["next_command"],
-                ["specromancy", "approve", run_id, "publish"],
-            )
-        finally:
-            allow_validation.set()
-            worker.join(timeout=5)
-
-        self.assertFalse(worker.is_alive())
-        self.assertEqual(failures, [])
-        self.assertEqual(results[0]["status"]["status"], "completed")
-
-    def test_artifact_change_after_approval_validation_invalidates_request(self) -> None:
-        initialized = self.fixture.engine.initialize("Reject a finalization race")
-        run_id = initialized["action"]["run_id"]
-        self.fixture.engine.start_phase(run_id, "survey")
-        self.fixture.output(run_id)
-        self.fixture.engine.validate(run_id, "survey")
-        self.fixture.engine.start_phase(run_id, "publish")
-        self.fixture.output(run_id, "review me\n")
-        self.fixture.engine.request_approval(run_id, reason="external-effect")
-        original = self.fixture.engine._perform_validation
-
-        def change_after_validation(*args: object, **kwargs: object) -> object:
-            result = original(*args, **kwargs)
-            self.fixture.output(run_id, "changed after validation\n")
-            return result
-
-        self.fixture.engine._perform_validation = change_after_validation  # type: ignore[method-assign]
-        with self.assertRaisesRegex(RunStoreError, "became stale"):
-            self.fixture.engine.approve(run_id, "publish")
-
-        manifest = self.fixture.store.load(run_id)
-        self.assertEqual(manifest["status"], "awaiting-approval")
-        self.assertEqual(manifest["approvals"][0]["status"], "stale")
-        self.assertEqual(
-            self.fixture.store.read_events(run_id)[-1]["type"],
-            "approval-invalidated",
-        )
-
-    def test_status_recovers_legacy_granted_untransitioned_approval(self) -> None:
-        initialized = self.fixture.engine.initialize("Resume a legacy approval")
-        run_id = initialized["action"]["run_id"]
-        self.fixture.engine.start_phase(run_id, "survey")
-        self.fixture.output(run_id)
-        self.fixture.engine.validate(run_id, "survey")
-        self.fixture.engine.start_phase(run_id, "publish")
-        self.fixture.output(run_id, "review me\n")
-        self.fixture.engine.request_approval(run_id, reason="external-effect")
-
-        def grant_without_transition(manifest: dict[str, object]) -> None:
-            approval = manifest["approvals"][0]  # type: ignore[index]
-            approval["status"] = "approved"
-            approval["decision"] = "approved"
-            approval["actor"] = "user"
-            approval["decided_at"] = "2026-09-27T12:00:00.000000Z"
-
-        self.fixture.store.mutate(
-            run_id,
-            "approval-granted",
-            grant_without_transition,
-            visit_number=2,
-            payload={"phase_id": "publish", "actor": "user"},
-        )
-        status = self.fixture.engine.status(run_id)["status"]
-        self.assertEqual(status["pending_approval"], None)
-        self.assertEqual(status["next_command"], ["specromancy", "run", run_id])
 
     def test_required_approval_is_created_by_validate_and_cannot_be_bypassed(self) -> None:
         fixture = EngineFixture(approval_required=True)

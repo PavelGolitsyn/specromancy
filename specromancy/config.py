@@ -23,10 +23,7 @@ IDENTIFIER_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SUPPORTED_SCHEMA_VERSION = 1
 MUTATION_POLICIES = frozenset({"read-only", "repository-write", "allowlist"})
 VALIDATOR_TYPES = frozenset({"markdown", "json", "file"})
-DEFAULT_PIPELINE_RELATIVE_PATH = Path("workflow/pipeline.toml")
-DEFAULT_PIPELINE_PATH = (
-    Path(__file__).resolve().parent.parent / DEFAULT_PIPELINE_RELATIVE_PATH
-)
+DEFAULT_PIPELINE_PATH = Path(__file__).with_name("pipeline.toml")
 _MISSING = object()
 
 

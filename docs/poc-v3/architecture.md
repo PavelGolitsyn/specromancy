@@ -11,8 +11,7 @@ from files under `.specromancy/`, never from conversation history.
 | --- | --- |
 | Always-on repository constraints | `AGENTS.md` |
 | Phase procedure | `.agents/skills/<skill>/SKILL.md` |
-| Graph, policies, gates, and validators | `workflow/pipeline.toml` |
-| Artifact templates | `workflow/templates/` |
+| Graph, policies, gates, and validators | `specromancy/pipeline.toml` |
 | State transitions and persistence | `specromancy/` Python package |
 | Current run state | `.specromancy/runs/<run-id>/run.json` and artifacts |
 | Audit history | `.specromancy/runs/<run-id>/events.jsonl` |
@@ -81,16 +80,14 @@ state rather than guessed back into shape.
 
 Request and completed output artifacts are hash-bound. Visits also record the
 hashes of their skill and template. Approval binds the run, visit, selected
-outcome, pipeline hash, artifact hash, and repository snapshot; changing any
-reviewed input makes the approval stale.
+outcome, pipeline hash, and artifact hash; changing the artifact or pipeline
+makes the approval stale.
 
 When a phase declares `approval_required = true`, successful validation creates
 a pending `human-review` record instead of applying the transition. The
-validated outcome remains uncommitted until `approve` rechecks the bound state,
-reruns validation, and atomically records both the human decision and the
-transition. An interruption before that commit leaves the pending request
-unchanged and retriable. This gate is engine-enforced and cannot be bypassed by
-calling `validate` again.
+validated outcome remains uncommitted until `approve` rechecks the bound hashes
+and records the transition. This gate is engine-enforced and cannot be bypassed
+by calling `validate` again.
 
 ## Transition and mutation safety
 
@@ -105,13 +102,11 @@ bounded, secret-redacted summaries are recorded in the manifest.
 
 ## Canonical and generated content
 
-`AGENTS.md`, `workflow/pipeline.toml`, `.agents/skills/`, and
-`workflow/templates/` are canonical. These customizable workflow sources stay
-outside the generic `specromancy/` engine package. Claude Code, Copilot, and
-OpenCode adapters are deterministic projections. Codex and Hermes consume
-canonical files directly. Generated files contain provenance and invocation
-glue only; they contain no phase graph, approval policy, or unique workflow
-procedure.
+`AGENTS.md`, `specromancy/pipeline.toml`, `.agents/skills/`, and
+`specromancy/templates/` are canonical. Claude Code, Copilot, and OpenCode
+adapters are deterministic projections. Codex and Hermes consume canonical
+files directly. Generated files contain provenance and invocation glue only;
+they contain no phase graph, approval policy, or unique workflow procedure.
 
 ## POC limitations
 

@@ -7,7 +7,7 @@ Load an arbitrary declarative pipeline and reject configurations that cannot be 
 ## Files introduced or completed
 
 ```text
-workflow/pipeline.toml
+specromancy/pipeline.toml
 specromancy/config.py
 specromancy/graph.py
 specromancy/schemas/pipeline.schema.json
@@ -161,3 +161,4 @@ Add table-driven fixtures for:
 - The loader contains no checks for example phase names.
 - A fixture with unrelated phase names passes validation.
 - Configuration hashes are deterministic.
+

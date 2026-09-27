@@ -1,6 +1,5 @@
 # Authoring pipelines
 
-The shipped customization map is [`workflow/README.md`](../../workflow/README.md).
 The primary replaceability proof is
 `tests/fixtures/replacement-pipeline/pipeline.toml`. It uses `inspect`,
 `transform`, and `verify` with its own skills and templates; the generic engine
@@ -18,8 +17,7 @@ transitions.
 To add a phase:
 
 1. add `.agents/skills/<name>/SKILL.md` with portable frontmatter;
-2. add any output template under `workflow/templates/` (or, for an alternate
-   pipeline, under that pipeline's directory);
+2. add any output template under the pipeline's directory;
 3. add `[[phases]]` with a unique lowercase identifier;
 4. route an existing transition to it and give it at least one transition;
 5. make every symbolic input available on every incoming route;
@@ -88,9 +86,8 @@ approval_conditions = []
 
 `validate` runs the artifact validator, validation commands, and mutation
 check, then persists a `human-review` approval instead of transitioning. The
-reviewer runs `approve RUN_ID PHASE`; approval rechecks artifact, pipeline, and
-repository integrity, reruns validation, and atomically applies the decision
-and already selected outcome. Conditional reasons may
+reviewer runs `approve RUN_ID PHASE`; approval rechecks artifact and pipeline
+integrity before applying the already selected outcome. Conditional reasons may
 still be listed in `approval_conditions`; for a mandatory review,
 `human-review` is always accepted and is the default reason.
 

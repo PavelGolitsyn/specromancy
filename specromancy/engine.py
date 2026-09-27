@@ -14,7 +14,7 @@ from .config import PhaseConfig, PipelineConfig
 from .errors import SpecromancyError, UsageError
 from .exit_codes import ExitCode
 from .git import GitError, capture_repository_snapshot, enforce_mutation_policy
-from .hashing import relative_path, sha256_file, sha256_json
+from .hashing import relative_path, sha256_file
 from .run_store import RunStore, format_timestamp, utc_now
 from .status import build_status
 from .validation import ValidationFailure, validate_artifact
@@ -164,7 +164,7 @@ class Engine:
         phase = self.pipeline.phase(visit["phase_id"])
         selected = self._select_outcome(phase, outcome)
         transition = next(item for item in phase.transitions if item.outcome == selected)
-        checks, mutation_result, command_results, repository = self._perform_validation(
+        checks, mutation_result, command_results = self._perform_validation(
             manifest, visit, phase
         )
         if phase.approval_required:
@@ -174,7 +174,6 @@ class Engine:
                 reason=REQUIRED_APPROVAL_REASON,
                 details="phase configuration requires human review before transition",
                 outcome=selected,
-                repository_sha256=sha256_json(repository),
                 checks=checks,
                 mutation_result=mutation_result,
                 command_results=command_results,
@@ -220,7 +219,7 @@ class Engine:
                 reason = REQUIRED_APPROVAL_REASON
         chosen_reason = _declared_reason(reason, declared_reasons, "approval")
         selected_outcome = self._select_outcome(phase, outcome)
-        checks, mutation_result, command_results, repository = self._perform_validation(
+        checks, mutation_result, command_results = self._perform_validation(
             manifest, visit, phase
         )
         return self._record_approval_request(
@@ -229,7 +228,6 @@ class Engine:
             reason=chosen_reason,
             details=details,
             outcome=selected_outcome,
-            repository_sha256=sha256_json(repository),
             checks=checks,
             mutation_result=mutation_result,
             command_results=command_results,
@@ -244,7 +242,6 @@ class Engine:
         reason: str,
         details: str | None,
         outcome: str,
-        repository_sha256: str,
         checks: list[dict[str, Any]],
         mutation_result: dict[str, Any],
         command_results: list[dict[str, Any]],
@@ -261,7 +258,6 @@ class Engine:
                 existing["reason"] == reason
                 and existing["details"] == details
                 and existing["artifact_sha256"] == check["sha256"]
-                and existing.get("repository_sha256") == repository_sha256
                 and existing["outcome"] == outcome
             ):
                 return self._approval_response(
@@ -281,7 +277,6 @@ class Engine:
             details=details,
             artifact_sha256=check["sha256"],
             pipeline_sha256=self.pipeline.config_hash,
-            repository_sha256=repository_sha256,
             outcome=outcome,
             requested_at=requested_at,
         )
@@ -323,35 +318,18 @@ class Engine:
             raise self._illegal("visit has no pending approval request", manifest)
         try:
             current_hash = self._artifact_hash(manifest, visit)
-            current_repository = capture_repository_snapshot(
-                self.pipeline.repository_root,
-                allow_non_git=self.pipeline.allow_non_git,
-            )
-        except GitError as exc:
-            raise EngineError(
-                ExitCode.VALIDATION_FAILED,
-                exc.message,
-                exc.diagnostic_code,
-                **exc.details,
-            ) from exc
         except EngineError:
             current_hash = ""
-            current_repository = None
         mismatches = approval_integrity_errors(
             approval,
             artifact_sha256=current_hash,
             pipeline_sha256=self.pipeline.config_hash,
-            repository_sha256=(
-                sha256_json(current_repository)
-                if current_repository is not None
-                else None
-            ),
         )
         if mismatches:
             self._invalidate_approval(manifest, visit, approval, mismatches)
             raise EngineError(
                 ExitCode.APPROVAL_REQUIRED,
-                "approval request is stale because reviewed state changed",
+                "approval request is stale because its artifact or pipeline changed",
                 "stale-approval",
                 phase=phase_id,
                 visit_number=visit["ordinal"],
@@ -366,35 +344,24 @@ class Engine:
                 warning["code"],
                 **warning.get("details", {}),
             )
-        phase = self.pipeline.phase(visit["phase_id"])
-        checks, mutation_result, command_results, repository = self._perform_validation(
-            manifest, visit, phase
-        )
-        transition = next(
-            item for item in phase.transitions if item.outcome == approval["outcome"]
-        )
         decided_at = format_timestamp(utc_now())
-        updated = self.store.approve_and_transition(
+
+        def decide(value: dict[str, Any]) -> None:
+            record = self._pending_approval(value, visit["ordinal"])
+            assert record is not None
+            record["status"] = "approved"
+            record["decision"] = "approved"
+            record["actor"] = "user"
+            record["decided_at"] = decided_at
+
+        manifest = self.store.mutate(
             run_id,
-            self.pipeline,
-            visit["ordinal"],
-            approval_requested_at=approval["requested_at"],
-            expected_revision=manifest["revision"],
-            repository_sha256=sha256_json(repository),
-            decided_at=decided_at,
-            outcome=approval["outcome"],
-            transition_target=transition.target,
-            terminal_result={
-                "outcome": approval["outcome"],
-                "phase": phase.id,
-                "visit_number": visit["ordinal"],
-                "approval_reason": approval["reason"],
-            },
-            validation_checks=checks,
-            mutation_result=mutation_result,
-            command_results=command_results,
+            "approval-granted",
+            decide,
+            visit_number=visit["ordinal"],
+            payload={"phase_id": phase_id, "actor": "user"},
         )
-        return self._after_transition(updated, approval["outcome"])
+        return self._advance_approved(manifest, visit, approval)
 
     def block(
         self,
@@ -509,14 +476,14 @@ class Engine:
             self._invalidate_approval(manifest, visit, approval, mismatches)
             raise EngineError(
                 ExitCode.APPROVAL_REQUIRED,
-                "approval is stale because reviewed state changed",
+                "approval is stale because its artifact or pipeline changed",
                 "stale-approval",
                 phase=visit["phase_id"],
                 visit_number=visit["ordinal"],
                 mismatches=mismatches,
             )
         phase = self.pipeline.phase(visit["phase_id"])
-        checks, mutation_result, command_results, _repository = self._perform_validation(
+        checks, mutation_result, command_results = self._perform_validation(
             manifest, visit, phase
         )
         transition = next(
@@ -651,12 +618,7 @@ class Engine:
         manifest: dict[str, Any],
         visit: dict[str, Any],
         phase: PhaseConfig,
-    ) -> tuple[
-        list[dict[str, Any]],
-        dict[str, Any],
-        list[dict[str, Any]],
-        dict[str, Any],
-    ]:
+    ) -> tuple[list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
         checks: list[dict[str, Any]] = []
         command_results: list[dict[str, Any]] = []
         mutation_result: dict[str, Any] | None = None
@@ -744,7 +706,7 @@ class Engine:
                 command=command_failure,
             )
         assert mutation_result is not None
-        return checks, mutation_result, command_results, current
+        return checks, mutation_result, command_results
 
     def _record_validation_failure(
         self,

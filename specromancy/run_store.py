@@ -25,7 +25,6 @@ from .artifacts import (
 from .config import PipelineConfig
 from .errors import SpecromancyError
 from .exit_codes import ExitCode
-from .git import GitError, capture_repository_snapshot
 from .hashing import (
     SHA256_PATTERN,
     normalize_relative_path,
@@ -575,65 +574,12 @@ class RunStore:
         with RunLock(directory / ".lock", clock=self._clock):
             manifest = self._read_manifest(directory, run_id)
             events = self._ensure_event_consistency(directory, manifest)
-            updated, payload = self._transition_manifest(
-                directory,
-                manifest,
-                pipeline,
-                visit_number,
-                outcome=outcome,
-                transition_target=transition_target,
-                terminal_result=terminal_result,
-                validation_checks=validation_checks,
-                command_results=command_results,
-                mutation_result=mutation_result,
-            )
-            if payload is None:
-                return copy.deepcopy(updated)
-            event_type = payload.pop("_event_type", "visit-transitioned")
-            self._commit_locked(
-                directory,
-                updated,
-                events,
-                event_type,
-                visit_number,
-                payload,
-            )
-            return copy.deepcopy(updated)
-
-    def approve_and_transition(
-        self,
-        run_id: str,
-        pipeline: PipelineConfig,
-        visit_number: int,
-        *,
-        approval_requested_at: str,
-        expected_revision: int,
-        repository_sha256: str,
-        decided_at: str,
-        outcome: str,
-        transition_target: str | None,
-        terminal_result: Any = None,
-        validation_checks: list[Any] | None = None,
-        command_results: list[Any] | None = None,
-        mutation_result: Any = None,
-    ) -> dict[str, Any]:
-        """Atomically grant a pending approval and apply its transition."""
-
-        directory = self.run_directory(run_id)
-        with RunLock(directory / ".lock", clock=self._clock):
-            manifest = self._read_manifest(directory, run_id)
-            events = self._ensure_event_consistency(directory, manifest)
             self._require_pipeline(manifest, pipeline)
-            existing_visit = self._visit(manifest, visit_number)
-            approval = self._approval_record(
-                manifest, visit_number, approval_requested_at
-            )
-            if existing_visit["status"] == "completed":
+            existing = self._visit(manifest, visit_number)
+            if existing["status"] == "completed":
                 if (
-                    approval is not None
-                    and approval.get("status") == "approved"
-                    and existing_visit["chosen_outcome"] == outcome
-                    and existing_visit["transition_target"] == transition_target
+                    existing["chosen_outcome"] == outcome
+                    and existing["transition_target"] == transition_target
                 ):
                     return copy.deepcopy(manifest)
                 raise RunStoreError(
@@ -642,280 +588,95 @@ class RunStore:
                     details={"visit_number": visit_number},
                     code=ExitCode.ILLEGAL_TRANSITION,
                 )
-            if manifest["revision"] != expected_revision:
+            if existing["status"] not in {"active", "awaiting-approval"}:
                 raise RunStoreError(
-                    "run changed while approval validation was in progress",
-                    diagnostic_code="concurrent-run-change",
+                    f"visit {visit_number} cannot complete from {existing['status']}",
+                    diagnostic_code="illegal-visit-status",
                     details={
-                        "expected_revision": expected_revision,
-                        "actual_revision": manifest["revision"],
                         "visit_number": visit_number,
+                        "status": existing["status"],
                     },
                     code=ExitCode.ILLEGAL_TRANSITION,
                 )
-            if approval is None or approval.get("status") != "pending":
-                raise RunStoreError(
-                    "the approval request is no longer pending",
-                    diagnostic_code="approval-not-pending",
-                    details={"visit_number": visit_number},
-                    code=ExitCode.ILLEGAL_TRANSITION,
-                )
-
-            mismatches = self._approval_binding_mismatches(
-                directory,
-                approval,
-                pipeline,
-                output_path=existing_visit["output"]["path"],
-                validated_repository_sha256=repository_sha256,
+            output = artifact_record(directory, existing["output"]["path"])
+            updated = copy.deepcopy(manifest)
+            visit = self._visit(updated, visit_number)
+            limit_block = self._transition_limit_block(
+                manifest, pipeline, visit, outcome, transition_target
             )
-            if mismatches:
-                updated = self._decide_approval(
-                    manifest,
-                    visit_number,
-                    approval_requested_at,
-                    status="stale",
-                    decision="invalidated",
-                    actor="system",
-                    decided_at=decided_at,
-                )
+            if limit_block is not None:
+                visit["status"] = "blocked"
+                visit["mutation_result"] = mutation_result
+                visit["validation_checks"] = list(validation_checks or [])
+                visit["command_results"] = list(command_results or [])
+                updated["status"] = "blocked"
+                updated["block_reason"] = limit_block
+                if isinstance(mutation_result, dict) and isinstance(
+                    mutation_result.get("head"), dict
+                ):
+                    updated["git"]["head"] = mutation_result["head"]
                 updated["revision"] += 1
                 updated["updated_at"] = self._timestamp()
                 self._commit_locked(
                     directory,
                     updated,
                     events,
-                    "approval-invalidated",
+                    "loop-limit-exceeded",
                     visit_number,
-                    {"mismatches": mismatches},
+                    limit_block,
                 )
-                raise RunStoreError(
-                    "approval request became stale during final validation",
-                    diagnostic_code="stale-approval",
-                    details={
-                        "phase": existing_visit["phase_id"],
-                        "visit_number": visit_number,
-                        "mismatches": mismatches,
-                    },
-                    code=ExitCode.APPROVAL_REQUIRED,
-                )
-
-            approved_manifest = self._decide_approval(
-                manifest,
-                visit_number,
-                approval_requested_at,
-                status="approved",
-                decision="approved",
-                actor="user",
-                decided_at=decided_at,
-            )
-            updated, payload = self._transition_manifest(
-                directory,
-                approved_manifest,
-                pipeline,
-                visit_number,
-                outcome=outcome,
-                transition_target=transition_target,
-                terminal_result=terminal_result,
-                validation_checks=validation_checks,
-                command_results=command_results,
-                mutation_result=mutation_result,
-            )
-            assert payload is not None
-            transition_event_type = payload.pop("_event_type", "visit-transitioned")
-            self._commit_locked(
-                directory,
-                updated,
-                events,
-                "approval-granted",
-                visit_number,
-                {
-                    **payload,
-                    "actor": "user",
-                    "requested_at": approval_requested_at,
-                    "transition_event": transition_event_type,
-                },
-            )
-            return copy.deepcopy(updated)
-
-    @staticmethod
-    def _approval_record(
-        manifest: dict[str, Any], visit_number: int, requested_at: str
-    ) -> dict[str, Any] | None:
-        return next(
-            (
-                item
-                for item in manifest["approvals"]
-                if item.get("visit_number") == visit_number
-                and item.get("requested_at") == requested_at
-            ),
-            None,
-        )
-
-    def _approval_binding_mismatches(
-        self,
-        directory: Path,
-        approval: dict[str, Any],
-        pipeline: PipelineConfig,
-        *,
-        output_path: str,
-        validated_repository_sha256: str,
-    ) -> list[str]:
-        output = artifact_record(directory, output_path)
-        try:
-            current_repository = capture_repository_snapshot(
-                self.repository_root,
-                allow_non_git=pipeline.allow_non_git,
-            )
-        except GitError as exc:
-            raise RunStoreError(
-                exc.message,
-                diagnostic_code=exc.diagnostic_code,
-                details=exc.details,
-                code=ExitCode.VALIDATION_FAILED,
-            ) from exc
-
-        mismatches: list[str] = []
-        if approval.get("artifact_sha256") != output["sha256"]:
-            mismatches.append("artifact")
-        pipeline_changed = approval.get("pipeline_sha256") != pipeline.config_hash
-        if pipeline_changed:
-            mismatches.append("pipeline")
-        bound_repository = approval.get("repository_sha256")
-        if (
-            bound_repository is not None
-            and not pipeline_changed
-            and (
-                bound_repository != validated_repository_sha256
-                or bound_repository != sha256_json(current_repository)
-            )
-        ):
-            mismatches.append("repository")
-        return mismatches
-
-    @classmethod
-    def _decide_approval(
-        cls,
-        manifest: dict[str, Any],
-        visit_number: int,
-        requested_at: str,
-        *,
-        status: str,
-        decision: str,
-        actor: str,
-        decided_at: str,
-    ) -> dict[str, Any]:
-        updated = copy.deepcopy(manifest)
-        record = cls._approval_record(updated, visit_number, requested_at)
-        assert record is not None
-        record["status"] = status
-        record["decision"] = decision
-        record["actor"] = actor
-        record["decided_at"] = decided_at
-        return updated
-
-    def _transition_manifest(
-        self,
-        directory: Path,
-        manifest: dict[str, Any],
-        pipeline: PipelineConfig,
-        visit_number: int,
-        *,
-        outcome: str,
-        transition_target: str | None,
-        terminal_result: Any,
-        validation_checks: list[Any] | None,
-        command_results: list[Any] | None,
-        mutation_result: Any,
-    ) -> tuple[dict[str, Any], dict[str, Any] | None]:
-        """Build one validated transition for a caller-owned atomic commit."""
-
-        self._require_pipeline(manifest, pipeline)
-        existing = self._visit(manifest, visit_number)
-        if existing["status"] == "completed":
-            if (
-                existing["chosen_outcome"] == outcome
-                and existing["transition_target"] == transition_target
-            ):
-                return copy.deepcopy(manifest), None
-            raise RunStoreError(
-                f"visit {visit_number} already completed with another transition",
-                diagnostic_code="visit-already-completed",
-                details={"visit_number": visit_number},
-                code=ExitCode.ILLEGAL_TRANSITION,
-            )
-        if existing["status"] not in {"active", "awaiting-approval"}:
-            raise RunStoreError(
-                f"visit {visit_number} cannot complete from {existing['status']}",
-                diagnostic_code="illegal-visit-status",
-                details={"visit_number": visit_number, "status": existing["status"]},
-                code=ExitCode.ILLEGAL_TRANSITION,
-            )
-        output = artifact_record(directory, existing["output"]["path"])
-        updated = copy.deepcopy(manifest)
-        visit = self._visit(updated, visit_number)
-        limit_block = self._transition_limit_block(
-            manifest, pipeline, visit, outcome, transition_target
-        )
-        if limit_block is not None:
-            visit["status"] = "blocked"
+                return copy.deepcopy(updated)
+            visit["status"] = "completed"
+            visit["output"]["sha256"] = output["sha256"]
             visit["mutation_result"] = mutation_result
             visit["validation_checks"] = list(validation_checks or [])
             visit["command_results"] = list(command_results or [])
-            updated["status"] = "blocked"
-            updated["block_reason"] = limit_block
+            visit["chosen_outcome"] = outcome
+            visit["transition_target"] = transition_target
+            visit["completed_at"] = self._timestamp()
             if isinstance(mutation_result, dict) and isinstance(
                 mutation_result.get("head"), dict
             ):
                 updated["git"]["head"] = mutation_result["head"]
+
+            next_visit = None
+            if transition_target is None:
+                updated["status"] = "completed"
+                updated["terminal_result"] = (
+                    terminal_result
+                    if terminal_result is not None
+                    else {"outcome": outcome, "visit_number": visit_number}
+                )
+            else:
+                next_visit = self._new_visit(
+                    directory,
+                    updated,
+                    pipeline,
+                    transition_target,
+                    status="pending",
+                    mutation_baseline=None,
+                )
+                updated["visits"].append(next_visit)
+                updated["current_visit"] = next_visit["ordinal"]
+                updated["status"] = "awaiting-agent"
             updated["revision"] += 1
             updated["updated_at"] = self._timestamp()
-            return updated, {
-                **limit_block,
-                "blocked": True,
-                "_event_type": "loop-limit-exceeded",
-            }
-
-        visit["status"] = "completed"
-        visit["output"]["sha256"] = output["sha256"]
-        visit["mutation_result"] = mutation_result
-        visit["validation_checks"] = list(validation_checks or [])
-        visit["command_results"] = list(command_results or [])
-        visit["chosen_outcome"] = outcome
-        visit["transition_target"] = transition_target
-        visit["completed_at"] = self._timestamp()
-        if isinstance(mutation_result, dict) and isinstance(
-            mutation_result.get("head"), dict
-        ):
-            updated["git"]["head"] = mutation_result["head"]
-
-        next_visit = None
-        if transition_target is None:
-            updated["status"] = "completed"
-            updated["terminal_result"] = (
-                terminal_result
-                if terminal_result is not None
-                else {"outcome": outcome, "visit_number": visit_number}
-            )
-        else:
-            next_visit = self._new_visit(
+            self._commit_locked(
                 directory,
                 updated,
-                pipeline,
-                transition_target,
-                status="pending",
-                mutation_baseline=None,
+                events,
+                "visit-transitioned",
+                visit_number,
+                {
+                    "phase_id": visit["phase_id"],
+                    "outcome": outcome,
+                    "target": transition_target,
+                    "next_visit": (
+                        next_visit["ordinal"] if next_visit is not None else None
+                    ),
+                },
             )
-            updated["visits"].append(next_visit)
-            updated["current_visit"] = next_visit["ordinal"]
-            updated["status"] = "awaiting-agent"
-        updated["revision"] += 1
-        updated["updated_at"] = self._timestamp()
-        return updated, {
-            "phase_id": visit["phase_id"],
-            "outcome": outcome,
-            "target": transition_target,
-            "next_visit": next_visit["ordinal"] if next_visit is not None else None,
-        }
+            return copy.deepcopy(updated)
 
     def _transition_limit_block(
         self,

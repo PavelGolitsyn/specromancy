@@ -1,10 +1,6 @@
 # Harness compatibility
 
-Specromancy keeps workflow ownership in `AGENTS.md`, `workflow/pipeline.toml`,
-`workflow/templates/`, and `.agents/skills/*/SKILL.md`. The `specromancy/`
-directory contains only the generic engine and its contracts. Harness adapters
-are generated discovery and invocation aids; they do not define phases,
-transitions, validation, or approval rules.
+Specromancy keeps workflow ownership in `AGENTS.md`, `specromancy/pipeline.toml`, and `.agents/skills/*/SKILL.md`. Harness adapters are generated discovery and invocation aids; they do not define phases, transitions, validation, or approval rules.
 
 Generate adapters after changing any canonical source:
 
