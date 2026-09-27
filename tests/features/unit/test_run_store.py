@@ -229,12 +229,60 @@ class RunStoreTests(unittest.TestCase):
         with self.assertRaises(RunCorruptionError):
             self.store.load(RUN_ID)
 
-    def test_schema_documents_are_valid_json(self) -> None:
+    def test_event_log_corruption_is_never_guessed_back_into_shape(self) -> None:
+        self.create()
+        self.store.block(RUN_ID, "test")
+        path = self.store.run_directory(RUN_ID) / "events.jsonl"
+        original = path.read_text(encoding="utf-8")
+        events = [json.loads(line) for line in original.splitlines()]
+
+        changed_sequence = [dict(event) for event in events]
+        changed_sequence[1]["sequence"] = 3
+        changed_revision = [dict(event) for event in events]
+        changed_revision[0]["manifest_revision"] = 2
+        changed_final_hash = [dict(event) for event in events]
+        changed_final_hash[-1]["manifest_hash"] = "0" * 64
+        cases = {
+            "malformed-json": original + "{\n",
+            "empty-record": original + "\n",
+            "sequence-gap": "".join(
+                json.dumps(event) + "\n" for event in changed_sequence
+            ),
+            "revision-gap": "".join(
+                json.dumps(event) + "\n" for event in changed_revision
+            ),
+            "final-hash-mismatch": "".join(
+                json.dumps(event) + "\n" for event in changed_final_hash
+            ),
+        }
+        for name, content in cases.items():
+            with self.subTest(name=name):
+                path.write_text(content, encoding="utf-8")
+                with self.assertRaises(RunCorruptionError):
+                    self.store.load(RUN_ID)
+        path.write_text(original, encoding="utf-8")
+        self.assertEqual(self.store.load(RUN_ID)["status"], "blocked")
+
+    def test_persisted_records_match_their_published_schema_surfaces(self) -> None:
         schemas = Path(__file__).resolve().parents[3] / "specromancy" / "schemas"
         run_schema = json.loads((schemas / "run.schema.json").read_text())
         event_schema = json.loads((schemas / "event.schema.json").read_text())
         self.assertEqual(run_schema["properties"]["schema_version"]["const"], 1)
         self.assertEqual(event_schema["properties"]["schema_version"]["const"], 1)
+        self.assertEqual(set(run_schema["required"]), set(run_schema["properties"]))
+        self.assertEqual(
+            set(event_schema["required"]), set(event_schema["properties"])
+        )
+
+        self.create()
+        self.store.start_visit(RUN_ID, self.fixture.pipeline, "compose")
+        manifest = self.store.load(RUN_ID)
+        event = self.store.read_events(RUN_ID)[-1]
+        self.assertEqual(set(manifest), set(run_schema["required"]))
+        self.assertEqual(set(event), set(event_schema["required"]))
+        visit_schema = run_schema["$defs"]["visit"]
+        self.assertEqual(set(visit_schema["required"]), set(visit_schema["properties"]))
+        self.assertEqual(set(manifest["visits"][0]), set(visit_schema["required"]))
 
 
 if __name__ == "__main__":

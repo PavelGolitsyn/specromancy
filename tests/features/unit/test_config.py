@@ -127,6 +127,14 @@ class ConfigTests(unittest.TestCase):
         duplicate = PHASE + PHASE.replace('id = "compose"', 'id = "compose"')
         self.assert_error(document(duplicate), "duplicate-phase")
 
+    def test_malformed_toml_is_rejected_with_a_stable_diagnostic(self) -> None:
+        path = self.fixture.write("schema_version = [\n")
+        with self.assertRaises(PipelineConfigError) as raised:
+            load_pipeline(path)
+        self.assertEqual(raised.exception.code, ExitCode.INVALID_PIPELINE)
+        self.assertEqual(raised.exception.diagnostic_code, "invalid-toml")
+        self.assertNotIn("traceback", raised.exception.as_dict())
+
     def test_missing_start_is_rejected(self) -> None:
         self.assert_error(document(start='"missing"'), "missing-start-phase")
 

@@ -13,7 +13,7 @@ From a Git checkout:
 bin/specromancy init "describe the requested change"
 bin/specromancy status RUN_ID
 bin/specromancy resume RUN_ID
-python -m unittest discover
+python3 -m unittest discover
 bin/specromancy adapters generate --check
 ```
 

@@ -81,6 +81,51 @@ class GitSnapshotTests(unittest.TestCase):
         with self.assertRaises(GitError):
             enforce_mutation_policy(before, after, "allowlist", ("src/**",))
 
+    def test_read_only_rejects_index_head_and_branch_only_changes(self) -> None:
+        (self.root / "tracked.txt").write_text("staged later\n")
+        before_index = capture_repository_snapshot(self.root)
+        subprocess.run(
+            ["git", "-C", str(self.root), "add", "tracked.txt"], check=True
+        )
+        after_index = capture_repository_snapshot(self.root)
+        self.assertEqual(compare_snapshots(before_index, after_index)["paths"], [])
+        with self.assertRaises(GitError) as staged:
+            enforce_mutation_policy(before_index, after_index, "read-only")
+        self.assertEqual(staged.exception.details["paths"], ["@git/index"])
+
+        before_commit = after_index
+        subprocess.run(
+            ["git", "-C", str(self.root), "commit", "-qm", "index change"],
+            check=True,
+        )
+        after_commit = capture_repository_snapshot(self.root)
+        self.assertEqual(compare_snapshots(before_commit, after_commit)["paths"], [])
+        with self.assertRaises(GitError) as committed:
+            enforce_mutation_policy(before_commit, after_commit, "read-only")
+        self.assertEqual(committed.exception.details["paths"], ["@git/head"])
+
+        before_branch = after_commit
+        subprocess.run(
+            ["git", "-C", str(self.root), "checkout", "-qb", "alternate"],
+            check=True,
+        )
+        after_branch = capture_repository_snapshot(self.root)
+        self.assertEqual(compare_snapshots(before_branch, after_branch)["paths"], [])
+        with self.assertRaises(GitError) as switched:
+            enforce_mutation_policy(before_branch, after_branch, "read-only")
+        self.assertEqual(switched.exception.details["paths"], ["@git/branch"])
+
+    def test_allowlist_never_allows_git_metadata_changes(self) -> None:
+        (self.root / "tracked.txt").write_text("staged later\n")
+        before = capture_repository_snapshot(self.root)
+        subprocess.run(
+            ["git", "-C", str(self.root), "add", "tracked.txt"], check=True
+        )
+        after = capture_repository_snapshot(self.root)
+        with self.assertRaises(GitError) as raised:
+            enforce_mutation_policy(before, after, "allowlist", ("**",))
+        self.assertEqual(raised.exception.details["paths"], ["@git/index"])
+
     def test_non_git_operation_requires_explicit_opt_in(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

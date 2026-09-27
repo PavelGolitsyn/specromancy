@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import tempfile
 import textwrap
 import unittest
@@ -117,6 +118,80 @@ class EngineTests(unittest.TestCase):
         result = self.fixture.engine.run(run_id)
         self.assertEqual(result["code"], ExitCode.AGENT_ACTION_REQUIRED)
         self.assertEqual(result["action"]["visit_status"], "active")
+
+    def test_action_packets_preserve_the_complete_harness_contract(self) -> None:
+        initialized = self.fixture.engine.initialize("Inspect action packets")
+        self.assertEqual(
+            set(initialized), {"schema_version", "kind", "code", "message", "action"}
+        )
+        first = initialized["action"]
+        expected_keys = {
+            "schema_version",
+            "run_id",
+            "visit_id",
+            "visit_attempt",
+            "visit_status",
+            "phase",
+            "skill",
+            "inputs",
+            "output",
+            "template",
+            "mutation",
+            "completion_criteria",
+            "validation",
+            "approval_conditions",
+            "stop_conditions",
+            "outcomes",
+            "final_validation_command",
+        }
+        self.assertEqual(set(first), expected_keys)
+        self.assertEqual(
+            set(first["skill"]), {"path", "sha256", "absolute_path"}
+        )
+        self.assertEqual(
+            set(first["inputs"][0]),
+            {"reference", "path", "sha256", "absolute_path"},
+        )
+        self.assertEqual(
+            set(first["output"]), {"path", "sha256", "absolute_path"}
+        )
+        self.assertEqual(
+            set(first["validation"]),
+            {
+                "type",
+                "required_headings",
+                "heading_occurrence",
+                "schema",
+                "commands",
+            },
+        )
+        self.assertEqual(first["inputs"][0]["reference"], "request")
+        self.assertEqual(
+            first["final_validation_command"][:3],
+            [sys.executable, "-m", "specromancy"],
+        )
+        self.assertEqual(
+            first["final_validation_command"][-2:],
+            [first["run_id"], "survey"],
+        )
+
+        run_id = first["run_id"]
+        self.fixture.engine.start_phase(run_id, "survey")
+        self.fixture.output(run_id, "evidence\n")
+        second = self.fixture.engine.validate(run_id, "survey")["action"]
+        self.assertEqual(set(second), expected_keys)
+        self.assertEqual(second["phase"], "publish")
+        self.assertEqual(
+            [record["reference"] for record in second["inputs"]],
+            ["request", "latest:survey"],
+        )
+        self.assertTrue(all(record["sha256"] for record in second["inputs"]))
+        self.assertTrue(
+            all(
+                Path(record["absolute_path"]).is_absolute()
+                for record in second["inputs"]
+            )
+        )
 
     def test_approval_binds_hash_and_advances_once(self) -> None:
         initialized = self.fixture.engine.initialize("Need approval")

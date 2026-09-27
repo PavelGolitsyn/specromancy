@@ -50,6 +50,7 @@ def capture_repository_snapshot(
         listed = _git(
             root, "ls-files", "-co", "--exclude-standard", "-z", text=False
         )
+        index = _git(root, "ls-files", "--stage", "-z", text=False)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise GitError(
             "git-snapshot-failed", "Git metadata capture failed", error=str(exc)
@@ -59,6 +60,12 @@ def capture_repository_snapshot(
             "git-snapshot-failed",
             "Git could not enumerate repository files",
             stderr=listed.stderr.decode("utf-8", "replace").strip(),
+        )
+    if index.returncode != 0:
+        raise GitError(
+            "git-snapshot-failed",
+            "Git could not inspect the repository index",
+            stderr=index.stderr.decode("utf-8", "replace").strip(),
         )
     files: dict[str, dict[str, Any]] = {}
     for raw in listed.stdout.split(b"\0"):
@@ -79,6 +86,7 @@ def capture_repository_snapshot(
         "is_worktree": True,
         "head": head_result.stdout.strip() if head_result.returncode == 0 else None,
         "branch": branch_result.stdout.strip() if branch_result.returncode == 0 else None,
+        "index_sha256": hashlib.sha256(index.stdout).hexdigest(),
         "files": dict(sorted(files.items())),
     }
 
@@ -123,6 +131,11 @@ def compare_snapshots(
     paths = set(added) | set(deleted) | changed | mode_changed
     for rename in renames:
         paths.update(rename.values())
+    metadata_changed = [
+        name
+        for name in ("head", "branch", "index_sha256")
+        if before.get(name) != after.get(name)
+    ]
     return {
         "added": sorted(added),
         "changed": sorted(changed),
@@ -130,6 +143,7 @@ def compare_snapshots(
         "mode_changed": sorted(mode_changed),
         "renamed": renames,
         "paths": sorted(paths),
+        "metadata_changed": metadata_changed,
         "before_head": before.get("head"),
         "after_head": after.get("head"),
     }
@@ -151,15 +165,19 @@ def enforce_mutation_policy(
         "head": after.get("head"),
         "branch": after.get("branch"),
     }
+    metadata_violations = [
+        f"@git/{name.removesuffix('_sha256')}"
+        for name in comparison["metadata_changed"]
+    ]
     violations: list[str] = []
     if policy == "read-only":
-        violations = list(comparison["paths"])
+        violations = [*comparison["paths"], *metadata_violations]
     elif policy == "allowlist":
         violations = [
             path
             for path in comparison["paths"]
             if not any(_glob_matches(path, pattern) for pattern in allowlist)
-        ]
+        ] + metadata_violations
     elif policy != "repository-write":
         raise ValueError(f"unsupported mutation policy: {policy!r}")
     if violations:
@@ -229,6 +247,7 @@ def _non_git_snapshot(root: Path) -> dict[str, Any]:
         "is_worktree": False,
         "head": None,
         "branch": None,
+        "index_sha256": None,
         "files": files,
     }
 

@@ -30,11 +30,15 @@ def parse_frontmatter(path: Path) -> tuple[dict[str, str], dict[str, str]]:
             if not in_metadata or ":" not in line:
                 raise AssertionError(f"{path} has non-portable nested frontmatter")
             key, value = line.strip().split(":", 1)
+            if key in metadata:
+                raise AssertionError(f"{path} has duplicate metadata key {key!r}")
             metadata[key] = value.strip()
             continue
         if ":" not in line:
             raise AssertionError(f"{path} has malformed frontmatter: {line!r}")
         key, value = line.split(":", 1)
+        if key in fields:
+            raise AssertionError(f"{path} has duplicate frontmatter key {key!r}")
         fields[key] = value.strip()
         in_metadata = key == "metadata"
     return fields, metadata

@@ -983,6 +983,15 @@ class RunStore:
                     run_id=run_id,
                     details={"line": index, "sequence": event["sequence"]},
                 )
+            if event["manifest_revision"] != index:
+                raise RunCorruptionError(
+                    "run event revisions are not contiguous",
+                    run_id=run_id,
+                    details={
+                        "line": index,
+                        "manifest_revision": event["manifest_revision"],
+                    },
+                )
             events.append(event)
         return events
 

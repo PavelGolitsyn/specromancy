@@ -62,7 +62,7 @@ approval_conditions = ["destructive-action", "external-side-effect", "material-s
 stop_conditions = ["insufficient-information"]
 
 [[phases.commands]]
-argv = ["python", "-m", "unittest", "discover"]
+argv = ["python3", "-m", "unittest", "discover"]
 timeout_seconds = 300
 required = true
 
