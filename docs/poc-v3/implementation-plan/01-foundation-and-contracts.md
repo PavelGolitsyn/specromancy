@@ -19,10 +19,11 @@ specromancy/schemas/
 workflow/templates/
 .agents/skills/
 adapters/generate.py
-tests/unit/
-tests/contract/
-tests/fixtures/
-tests/evals/
+tests/features/unit/
+tests/features/contract/
+tests/features/fixtures/
+tests/features/evals/
+tests/shipped_configuration/
 ```
 
 The generic engine lives under `specromancy/`. Editable workflow configuration

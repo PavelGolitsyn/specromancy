@@ -17,7 +17,7 @@ workflow/templates/research.md
 workflow/templates/plan.md
 workflow/templates/implementation.md
 workflow/templates/review.md
-tests/fixtures/replacement-pipeline/
+tests/features/fixtures/replacement-pipeline/
 ```
 
 ## Work items
@@ -140,4 +140,3 @@ Review each canonical skill and referenced file for:
 - The orchestrator derives every current action from the CLI.
 - Canonical skills are portable and vendor-neutral.
 - A wholly different fixture pipeline proves configurability.
-

@@ -11,8 +11,8 @@ specromancy/engine.py
 specromancy/actions.py
 specromancy/cli.py
 specromancy/status.py
-tests/unit/test_engine.py
-tests/contract/test_cli.py
+tests/features/unit/test_engine.py
+tests/features/contract/test_cli.py
 ```
 
 ## State model

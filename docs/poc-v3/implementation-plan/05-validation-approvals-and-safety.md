@@ -11,9 +11,9 @@ specromancy/validation.py
 specromancy/git.py
 specromancy/commands.py
 specromancy/approvals.py
-tests/unit/test_validation.py
-tests/unit/test_git.py
-tests/contract/test_safety.py
+tests/features/unit/test_validation.py
+tests/features/unit/test_git.py
+tests/features/contract/test_safety.py
 ```
 
 ## Work items
@@ -133,4 +133,3 @@ The CLI's responsibility is to reject undeclared codes, persist the request, bin
 - Read-only and allowlisted mutation policies are mechanically enforced.
 - Approval and loop gates cannot be bypassed through ordinary CLI usage.
 - Failures leave the run resumable and evidence intact.
-

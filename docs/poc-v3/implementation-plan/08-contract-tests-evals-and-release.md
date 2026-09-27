@@ -7,12 +7,12 @@ Demonstrate that the POC is generic, recoverable, safe, and usable from multiple
 ## Files introduced or completed
 
 ```text
-tests/contract/test_default_pipeline.py
-tests/contract/test_replacement_pipeline.py
-tests/contract/test_interruptions.py
-tests/contract/test_adapter_drift.py
-tests/evals/README.md
-tests/evals/cases/*.json
+tests/features/contract/test_default_pipeline.py
+tests/features/contract/test_replacement_pipeline.py
+tests/features/contract/test_interruptions.py
+tests/features/contract/test_adapter_drift.py
+tests/features/evals/README.md
+tests/features/evals/cases/*.json
 docs/poc-v3/architecture.md
 docs/poc-v3/cli.md
 docs/poc-v3/authoring-pipelines.md
@@ -171,4 +171,3 @@ Do not pull these into POC completion unless a contract defect requires them:
 - parallel branches and join nodes;
 - migration of active runs between pipeline versions;
 - structured telemetry and long-running daemon support.
-

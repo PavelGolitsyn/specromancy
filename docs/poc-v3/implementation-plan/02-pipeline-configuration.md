@@ -11,9 +11,9 @@ workflow/pipeline.toml
 specromancy/config.py
 specromancy/graph.py
 specromancy/schemas/pipeline.schema.json
-tests/unit/test_config.py
-tests/unit/test_graph.py
-tests/fixtures/config-*/
+tests/features/unit/test_config.py
+tests/features/unit/test_graph.py
+tests/features/fixtures/config-*/
 ```
 
 ## Configuration model
@@ -161,4 +161,3 @@ Add table-driven fixtures for:
 - The loader contains no checks for example phase names.
 - A fixture with unrelated phase names passes validation.
 - Configuration hashes are deterministic.
-

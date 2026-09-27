@@ -1,7 +1,7 @@
 # Authoring pipelines
 
 The primary replaceability proof is
-`tests/fixtures/replacement-pipeline/pipeline.toml`. It uses `inspect`,
+`tests/features/fixtures/replacement-pipeline/pipeline.toml`. It uses `inspect`,
 `transform`, and `verify` with its own skills and templates; the generic engine
 does not change. Copy that fixture when learning the format, then use the
 default pipeline for richer approval and repair examples.

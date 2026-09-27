@@ -16,8 +16,8 @@ adapters/manifest.json
 .github/copilot-instructions.md
 .github/prompts/specromancy-*.prompt.md
 .opencode/commands/specromancy-*.md
-tests/unit/test_adapters.py
-tests/contract/test_adapter_drift.py
+tests/features/unit/test_adapters.py
+tests/features/contract/test_adapter_drift.py
 ```
 
 Codex and Hermes may require no generated command files in the POC because both can consume canonical repository instructions and skills. Their adapter definitions still exist in generator metadata so compatibility expectations are tested and documented.
@@ -113,4 +113,3 @@ If a user changed a stale generated file, report the conflict and leave it untou
 - Generated output is deterministic and safely owned.
 - Editing generated files is never required to change the workflow.
 - CI can detect all adapter drift with one command.
-

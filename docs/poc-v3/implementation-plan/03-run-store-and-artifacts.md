@@ -31,8 +31,8 @@ specromancy/hashing.py
 specromancy/locking.py
 specromancy/schemas/run.schema.json
 specromancy/schemas/event.schema.json
-tests/unit/test_run_store.py
-tests/contract/test_recovery.py
+tests/features/unit/test_run_store.py
+tests/features/contract/test_recovery.py
 ```
 
 ## Work items
@@ -147,4 +147,3 @@ Use an exclusive create or an OS-supported advisory lock through the standard li
 - Every completed artifact has a recorded hash and provenance.
 - Runtime writes are atomic and locked.
 - No artifact from an earlier visit is overwritten.
-
