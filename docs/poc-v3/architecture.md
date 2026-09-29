@@ -36,6 +36,9 @@ it never reuses or rewrites an earlier completed visit.
 ```text
 awaiting-agent -> active -> awaiting-agent -> ... -> completed
                       |             ^
+                      |             |
+                      +-> paused ---+
+                      |             |
                       v             |
               awaiting-approval ----+
                       |
@@ -46,6 +49,11 @@ awaiting-agent -> active -> awaiting-agent -> ... -> completed
 baseline and activates it. `validate`, `request-approval`, `approve`, or
 `block` records the next transition. Visit and edge counters mechanically stop
 configured cycles before an unbounded successor can be created.
+
+A transition configured with `pause = true` completes its source and prepares
+its pending successor in the same atomic mutation, but records the run as
+`paused`. `resume` releases that checkpoint to `awaiting-agent`; it does not
+activate the successor. Direct phase and run commands cannot bypass the pause.
 
 ## Action packet boundary
 

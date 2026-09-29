@@ -269,6 +269,7 @@ class RunStoreTests(unittest.TestCase):
         event_schema = json.loads((schemas / "event.schema.json").read_text())
         self.assertEqual(run_schema["properties"]["schema_version"]["const"], 1)
         self.assertEqual(event_schema["properties"]["schema_version"]["const"], 1)
+        self.assertIn("paused", run_schema["$defs"]["status"]["enum"])
         self.assertEqual(set(run_schema["required"]), set(run_schema["properties"]))
         self.assertEqual(
             set(event_schema["required"]), set(event_schema["properties"])

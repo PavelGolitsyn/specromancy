@@ -6,4 +6,4 @@
 description: Resume a Specromancy run from persisted state.
 argument-hint: RUN_ID
 ---
-Run `bin/specromancy resume "$0" --json`. If the response contains an action packet, load its `skill.absolute_path` and follow that canonical procedure exactly. Stop at any recorded approval, block, validation failure, or terminal result.
+Run `bin/specromancy resume "$0" --json`. If the response contains an action packet, load its `skill.absolute_path` and follow that canonical procedure exactly. Stop at any recorded pause, approval, block, validation failure, or terminal result.

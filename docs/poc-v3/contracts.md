@@ -1,6 +1,8 @@
 # Specromancy POC public contracts
 
-These contracts are stable across the POC. Changes to them require a schema-version change and updated fixtures.
+These contracts are stable across the POC. Breaking representation changes
+require a schema-version change and updated fixtures; additive fields with
+backward-compatible defaults may extend the current version.
 
 ## Vocabulary
 
@@ -102,14 +104,15 @@ record.
 | 10 | `LOCK_HELD` | Concurrent run lock held |
 | 11 | `ADAPTER_DRIFT` | Adapter drift detected |
 | 12 | `INTERNAL_ERROR` | Internal or corrupt-state error |
+| 13 | `RUN_PAUSED` | Run paused at a configured checkpoint |
 
 Human-readable successful and actionable responses use stdout; errors use stderr. With `--json`, every response is exactly one JSON object. Expected errors contain `code`, `message`, and, when relevant, `details`.
 
 Successful and actionable JSON responses use response schema version 1 and
 contain stable `schema_version`, `kind`, `code`, and `message` keys. An
 actionable phase response additionally contains `action`; approval boundaries
-contain `approval` and `status`; read-only and terminal responses contain
-`status`.
+contain `approval` and `status`; paused, read-only, and terminal responses
+contain `status`.
 
 An action packet uses schema version 1 and contains stable keys for `run_id`,
 `visit_id`, `visit_attempt`, `visit_status`, `phase`, `skill`, `inputs`,

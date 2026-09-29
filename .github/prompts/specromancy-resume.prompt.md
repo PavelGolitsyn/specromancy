@@ -7,4 +7,4 @@ description: Resume a Specromancy run from persisted state.
 argument-hint: RUN_ID
 agent: agent
 ---
-Using the values supplied after this prompt's slash command, replace the placeholders in `bin/specromancy resume RUN_ID --json` and run it. If the response contains an action packet, load its `skill.absolute_path` and follow that canonical procedure exactly. Stop at any recorded approval, block, validation failure, or terminal result.
+Using the values supplied after this prompt's slash command, replace the placeholders in `bin/specromancy resume RUN_ID --json` and run it. If the response contains an action packet, load its `skill.absolute_path` and follow that canonical procedure exactly. Stop at any recorded pause, approval, block, validation failure, or terminal result.

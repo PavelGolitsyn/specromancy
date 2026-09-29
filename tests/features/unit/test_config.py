@@ -169,6 +169,47 @@ class ConfigTests(unittest.TestCase):
         changed = PHASE.replace("max_visits = 1", "max_visits = 0")
         self.assert_error(document(changed), "invalid-bound")
 
+    def test_transition_pause_is_optional_boolean_and_hash_compatible(self) -> None:
+        without_pause = load_pipeline(self.fixture.write(document(), "without.toml"))
+        explicit_false = PHASE.replace(
+            'outcome = "done"', 'outcome = "done"\npause = false'
+        )
+        with_false = load_pipeline(
+            self.fixture.write(document(explicit_false), "false.toml")
+        )
+        self.assertFalse(without_pause.phase("compose").transitions[0].pause)
+        self.assertFalse(with_false.phase("compose").transitions[0].pause)
+        self.assertEqual(without_pause.config_hash, with_false.config_hash)
+
+        paused = PHASE.replace(
+            'outcome = "done"',
+            'outcome = "again"\ntarget = "compose"\npause = true',
+        )
+        with_pause = load_pipeline(
+            self.fixture.write(document(paused), "pause.toml")
+        )
+        self.assertTrue(with_pause.phase("compose").transitions[0].pause)
+        self.assertNotEqual(without_pause.config_hash, with_pause.config_hash)
+
+    def test_transition_pause_rejects_invalid_type_and_terminal_outcome(self) -> None:
+        invalid_type = PHASE.replace(
+            'outcome = "done"',
+            'outcome = "again"\ntarget = "compose"\npause = "yes"',
+        )
+        self.assert_error(document(invalid_type), "invalid-field-type")
+        terminal = PHASE.replace(
+            'outcome = "done"', 'outcome = "done"\npause = true'
+        )
+        self.assert_error(document(terminal), "terminal-transition-pause")
+
+    def test_published_pipeline_schema_declares_transition_pause(self) -> None:
+        schema_path = ROOT / "specromancy" / "schemas" / "pipeline.schema.json"
+        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            schema["$defs"]["transition"]["properties"]["pause"],
+            {"type": "boolean"},
+        )
+
     def test_reserved_phase_id_is_rejected(self) -> None:
         phase = PHASE.replace('id = "compose"', 'id = "status"')
         self.assert_error(document(phase, start='"status"'), "reserved-phase-id")

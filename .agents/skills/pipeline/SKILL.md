@@ -25,8 +25,9 @@ not guess it.
    the packet's validation command.
 4. Query status again and repeat only while the recorded state requests another
    agent action.
-5. Stop immediately for approval, a block, a validation failure, or completion,
-   and report the CLI's recorded state and required user action.
+5. Stop immediately for a configured pause, approval, block, validation failure,
+   or completion, and report the CLI's recorded state and required user action.
+   A paused run continues only through `bin/specromancy resume RUN_ID --json`.
 
 Never assume phase names, their order, or their outcomes. Never bypass approval
 or validation, invent an output path, or continue from memory after a process

@@ -78,8 +78,10 @@ bin/specromancy adapters generate --check
 
 Any harness may stop after any visit. A later process—or a different supported
 harness—can run `bin/specromancy status RUN_ID --json` and continue from the
-recorded next command. Conversation transcripts, harness task identifiers, and
-adapter-local state are never required for recovery.
+recorded next command. A configured pause reports `resume` as that command and
+cannot be bypassed by invoking its pending phase directly. Conversation
+transcripts, harness task identifiers, and adapter-local state are never
+required for recovery.
 
 See [harness-compatibility.md](harness-compatibility.md) for the compact matrix
 and generated-file ownership policy.

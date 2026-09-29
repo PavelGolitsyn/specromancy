@@ -6,4 +6,4 @@
 description: Start or resume the named current phase and return its action packet.
 argument-hint: RUN_ID PHASE
 ---
-Run `bin/specromancy phase "$0" "$1" --json`. If the response contains an action packet, load its `skill.absolute_path` and follow that canonical procedure exactly. Stop at any recorded approval, block, validation failure, or terminal result.
+Run `bin/specromancy phase "$0" "$1" --json`. If the response contains an action packet, load its `skill.absolute_path` and follow that canonical procedure exactly. Stop at any recorded pause, approval, block, validation failure, or terminal result.
