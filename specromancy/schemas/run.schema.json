@@ -62,7 +62,7 @@
     "path": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\).+$"},
     "timestamp": {"type": "string", "pattern": "Z$"},
     "status": {
-      "enum": ["active", "awaiting-agent", "awaiting-approval", "completed", "failed", "blocked"]
+      "enum": ["active", "awaiting-agent", "awaiting-approval", "paused", "completed", "failed", "blocked"]
     },
     "visitStatus": {
       "enum": ["pending", "active", "awaiting-approval", "completed", "failed", "blocked"]

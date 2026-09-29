@@ -8,6 +8,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from specromancy.exit_codes import ExitCode
+
 
 ROOT = Path(__file__).resolve().parents[3]
 FIXTURES = ROOT / "tests" / "features" / "fixtures"
@@ -125,5 +127,7 @@ def advance_to(repo: CliRepository, run_id: str, target: str) -> None:
         if phase == "review":
             arguments.extend(("--outcome", "approved"))
         result = repo.command(*arguments)
-        if result.returncode not in (0, 8):
+        if result.returncode == ExitCode.RUN_PAUSED:
+            result = repo.command("resume", run_id)
+        if result.returncode not in (ExitCode.SUCCESS, ExitCode.AGENT_ACTION_REQUIRED):
             raise AssertionError((result.returncode, result.stderr))

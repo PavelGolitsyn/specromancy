@@ -23,6 +23,7 @@ ACTIONABLE_CODES = frozenset(
         ExitCode.APPROVAL_REQUIRED,
         ExitCode.AGENT_ACTION_REQUIRED,
         ExitCode.RUN_BLOCKED,
+        ExitCode.RUN_PAUSED,
     }
 )
 

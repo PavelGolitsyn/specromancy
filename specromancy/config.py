@@ -84,6 +84,7 @@ class TransitionConfig:
     outcome: str
     target: str | None = None
     max_traversals: int | None = None
+    pause: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -848,7 +849,7 @@ class _Loader:
     def parse_transition(self, value: Any, phase_id: str) -> TransitionConfig:
         raw = self.require_mapping(value, "transitions", phase=phase_id)
         self.check_unknown(
-            raw, {"outcome", "target", "max_traversals"}, phase=phase_id
+            raw, {"outcome", "target", "max_traversals", "pause"}, phase=phase_id
         )
         outcome = self.require_identifier(
             raw.get("outcome"), "transitions.outcome", phase=phase_id
@@ -866,7 +867,17 @@ class _Loader:
                 phase=phase_id,
                 minimum=1,
             )
-        return TransitionConfig(outcome, target, max_traversals)
+        pause = raw.get("pause", False)
+        if not isinstance(pause, bool):
+            self.fail(
+                "invalid-field-type",
+                "transitions.pause must be a boolean",
+                phase=phase_id,
+                field="transitions.pause",
+                value=pause,
+                remediation="use true or false",
+            )
+        return TransitionConfig(outcome, target, max_traversals, pause)
 
 
 def _safe_declared_path(
@@ -983,6 +994,7 @@ def _canonical_document(
                         "max_traversals": transition.max_traversals,
                         "outcome": transition.outcome,
                         "target": transition.target,
+                        **({"pause": True} if transition.pause else {}),
                     }
                     for transition in sorted(
                         phase.transitions, key=lambda item: item.outcome

@@ -71,6 +71,16 @@ class EngineFixture:
         self.store = RunStore(self.root)
         self.engine = Engine(self.pipeline, self.store)
 
+    def enable_pause(self) -> None:
+        content = textwrap.dedent(PIPELINE).replace(
+            'outcome = "continue"\ntarget = "publish"',
+            'outcome = "continue"\ntarget = "publish"\npause = true',
+        )
+        self.pipeline_path.write_text(content, encoding="utf-8")
+        self.pipeline = load_pipeline(self.pipeline_path, self.root)
+        self.store = RunStore(self.root)
+        self.engine = Engine(self.pipeline, self.store)
+
     def close(self) -> None:
         self.temporary.cleanup()
 
@@ -118,6 +128,89 @@ class EngineTests(unittest.TestCase):
         result = self.fixture.engine.run(run_id)
         self.assertEqual(result["code"], ExitCode.AGENT_ACTION_REQUIRED)
         self.assertEqual(result["action"]["visit_status"], "active")
+
+    def test_paused_transition_requires_atomic_explicit_resume(self) -> None:
+        self.fixture.enable_pause()
+        initialized = self.fixture.engine.initialize("Pause between phases")
+        run_id = initialized["action"]["run_id"]
+        self.fixture.engine.start_phase(run_id, "survey")
+        self.fixture.output(run_id, "evidence\n")
+
+        paused = self.fixture.engine.validate(run_id, "survey")
+        self.assertEqual(paused["code"], ExitCode.RUN_PAUSED)
+        self.assertEqual(paused["status"]["status"], "paused")
+        self.assertEqual(
+            paused["status"]["next_command"], ["specromancy", "resume", run_id]
+        )
+        manifest = self.fixture.store.load(run_id)
+        self.assertEqual(manifest["visits"][0]["status"], "completed")
+        self.assertEqual(manifest["visits"][1]["status"], "pending")
+        self.assertEqual(manifest["visits"][1]["phase_id"], "publish")
+        self.assertTrue(
+            self.fixture.store.read_events(run_id)[-1]["payload"]["paused"]
+        )
+
+        revision = manifest["revision"]
+        event_count = len(self.fixture.store.read_events(run_id))
+        self.assertEqual(self.fixture.engine.run(run_id)["code"], ExitCode.RUN_PAUSED)
+        self.assertEqual(
+            self.fixture.engine.start_phase(run_id, "publish")["code"],
+            ExitCode.RUN_PAUSED,
+        )
+        self.assertEqual(
+            self.fixture.engine.validate(run_id, "survey")["code"],
+            ExitCode.RUN_PAUSED,
+        )
+        self.assertEqual(self.fixture.store.load(run_id)["revision"], revision)
+        self.assertEqual(len(self.fixture.store.read_events(run_id)), event_count)
+
+        resumed = self.fixture.engine.resume(run_id)
+        self.assertEqual(resumed["code"], ExitCode.AGENT_ACTION_REQUIRED)
+        self.assertEqual(resumed["action"]["phase"], "publish")
+        self.assertEqual(resumed["action"]["visit_status"], "pending")
+        self.assertEqual(self.fixture.store.load(run_id)["status"], "awaiting-agent")
+        self.assertEqual(
+            self.fixture.store.read_events(run_id)[-1]["type"], "run-resumed"
+        )
+        resumed_revision = self.fixture.store.load(run_id)["revision"]
+        resumed_event_count = len(self.fixture.store.read_events(run_id))
+        repeated = self.fixture.engine.resume(run_id)
+        self.assertEqual(repeated["action"], resumed["action"])
+        self.assertEqual(self.fixture.store.load(run_id)["revision"], resumed_revision)
+        self.assertEqual(
+            len(self.fixture.store.read_events(run_id)), resumed_event_count
+        )
+
+    def test_paused_resume_recovers_around_atomic_manifest_replacement(self) -> None:
+        self.fixture.enable_pause()
+        run_id = self.fixture.engine.initialize("Recover checkpoint resume")["action"][
+            "run_id"
+        ]
+        self.fixture.engine.start_phase(run_id, "survey")
+        self.fixture.output(run_id, "evidence\n")
+        self.fixture.engine.validate(run_id, "survey")
+
+        def fail_before(point: str) -> None:
+            if point == "before-manifest-replace":
+                raise RuntimeError("before replace")
+
+        self.fixture.store._fault_injector = fail_before
+        with self.assertRaisesRegex(RuntimeError, "before replace"):
+            self.fixture.engine.resume(run_id)
+        self.fixture.store._fault_injector = None
+        self.assertEqual(self.fixture.store.load(run_id)["status"], "paused")
+
+        def fail_after(point: str) -> None:
+            if point == "after-manifest-replace":
+                raise RuntimeError("after replace")
+
+        self.fixture.store._fault_injector = fail_after
+        with self.assertRaisesRegex(RuntimeError, "after replace"):
+            self.fixture.engine.resume(run_id)
+        restarted = RunStore(self.fixture.root)
+        recovered = restarted.load(run_id)
+        self.assertEqual(recovered["status"], "awaiting-agent")
+        self.assertEqual(restarted.read_events(run_id)[-1]["type"], "recovery")
 
     def test_action_packets_preserve_the_complete_harness_contract(self) -> None:
         initialized = self.fixture.engine.initialize("Inspect action packets")

@@ -187,6 +187,15 @@ def validate_graph(
             seen_outcomes.add(transition.outcome)
             is_terminal = transition.outcome in terminal_outcomes
             if is_terminal:
+                if transition.pause:
+                    fail(
+                        "terminal-transition-pause",
+                        f"terminal outcome {transition.outcome!r} cannot pause",
+                        phase=phase.id,
+                        field="transitions.pause",
+                        value=True,
+                        remediation="remove pause or target a non-terminal phase",
+                    )
                 if transition.target is not None:
                     fail(
                         "terminal-outcome-target",

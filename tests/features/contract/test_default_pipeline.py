@@ -20,7 +20,15 @@ class DefaultPipelineContractTests(unittest.TestCase):
         for phase in ("research", "plan"):
             self.repo.start_and_write(run_id, phase, DEFAULT_ARTIFACTS[phase])
             result = self.repo.command("validate", run_id, phase)
-            self.assertEqual(result.returncode, ExitCode.AGENT_ACTION_REQUIRED)
+            expected = (
+                ExitCode.RUN_PAUSED
+                if phase == "plan"
+                else ExitCode.AGENT_ACTION_REQUIRED
+            )
+            self.assertEqual(result.returncode, expected)
+            if phase == "plan":
+                result = self.repo.command("resume", run_id)
+                self.assertEqual(result.returncode, ExitCode.AGENT_ACTION_REQUIRED)
 
         self.repo.start_and_write(
             run_id, "implement", DEFAULT_ARTIFACTS["implement"]
@@ -62,8 +70,11 @@ class DefaultPipelineContractTests(unittest.TestCase):
         self.assertEqual(status["next_command"], ["specromancy", "approve", run_id, "plan"])
 
         approved = self.repo.command("approve", run_id, "plan")
-        self.assertEqual(approved.returncode, ExitCode.AGENT_ACTION_REQUIRED)
-        self.assertEqual(self.repo.payload(approved)["action"]["phase"], "implement")
+        self.assertEqual(approved.returncode, ExitCode.RUN_PAUSED)
+        self.assertEqual(self.repo.payload(approved)["status"]["status"], "paused")
+        resumed = self.repo.command("resume", run_id)
+        self.assertEqual(resumed.returncode, ExitCode.AGENT_ACTION_REQUIRED)
+        self.assertEqual(self.repo.payload(resumed)["action"]["phase"], "implement")
 
     def test_review_repair_loop_returns_to_implementation_then_blocks(self) -> None:
         run_id = self.repo.initialize("Exercise repair limits")

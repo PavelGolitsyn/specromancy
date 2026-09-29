@@ -45,6 +45,7 @@ RUN_STATUSES = frozenset(
         "active",
         "awaiting-agent",
         "awaiting-approval",
+        "paused",
         "completed",
         "failed",
         "blocked",
@@ -412,6 +413,13 @@ class RunStore:
             manifest = self._read_manifest(directory, run_id)
             events = self._ensure_event_consistency(directory, manifest)
             self._require_pipeline(manifest, pipeline)
+            if manifest["status"] == "paused":
+                raise RunStoreError(
+                    "paused run must be resumed before its next visit can start",
+                    diagnostic_code="run-paused",
+                    details={"run_id": run_id, "visit_number": visit_number},
+                    code=ExitCode.RUN_PAUSED,
+                )
             existing = self._visit(manifest, visit_number)
             if existing["status"] == "active":
                 return copy.deepcopy(existing)
@@ -601,6 +609,11 @@ class RunStore:
             output = artifact_record(directory, existing["output"]["path"])
             updated = copy.deepcopy(manifest)
             visit = self._visit(updated, visit_number)
+            transition = next(
+                item
+                for item in pipeline.phase(visit["phase_id"]).transitions
+                if item.outcome == outcome
+            )
             limit_block = self._transition_limit_block(
                 manifest, pipeline, visit, outcome, transition_target
             )
@@ -658,7 +671,7 @@ class RunStore:
                 )
                 updated["visits"].append(next_visit)
                 updated["current_visit"] = next_visit["ordinal"]
-                updated["status"] = "awaiting-agent"
+                updated["status"] = "paused" if transition.pause else "awaiting-agent"
             updated["revision"] += 1
             updated["updated_at"] = self._timestamp()
             self._commit_locked(
@@ -671,10 +684,45 @@ class RunStore:
                     "phase_id": visit["phase_id"],
                     "outcome": outcome,
                     "target": transition_target,
+                    "paused": transition.pause,
                     "next_visit": (
                         next_visit["ordinal"] if next_visit is not None else None
                     ),
                 },
+            )
+            return copy.deepcopy(updated)
+
+    def resume_paused(self, run_id: str, pipeline: PipelineConfig) -> dict[str, Any]:
+        """Release a durable checkpoint without starting its pending visit."""
+
+        directory = self.run_directory(run_id)
+        with RunLock(directory / ".lock", clock=self._clock):
+            manifest = self._read_manifest(directory, run_id)
+            events = self._ensure_event_consistency(directory, manifest)
+            self._require_pipeline(manifest, pipeline)
+            if manifest["status"] != "paused":
+                return copy.deepcopy(manifest)
+            visit_number = manifest["current_visit"]
+            if visit_number is None:
+                raise RunCorruptionError(
+                    "paused run has no current visit", run_id=run_id
+                )
+            current = self._visit(manifest, visit_number)
+            if current["status"] != "pending":
+                raise RunCorruptionError(
+                    "paused run does not point to a pending visit", run_id=run_id
+                )
+            updated = copy.deepcopy(manifest)
+            updated["status"] = "awaiting-agent"
+            updated["revision"] += 1
+            updated["updated_at"] = self._timestamp()
+            self._commit_locked(
+                directory,
+                updated,
+                events,
+                "run-resumed",
+                visit_number,
+                {"phase_id": current["phase_id"]},
             )
             return copy.deepcopy(updated)
 

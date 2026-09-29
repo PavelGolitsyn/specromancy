@@ -78,6 +78,8 @@ def next_command(manifest: dict[str, Any]) -> list[str] | None:
         if pending:
             return ["specromancy", "approve", run_id, current["phase_id"]]
         return ["specromancy", "request-approval", run_id]
+    if manifest["status"] == "paused":
+        return ["specromancy", "resume", run_id]
     if manifest["status"] == "blocked":
         return ["specromancy", "status", run_id]
     return None

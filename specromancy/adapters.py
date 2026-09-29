@@ -228,8 +228,8 @@ def _command_wrapper(harness: str, command: AdapterCommand) -> bytes:
     else:
         follow = (
             "If the response contains an action packet, load its `skill.absolute_path` and "
-            "follow that canonical procedure exactly. Stop at any recorded approval, block, "
-            "validation failure, or terminal result."
+            "follow that canonical procedure exactly. Stop at any recorded pause, approval, "
+            "block, validation failure, or terminal result."
         )
 
     frontmatter = [

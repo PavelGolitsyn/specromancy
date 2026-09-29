@@ -89,7 +89,8 @@
       "properties": {
         "outcome": {"$ref": "#/$defs/identifier"},
         "target": {"$ref": "#/$defs/identifier"},
-        "max_traversals": {"type": "integer", "minimum": 1}
+        "max_traversals": {"type": "integer", "minimum": 1},
+        "pause": {"type": "boolean"}
       }
     },
     "phase": {

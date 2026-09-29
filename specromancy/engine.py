@@ -84,6 +84,8 @@ class Engine:
 
     def start_phase(self, run_id: str, phase_id: str) -> dict[str, Any]:
         manifest = self._load(run_id)
+        if manifest["status"] == "paused":
+            return self._paused_response(manifest, "run is paused; resume it first")
         visit = self._current_visit(manifest)
         if visit is None or visit["phase_id"] != phase_id:
             expected = visit["phase_id"] if visit is not None else None
@@ -137,6 +139,8 @@ class Engine:
         manifest = self._load(run_id)
         if manifest["status"] == "completed":
             return self._status_response(manifest, "run is already completed")
+        if manifest["status"] == "paused":
+            return self._paused_response(manifest, "run is paused; resume it first")
         visit = self._current_visit(manifest)
         if visit is None:
             raise self._illegal("run has no current visit", manifest)
@@ -386,6 +390,8 @@ class Engine:
 
     def resume(self, run_id: str) -> dict[str, Any]:
         manifest = self._load(run_id)
+        if manifest["status"] == "paused":
+            manifest = self.store.resume_paused(run_id, self.pipeline)
         return self._response_for_state(manifest, "run resumed")
 
     def run(self, run_id: str) -> dict[str, Any]:
@@ -468,6 +474,10 @@ class Engine:
             return self._status_response(
                 manifest, f"run completed with outcome {outcome!r}"
             )
+        if manifest["status"] == "paused":
+            return self._paused_response(
+                manifest, f"outcome {outcome!r} recorded; run paused at checkpoint"
+            )
         visit = self._current_visit(manifest)
         assert visit is not None
         return self._action_response(
@@ -487,6 +497,8 @@ class Engine:
                 manifest, visit["ordinal"] if visit is not None else -1
             )
             return self._approval_response(manifest, approval, "approval is required")
+        if manifest["status"] == "paused":
+            return self._paused_response(manifest, message)
         if manifest["status"] == "blocked":
             return self._blocked_response(manifest, message)
         return self._status_response(manifest, message)
@@ -873,6 +885,17 @@ class Engine:
             "schema_version": RESPONSE_SCHEMA_VERSION,
             "kind": "status",
             "code": int(ExitCode.RUN_BLOCKED),
+            "message": message,
+            "status": build_status(manifest, self.pipeline),
+        }
+
+    def _paused_response(
+        self, manifest: dict[str, Any], message: str
+    ) -> dict[str, Any]:
+        return {
+            "schema_version": RESPONSE_SCHEMA_VERSION,
+            "kind": "status",
+            "code": int(ExitCode.RUN_PAUSED),
             "message": message,
             "status": build_status(manifest, self.pipeline),
         }

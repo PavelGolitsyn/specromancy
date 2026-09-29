@@ -50,6 +50,21 @@ must be bounded by a positive `max_traversals` on the cyclic edge or a positive
 `max_visits` on a phase that bounds the cycle. Limits count persisted visits or
 edge traversals and block before creating an excess visit.
 
+Set `pause = true` on a nonterminal transition to create a durable checkpoint:
+
+```toml
+[[phases.transitions]]
+outcome = "validated"
+target = "implement"
+pause = true
+```
+
+The source visit completes and the target visit is prepared atomically, but the
+run remains `paused` until `specromancy resume RUN_ID` releases it. Pauses are
+independent from approvals and are rejected on terminal transitions. Omitting
+`pause`, or setting it to `false`, preserves ordinary transition behavior and
+the canonical hash of an otherwise unchanged version-1 pipeline.
+
 ## Skills and templates
 
 `skill = "inspect"` resolves to `.agents/skills/inspect/SKILL.md` at the

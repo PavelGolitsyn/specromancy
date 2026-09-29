@@ -18,6 +18,7 @@ class ExitCode(IntEnum):
     LOCK_HELD = 10
     ADAPTER_DRIFT = 11
     INTERNAL_ERROR = 12
+    RUN_PAUSED = 13
 
 
 EXIT_CODE_DESCRIPTIONS = {
@@ -33,6 +34,7 @@ EXIT_CODE_DESCRIPTIONS = {
     ExitCode.LOCK_HELD: "Concurrent run lock held",
     ExitCode.ADAPTER_DRIFT: "Adapter drift detected",
     ExitCode.INTERNAL_ERROR: "Internal or corrupt-state error",
+    ExitCode.RUN_PAUSED: "Run paused at a configured checkpoint",
 }
 
 # Named integer constants are kept for callers that do not want to import the enum.
@@ -48,4 +50,4 @@ RUN_BLOCKED = int(ExitCode.RUN_BLOCKED)
 LOCK_HELD = int(ExitCode.LOCK_HELD)
 ADAPTER_DRIFT = int(ExitCode.ADAPTER_DRIFT)
 INTERNAL_ERROR = int(ExitCode.INTERNAL_ERROR)
-
+RUN_PAUSED = int(ExitCode.RUN_PAUSED)

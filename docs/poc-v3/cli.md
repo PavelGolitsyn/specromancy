@@ -30,16 +30,18 @@ bin/specromancy validate RUN_ID PHASE
   first visit. `--description-file PATH` reads the request from UTF-8 input.
 - `status RUN_ID` is read-only. It reports current persisted state, warnings,
   and the next command.
-- `resume RUN_ID` reconstructs the next boundary from disk. It does not depend
-  on the process or conversation that created the run.
+- `resume RUN_ID` reconstructs the next boundary from disk. For a paused run it
+  atomically releases the checkpoint and returns the pending successor action;
+  otherwise it is read-only and idempotent. It does not depend on the process
+  or conversation that created the run.
 - `phase RUN_ID PHASE` starts or resumes only the recorded current phase and
   emits its action packet. Each configured phase also has a dynamic alias, such
   as `bin/specromancy research RUN_ID` in the default pipeline.
 - `validate RUN_ID [PHASE] [--outcome OUTCOME]` validates the output, configured
   commands, and repository mutation policy before recording a transition.
   `--outcome` is required when more than one non-blocking outcome is possible.
-- `run RUN_ID` performs deterministic CLI work until the next agent, approval,
-  block, failure, or terminal boundary. It never launches a harness.
+- `run RUN_ID` performs deterministic CLI work until the next agent, pause,
+  approval, block, failure, or terminal boundary. It never launches a harness.
 
 ## Approval and stop commands
 
@@ -87,6 +89,7 @@ is available.
 | 10 | run lock held |
 | 11 | generated adapter drift |
 | 12 | internal or corrupt-state error |
+| 13 | run paused at a configured checkpoint |
 
-Exit codes 7–10 are expected workflow boundaries, not generic crashes. Full
-public contracts are recorded in [contracts.md](contracts.md).
+Exit codes 7–10 and 13 are expected workflow boundaries, not generic crashes.
+Full public contracts are recorded in [contracts.md](contracts.md).

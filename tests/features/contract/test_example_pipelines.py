@@ -85,7 +85,10 @@ class DefaultExamplePipelineTests(unittest.TestCase):
         )
         self.assertEqual(pending["code"], ExitCode.APPROVAL_REQUIRED)
         approved = self.engine.approve(run_id, "plan")
-        self.assertEqual(approved["action"]["phase"], "implement")
+        self.assertEqual(approved["code"], ExitCode.RUN_PAUSED)
+        self.assertEqual(approved["status"]["status"], "paused")
+        resumed = self.engine.resume(run_id)
+        self.assertEqual(resumed["action"]["phase"], "implement")
 
         implementation = (
             "# Implementation\n## Changes\nApplied.\n## Deviations\nNone.\n"
