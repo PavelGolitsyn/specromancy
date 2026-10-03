@@ -85,6 +85,35 @@ class SafetyFixture:
 
 
 class SafetyContractTests(unittest.TestCase):
+    def test_command_mutation_is_checked_before_required_command_failure(self) -> None:
+        for exit_code in (0, 3):
+            with self.subTest(exit_code=exit_code):
+                command = json.dumps([
+                    sys.executable, "-c",
+                    "from pathlib import Path; Path('protected.txt').write_text('changed'); "
+                    f"raise SystemExit({exit_code})",
+                ])
+                fixture = SafetyFixture(phase(
+                    "inspect", extra=f"[[phases.commands]]\nargv = {command}\nrequired = true\n"
+                ))
+                try:
+                    protected = fixture.root / "protected.txt"
+                    protected.write_text("original", encoding="utf-8")
+                    run_id = fixture.start()
+                    fixture.output(run_id)
+                    with self.assertRaises(EngineError) as raised:
+                        fixture.engine.validate(run_id)
+                    self.assertEqual(raised.exception.diagnostic_code, "mutation-policy-violation")
+                    manifest = fixture.store.load(run_id)
+                    self.assertEqual(manifest["status"], "active")
+                    visit = manifest["visits"][0]
+                    self.assertEqual(visit["command_results"][0]["exit_code"], exit_code)
+                    self.assertEqual(visit["mutation_result"]["violations"], ["protected.txt"])
+                    self.assertEqual(protected.read_text(encoding="utf-8"), "changed")
+                    self.assertEqual(fixture.store.read_events(run_id)[-1]["type"], "validation-failed")
+                finally:
+                    fixture.close()
+
     def test_real_git_read_only_phase_rejects_clean_and_preexisting_dirty_edits(self) -> None:
         for dirty_before_start in (False, True):
             with self.subTest(dirty_before_start=dirty_before_start):

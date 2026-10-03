@@ -2,30 +2,20 @@ from __future__ import annotations
 
 import ast
 import re
+import tempfile
 import unittest
 from pathlib import Path
 
 from specromancy.config import load_pipeline
+from tests.features.contract.source_scan import runtime_sources
 
 
 ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW_FIXTURE = ROOT / "tests" / "features" / "fixtures" / "example-pipeline"
-GENERIC_MODULES = (
-    "actions.py",
-    "approvals.py",
-    "artifacts.py",
-    "commands.py",
-    "config.py",
-    "registry.py",
-    "engine.py",
-    "git.py",
-    "graph.py",
-    "hashing.py",
-    "locking.py",
-    "run_store.py",
-    "status.py",
-    "validation.py",
-)
+# Rendering harness commands may use vendor vocabulary. This exact-file
+# exclusion does not exempt future extracted modules or any subprocess/import
+# checks. Adapter policy separation is checked by test_adapter_drift.
+HARNESS_BOUNDARIES = {Path("adapters.py")}
 EXAMPLE_PHASES = ("research", "plan", "implement", "review")
 
 
@@ -34,10 +24,25 @@ class StaticArchitectureContractTests(unittest.TestCase):
         pattern = re.compile(
             r"(?:'|\")(?:" + "|".join(EXAMPLE_PHASES) + r")(?:'|\")"
         )
-        for name in GENERIC_MODULES:
-            path = ROOT / "specromancy" / name
-            with self.subTest(path=name):
+        for path in runtime_sources(ROOT / "specromancy"):
+            relative = path.relative_to(ROOT / "specromancy")
+            if relative in HARNESS_BOUNDARIES:
+                continue
+            with self.subTest(path=relative):
                 self.assertIsNone(pattern.search(path.read_text(encoding="utf-8")))
+
+    def test_source_discovery_includes_nested_modules_and_package_initializers(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            names = ("__init__.py", "nested/__init__.py", "nested/deeper/decisions.py")
+            for name in names:
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("", encoding="utf-8")
+            self.assertEqual(
+                [path.relative_to(root).as_posix() for path in runtime_sources(root)],
+                sorted(names),
+            )
 
     def test_canonical_skill_frontmatter_has_no_vendor_only_fields(self) -> None:
         forbidden = {
@@ -80,7 +85,7 @@ class StaticArchitectureContractTests(unittest.TestCase):
                         )
 
     def test_subprocess_calls_cannot_use_shell_strings(self) -> None:
-        for path in sorted((ROOT / "specromancy").glob("*.py")):
+        for path in runtime_sources(ROOT / "specromancy"):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
                 if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
@@ -91,7 +96,7 @@ class StaticArchitectureContractTests(unittest.TestCase):
                     and node.func.attr in {"run", "Popen", "call", "check_call", "check_output"}
                 ):
                     continue
-                with self.subTest(path=path.name, line=node.lineno):
+                with self.subTest(path=path.relative_to(ROOT), line=node.lineno):
                     self.assertTrue(node.args)
                     self.assertFalse(
                         isinstance(node.args[0], ast.Constant)

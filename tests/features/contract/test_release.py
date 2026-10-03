@@ -9,6 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.features.contract.source_scan import runtime_sources
+
 
 ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW_FIXTURE = Path("tests/features/fixtures/example-pipeline")
@@ -63,7 +65,7 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_runtime_package_imports_only_standard_library_modules(self) -> None:
         imported: set[str] = set()
-        for path in sorted((ROOT / "specromancy").glob("*.py")):
+        for path in runtime_sources(ROOT / "specromancy"):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):

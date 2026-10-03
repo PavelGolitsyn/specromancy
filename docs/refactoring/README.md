@@ -1,6 +1,7 @@
 # Staged refactoring plan
 
-Status: proposed; no runtime refactoring has been implemented by this plan.
+Status: Stage 01 compatibility baseline implemented; Stages 02–08 remain
+proposed. No runtime refactoring has been implemented by this plan.
 Prepared on 2026-10-03 against commit
 `594c2983895903f09ac15f4b1d12a9309d39bbf8`.
 
@@ -48,7 +49,7 @@ a specific stage demonstrates a clearer responsibility split.
 Execute in the listed order. A stage may contain several small changes; do not
 combine all stages into one rewrite. After each stage, record completed tasks,
 verification results, deviations, and any deferred issues in its document.
-Checkboxes below describe future work, not work completed by this planning task.
+Each stage document records its completed work and verification results.
 
 ## Contracts that every stage must preserve
 
