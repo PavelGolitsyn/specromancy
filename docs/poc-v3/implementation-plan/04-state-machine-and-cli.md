@@ -59,7 +59,7 @@ The human representation is concise Markdown-like terminal output. `--json` emit
 
 ### 2. Implement `init`
 
-`init DESCRIPTION` must:
+`init DESCRIPTION --pipeline ID` must:
 
 1. Load and validate the pipeline.
 2. Capture initial Git metadata.

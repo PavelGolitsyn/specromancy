@@ -10,7 +10,7 @@ state independently of any harness conversation.
 From a Git checkout:
 
 ```bash
-bin/specromancy init "describe the requested change"
+bin/specromancy init "describe the requested change" --pipeline implementation
 bin/specromancy status RUN_ID
 bin/specromancy resume RUN_ID
 python3 -m unittest discover
@@ -23,7 +23,10 @@ Runtime data is written only under ignored `.specromancy/runs/` storage.
 
 ## Customize the workflow
 
-The editable graph and artifact templates live in [`workflow/`](workflow/).
+Register pipelines in `workflow/pipelines.toml` and keep their graphs under
+`workflow/pipelines/`. Every new run requires `--pipeline ID`; there is no default.
+Adapters generate a `specromancy-<id>` launch skill for each registration.
+The editable graphs and shared artifact templates live in [`workflow/`](workflow/).
 Phase procedures live in [`.agents/skills/`](.agents/skills/) for native harness
 discovery, and repository-wide agent constraints live in [`AGENTS.md`](AGENTS.md).
 The Python package under `specromancy/` is the generic engine, not a workflow

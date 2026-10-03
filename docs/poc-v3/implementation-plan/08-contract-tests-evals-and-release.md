@@ -129,7 +129,7 @@ Do not promise identical slash-command behavior when a harness does not provide 
 Keep the root quickstart short:
 
 ```bash
-bin/specromancy init "describe the requested change"
+bin/specromancy init "describe the requested change" --pipeline implementation
 bin/specromancy status RUN_ID
 bin/specromancy resume RUN_ID
 python -m unittest discover

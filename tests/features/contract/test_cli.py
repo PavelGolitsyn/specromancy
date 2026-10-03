@@ -24,7 +24,11 @@ class CliContractTests(unittest.TestCase):
         skill.write_text(
             "---\nname: compose\ndescription: Fixture.\n---\n", encoding="utf-8"
         )
-        self.pipeline = self.root / "pipeline.toml"
+        self.pipeline = self.root / "workflow/pipelines/cli-fixture.toml"
+        self.pipeline.parent.mkdir(parents=True)
+        (self.root / "workflow/pipelines.toml").write_text(
+            'schema_version = 1\n[[pipelines]]\nid = "cli-fixture"\npath = "pipelines/cli-fixture.toml"\n', encoding="utf-8"
+        )
         self.pipeline.write_text(
             textwrap.dedent(
                 """
@@ -66,7 +70,7 @@ class CliContractTests(unittest.TestCase):
                 "--root",
                 str(self.root),
                 "--pipeline",
-                str(self.pipeline),
+                "cli-fixture",
                 *arguments,
             ],
             cwd=ROOT,

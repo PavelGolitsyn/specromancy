@@ -49,7 +49,7 @@ class ReleaseContractTests(unittest.TestCase):
                     "--root",
                     str(checkout / WORKFLOW_FIXTURE),
                     "--pipeline",
-                    str(checkout / WORKFLOW_FIXTURE / "pipeline.toml"),
+                    "engine-example",
                     "init",
                     "Fresh source test",
                 ],

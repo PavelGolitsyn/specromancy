@@ -10,6 +10,7 @@ from pathlib import Path
 from specromancy.adapters import HARNESS_MODES
 from specromancy.contracts import RESERVED_COMMANDS
 from specromancy.hashing import sha256_bytes
+from specromancy.registry import load_registry
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -93,6 +94,25 @@ class ShippedAdapterTests(unittest.TestCase):
             with self.subTest(path=path.relative_to(ROOT)):
                 self.assertEqual(len(commands), 2)
                 self.assertIn(commands[-1], RESERVED_COMMANDS)
+
+    def test_every_registration_has_a_pipeline_launch_skill(self) -> None:
+        registry = load_registry(ROOT)
+        generated = {entry["path"] for entry in self.manifest["generated"]}
+        launch_paths = {
+            f".agents/skills/specromancy-{registration.id}/SKILL.md"
+            for registration in registry.pipelines
+        }
+        self.assertEqual({path for path in generated if path.startswith(".agents/")}, launch_paths)
+        targets = {entry["name"]: entry for entry in self.manifest["targets"]}
+        for name, mode in HARNESS_MODES.items():
+            if mode == "native":
+                self.assertEqual(set(targets[name]["discovery_paths"]), launch_paths)
+        for registration in registry.pipelines:
+            path = ROOT / f".agents/skills/specromancy-{registration.id}/SKILL.md"
+            with self.subTest(pipeline=registration.id):
+                text = path.read_text(encoding="utf-8")
+                self.assertIn(f"--pipeline {registration.id} --json", text)
+                self.assertIn(".agents/skills/pipeline/SKILL.md", text)
 
 
 if __name__ == "__main__":

@@ -103,7 +103,7 @@ class ConfigTests(unittest.TestCase):
 
     def test_file_fixture_loads_as_immutable_domain_objects(self) -> None:
         pipeline = load_pipeline(
-            WORKFLOW_FIXTURE / "pipeline.toml", WORKFLOW_FIXTURE
+            WORKFLOW_FIXTURE / "workflow/pipelines/engine-example.toml", WORKFLOW_FIXTURE
         )
         self.assertEqual(pipeline.start, "research")
         self.assertEqual(pipeline.phase_ids, ("research", "plan", "implement", "review"))

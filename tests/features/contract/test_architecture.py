@@ -16,6 +16,7 @@ GENERIC_MODULES = (
     "artifacts.py",
     "commands.py",
     "config.py",
+    "registry.py",
     "engine.py",
     "git.py",
     "graph.py",
@@ -106,11 +107,13 @@ class StaticArchitectureContractTests(unittest.TestCase):
 
     def test_every_pipeline_fixture_has_only_bounded_cycles(self) -> None:
         paths = sorted(
-            (ROOT / "tests" / "features" / "fixtures").glob("**/pipeline.toml")
+            (ROOT / "tests" / "features" / "fixtures").glob("**/*.toml")
         )
         for path in paths:
+            if path.name == "pipelines.toml":
+                continue
             with self.subTest(path=path.relative_to(ROOT)):
-                pipeline = load_pipeline(path, path.parent)
+                pipeline = load_pipeline(path, path.parents[2] if path.parent.name == "pipelines" else path.parent)
                 self.assertTrue(pipeline.phase_ids)
 
 

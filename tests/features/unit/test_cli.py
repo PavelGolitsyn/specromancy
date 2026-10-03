@@ -19,7 +19,7 @@ def fixture_arguments(*arguments: str) -> list[str]:
         "--root",
         str(WORKFLOW_FIXTURE),
         "--pipeline",
-        str(WORKFLOW_FIXTURE / "pipeline.toml"),
+        "engine-example",
         *arguments,
     ]
 

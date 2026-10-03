@@ -1,0 +1,5 @@
+schema_version = 1
+
+[[pipelines]]
+id = "replacement"
+path = "pipelines/replacement.toml"

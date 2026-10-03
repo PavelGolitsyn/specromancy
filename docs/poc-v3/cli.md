@@ -8,25 +8,27 @@ Global options may appear before or after a subcommand:
 
 ```text
 --root PATH       explicit repository root
---pipeline PATH   alternate pipeline configuration
+--pipeline ID     registered pipeline ID (required for init)
 --json            emit exactly one JSON object
 --quiet           suppress successful human-readable output
 ```
 
 `--root` is required when no `.git` directory or worktree marker can be
-discovered. The default pipeline is `workflow/pipeline.toml`.
+discovered. `workflow/pipelines.toml` is mandatory and contains at least one
+registration pointing to a TOML graph under `workflow/pipelines/`. There is no
+default pipeline. See [Workflow customization](../../workflow/README.md).
 
 ## Workflow commands
 
 ```bash
-bin/specromancy init "describe the requested change"
+bin/specromancy init "describe the requested change" --pipeline implementation
 bin/specromancy status RUN_ID
 bin/specromancy resume RUN_ID
 bin/specromancy phase RUN_ID PHASE
 bin/specromancy validate RUN_ID PHASE
 ```
 
-- `init DESCRIPTION` creates a run, immutable request artifact, and pending
+- `init DESCRIPTION --pipeline ID` creates a run, immutable request artifact, and pending
   first visit. `--description-file PATH` reads the request from UTF-8 input.
 - `status RUN_ID` is read-only. It reports current persisted state, warnings,
   and the next command.
@@ -36,12 +38,22 @@ bin/specromancy validate RUN_ID PHASE
   or conversation that created the run.
 - `phase RUN_ID PHASE` starts or resumes only the recorded current phase and
   emits its action packet. Each configured phase also has a dynamic alias, such
-  as `bin/specromancy research RUN_ID` in the default pipeline.
+  as `bin/specromancy research RUN_ID` when the run's graph declares that phase.
 - `validate RUN_ID [PHASE] [--outcome OUTCOME]` validates the output, configured
   commands, and repository mutation policy before recording a transition.
   `--outcome` is required when more than one non-blocking outcome is possible.
 - `run RUN_ID` performs deterministic CLI work until the next agent, pause,
   approval, block, failure, or terminal boundary. It never launches a harness.
+
+Existing-run commands select the original graph from validated persisted ID,
+path, version and hash. An optional `--pipeline ID` must agree with that run.
+Paths are not accepted as selectors. Action packets validate using the run ID
+without a selector.
+
+Removing a registration prevents new runs while existing runs can still use
+their original files. Changing or moving their graph causes drift or missing-file
+errors; restoring the original files is required to continue. Unrelated graphs
+are not loaded for an existing-run command.
 
 ## Approval and stop commands
 
@@ -64,7 +76,9 @@ bin/specromancy adapters generate
 bin/specromancy adapters generate --check
 ```
 
-Generation updates only manifest-owned adapter paths. `--check` writes nothing
+Generation processes all registered pipelines; `--pipeline` is rejected here.
+It produces a `specromancy-<id>` skill per registration and updates only
+manifest-owned adapter paths. `--check` writes nothing
 and reports missing, modified, extra, or source-stale generated files.
 
 ## JSON and exit codes

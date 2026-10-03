@@ -3,16 +3,19 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from specromancy.config import DEFAULT_PIPELINE_PATH
+from specromancy.registry import REGISTRY_PATH, load_registry
 
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class ShippedLayoutTests(unittest.TestCase):
-    def test_default_pipeline_is_in_the_customization_directory(self) -> None:
-        self.assertEqual(DEFAULT_PIPELINE_PATH, ROOT / "workflow" / "pipeline.toml")
-        self.assertTrue(DEFAULT_PIPELINE_PATH.is_file())
+    def test_registry_and_graphs_are_in_the_customization_directory(self) -> None:
+        self.assertEqual(REGISTRY_PATH, "workflow/pipelines.toml")
+        registry = load_registry(ROOT)
+        self.assertTrue(registry.pipelines)
+        for registration in registry.pipelines:
+            self.assertTrue(registration.path.is_relative_to(ROOT / "workflow/pipelines"))
 
     def test_engine_package_contains_no_customizable_workflow_files(self) -> None:
         engine = ROOT / "specromancy"
@@ -24,7 +27,8 @@ class ShippedLayoutTests(unittest.TestCase):
     def test_customization_guide_names_every_authoritative_surface(self) -> None:
         guide = (ROOT / "workflow" / "README.md").read_text(encoding="utf-8")
         for path in (
-            "workflow/pipeline.toml",
+            "workflow/pipelines.toml",
+            "workflow/pipelines/",
             "workflow/templates/",
             ".agents/skills/",
             "AGENTS.md",

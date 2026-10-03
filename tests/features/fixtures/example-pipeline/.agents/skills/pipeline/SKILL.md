@@ -12,7 +12,7 @@ metadata:
 Treat the CLI's persisted state and action packets as authoritative. Do not
 reconstruct state from conversation and never edit `run.json` or `events.jsonl`.
 
-For a new request, run `bin/specromancy init DESCRIPTION --json` and retain the
+For a new request, run `bin/specromancy init DESCRIPTION --pipeline engine-example --json` and retain the
 emitted `RUN_ID`. For an existing invocation, obtain `RUN_ID` from the user; do
 not guess it.
 
