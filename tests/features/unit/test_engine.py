@@ -60,7 +60,7 @@ class EngineFixture:
         self.root = Path(self.temporary.name)
         (self.root / ".git").mkdir()
         for name in ("survey", "publish"):
-            path = self.root / ".agents" / "skills" / name / "SKILL.md"
+            path = self.root / "skills" / name / "SKILL.md"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(
                 f"---\nname: {name}\ndescription: Fixture.\n---\n", encoding="utf-8"

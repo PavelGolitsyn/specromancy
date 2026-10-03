@@ -21,7 +21,7 @@ class RecoveryContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             (root / ".git").mkdir()
-            skill = root / ".agents" / "skills" / "compose" / "SKILL.md"
+            skill = root / "skills" / "compose" / "SKILL.md"
             skill.parent.mkdir(parents=True)
             skill.write_text(
                 "---\nname: compose\ndescription: Fixture.\n---\n", encoding="utf-8"

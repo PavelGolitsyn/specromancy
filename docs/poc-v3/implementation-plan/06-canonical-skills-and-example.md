@@ -7,11 +7,11 @@ Provide a small research → plan → implement → review example that demonstr
 ## Files introduced
 
 ```text
-.agents/skills/pipeline/SKILL.md
-.agents/skills/research/SKILL.md
-.agents/skills/plan/SKILL.md
-.agents/skills/implement/SKILL.md
-.agents/skills/review/SKILL.md
+specromancy/artifacts/skills/pipeline/SKILL.md
+workflow/skills/research/SKILL.md
+workflow/skills/plan/SKILL.md
+workflow/skills/implement/SKILL.md
+workflow/skills/review/SKILL.md
 workflow/templates/request.md
 workflow/templates/research.md
 workflow/templates/plan.md

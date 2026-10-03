@@ -7,6 +7,8 @@ Create the repository skeleton and freeze the vocabulary, command surface, files
 ## Files introduced
 
 ```text
+specromancy/artifacts/AGENTS.md
+specromancy/artifacts/skills/pipeline/SKILL.md
 AGENTS.md
 .gitignore
 bin/specromancy
@@ -17,7 +19,7 @@ specromancy/errors.py
 specromancy/exit_codes.py
 specromancy/schemas/
 workflow/templates/
-.agents/skills/
+workflow/skills/
 adapters/generate.py
 tests/features/unit/
 tests/features/contract/
@@ -122,7 +124,7 @@ Human output goes to stdout for successful/actionable responses and stderr for e
 
 ### 6. Add repository instructions
 
-`AGENTS.md` should be short and always applicable. It must state:
+The `specromancy/artifacts/AGENTS.md` template generates root `AGENTS.md` and should be short and always applicable. It must state:
 
 - supported Python version;
 - test command;

@@ -10,6 +10,8 @@ Expose canonical instructions, skills, and CLI actions through each supported ha
 specromancy/adapters.py
 adapters/generate.py
 adapters/manifest.json
+AGENTS.md
+.agents/skills/*/SKILL.md
 .claude/CLAUDE.md
 .claude/skills/*/SKILL.md
 .claude/commands/specromancy/*.md
@@ -20,7 +22,7 @@ tests/features/unit/test_adapters.py
 tests/features/contract/test_adapter_drift.py
 ```
 
-Codex and Hermes may require no generated command files in the POC because both can consume canonical repository instructions and skills. Their adapter definitions still exist in generator metadata so compatibility expectations are tested and documented.
+Codex, Copilot, Hermes, and OpenCode discover the shared generated `.agents/skills/` mirrors. Codex and Hermes need no generated command files. All supported harnesses record generated paths in the manifest.
 
 ## Work items
 
@@ -28,9 +30,10 @@ Codex and Hermes may require no generated command files in the POC because both 
 
 The generator reads only canonical sources:
 
-- `AGENTS.md`;
+- `specromancy/artifacts/AGENTS.md` instruction template;
+- `specromancy/artifacts/skills/*/SKILL.md` engine skill templates;
 - validated pipeline configuration;
-- `.agents/skills/*/SKILL.md`;
+- canonical `skills/*/SKILL.md` beside the selected pipeline (`workflow/skills/` for the shipped workflow);
 - CLI command names and help metadata.
 
 It must not read previously generated files as source content.
@@ -52,29 +55,29 @@ Every generated text file starts with a comment stating that it is generated, it
 
 Generate:
 
-- a small `CLAUDE.md` that imports or faithfully reflects canonical `AGENTS.md` without adding workflow rules;
+- a small `CLAUDE.md` that imports or faithfully reflects the canonical engine instruction template without adding workflow rules;
 - `.claude/skills/<name>/SKILL.md` wrappers or deterministic mirrors for canonical skills;
 - command wrappers that accept a run ID, invoke the stable CLI, and direct Claude to the current canonical skill/action packet.
 
-Choose wrappers when Claude's import behavior is reliable for the referenced location; otherwise generate full mirrors and enforce their hashes. Canonical `.agents/skills` files remain the only editable sources.
+Choose wrappers when Claude's import behavior is reliable for the referenced location; otherwise generate full mirrors and enforce their hashes. Canonical pipeline-relative `skills/` files remain the only editable skill sources. Generate the same deterministic mirrors under `.agents/skills/` for shared harness discovery.
 
 ### 4. Generate Copilot files
 
 Generate `.github/copilot-instructions.md` from the subset of `AGENTS.md` relevant to repository work and small prompt wrappers for initialize/resume/status or phase invocation.
 
-Copilot uses `.agents/skills` directly, so do not generate a second skill tree.
+Copilot uses the shared generated `.agents/skills` mirrors, so do not generate a Copilot-specific skill tree.
 
 ### 5. Generate OpenCode commands
 
-Generate small `.opencode/commands/` wrappers that invoke the same CLI action packets. OpenCode consumes `AGENTS.md` and `.agents/skills` directly, so no instruction or skill copy is required.
+Generate small `.opencode/commands/` wrappers that invoke the same CLI action packets. OpenCode consumes the canonical engine instruction template and the shared generated `.agents/skills` mirrors, so no OpenCode-specific instruction or skill copy is required.
 
 ### 6. Document Hermes trust
 
 Hermes consumes `AGENTS.md` and project `.agents/skills`, but project skills require repository trust. Add the required `hermes skills trust` step to the compatibility documentation rather than trying to change user-level Hermes configuration.
 
-### 7. Keep Codex canonical
+### 7. Generate shared skills for Codex
 
-Codex uses `AGENTS.md` and `.agents/skills` directly. Document `$pipeline` and phase-skill invocation. Do not add a Codex-only canonical instruction file.
+Codex uses the canonical engine instruction template and generated `.agents/skills` mirrors. Document `$pipeline` and phase-skill invocation. Do not add a Codex-only canonical instruction file.
 
 ### 8. Implement deterministic generation
 
@@ -109,7 +112,7 @@ If a user changed a stale generated file, report the conflict and leave it untou
 
 ## Exit criteria
 
-- All supported harnesses have either a generated adapter or an explicit native/no-file adapter definition.
+- All supported harnesses have generated adapters, including shared skill mirrors listed for each consuming harness.
 - Generated output is deterministic and safely owned.
 - Editing generated files is never required to change the workflow.
 - CI can detect all adapter drift with one command.

@@ -16,7 +16,7 @@ transitions.
 
 To add a phase:
 
-1. add `.agents/skills/<name>/SKILL.md` with portable frontmatter;
+1. add `skills/<name>/SKILL.md` beside the pipeline file with portable frontmatter;
 2. add any output template under the pipeline's directory;
 3. add `[[phases]]` with a unique lowercase identifier;
 4. route an existing transition to it and give it at least one transition;
@@ -67,11 +67,16 @@ the canonical hash of an otherwise unchanged version-1 pipeline.
 
 ## Skills and templates
 
-`skill = "inspect"` resolves to `.agents/skills/inspect/SKILL.md` at the
-repository root. Canonical skill frontmatter is limited to portable Agent
+`skill = "inspect"` resolves to `skills/inspect/SKILL.md` relative to the
+pipeline file, beside `templates/`. For the shipped workflow this is
+`workflow/skills/inspect/SKILL.md`. The loader and action packets use these
+canonical files; generated `.agents/skills/` mirrors are for harness discovery. Canonical skill frontmatter is limited to portable Agent
 Skills fields (`name`, `description`, `license`, `compatibility`, and optional
 `metadata`). Keep vendor models, tool allowlists, and slash-command syntax in
-generated harness surfaces, never canonical skills.
+generated harness surfaces, never canonical skills. Generic engine skills,
+including the pipeline orchestrator, have templates under
+`specromancy/artifacts/skills/`. Their names are reserved; generation rejects a
+workflow skill with the same name.
 
 `output_template` is relative to the pipeline file. A Markdown validator can
 declare `required_headings` and `heading_occurrence`; a JSON validator may use
@@ -121,8 +126,8 @@ redirections are not interpreted.
 
 ## Regeneration and active runs
 
-After changing `AGENTS.md`, a canonical skill, the pipeline, or CLI help
-metadata, run:
+After changing an engine template under `specromancy/artifacts/`, a canonical
+workflow skill, the pipeline, or CLI help metadata, run:
 
 ```bash
 bin/specromancy adapters generate

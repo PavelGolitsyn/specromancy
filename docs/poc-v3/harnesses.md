@@ -14,11 +14,11 @@ bin/specromancy adapters generate --check
 
 ## Codex
 
-- Discovery: `AGENTS.md` and `.agents/skills/*/SKILL.md` are native project
-  instructions and skills.
+- Discovery: generated `AGENTS.md` and `.agents/skills/*/SKILL.md`
+  mirrors use native project conventions.
 - Invocation: ask Codex to use the `pipeline` skill with a request, or provide
   `RUN_ID` to the phase skill named by `status`.
-- Generated files: none.
+- Generated files: root `AGENTS.md` and shared `.agents/skills/*/SKILL.md` mirrors.
 - Prerequisites: open the repository as a trusted writable workspace and allow
   only the commands needed by the configured validation.
 - Limitation: availability and presentation of skill invocation depend on the
@@ -44,7 +44,7 @@ bin/specromancy adapters generate --check
   `.agents/skills/`, and `.github/prompts/specromancy-*.prompt.md`.
 - Invocation: select a `specromancy-init`, `-status`, `-resume`, or `-phase`
   prompt and supply its argument hint.
-- Generated files: one instruction mirror and four prompt files.
+- Generated files: root instructions, shared skill mirrors, one instruction mirror, and four prompt files.
 - Prerequisites: use an agent-capable surface with repository and terminal
   permissions.
 - Limitation: Copilot prompt availability varies by editor. The prompts are the
@@ -57,7 +57,7 @@ bin/specromancy adapters generate --check
   `.opencode/commands/specromancy-*.md`.
 - Invocation: use the matching `specromancy-init`, `-status`, `-resume`, or
   `-phase` custom command with its positional arguments.
-- Generated files: four thin command files.
+- Generated files: root instructions, shared skill mirrors, and four thin command files.
 - Prerequisites: trust the project and grant terminal/filesystem access needed
   by the current action packet.
 - Limitation: the generated command convention is OpenCode-specific and does
@@ -65,10 +65,10 @@ bin/specromancy adapters generate --check
 
 ## Hermes
 
-- Discovery: `AGENTS.md` and `.agents/skills/*/SKILL.md` directly.
-- Invocation: invoke the canonical `pipeline` skill for a new run, or the
+- Discovery: generated `AGENTS.md` and `.agents/skills/*/SKILL.md` mirrors.
+- Invocation: invoke the generated `pipeline` skill mirror for a new run, or the
   current phase skill with `RUN_ID` after `status`.
-- Generated files: none.
+- Generated files: root `AGENTS.md` and shared `.agents/skills/*/SKILL.md` mirrors.
 - Prerequisites: run `hermes skills trust` in the repository and review the
   project skills before accepting them.
 - Limitation: project-skill trust is user-managed. Specromancy does not modify

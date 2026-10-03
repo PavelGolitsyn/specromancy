@@ -8,6 +8,8 @@ import unittest
 from pathlib import Path
 
 from specromancy.adapters import (
+    AGENTS_SOURCE_PATH,
+    ENGINE_ARTIFACTS_PATH,
     MANIFEST_PATH,
     AdapterError,
     generate_adapters,
@@ -23,11 +25,14 @@ class AdapterFixture:
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         (self.root / ".git").mkdir()
-        (self.root / "AGENTS.md").write_text(
+        instructions = self.root / AGENTS_SOURCE_PATH
+        instructions.parent.mkdir(parents=True)
+        instructions.write_text(
             "# Repository instructions\n\n- Keep workflow logic canonical.\n",
             encoding="utf-8",
         )
         self.write_skill("compose")
+        self.write_skill("pipeline", engine=True)
         self.pipeline_path = self.root / "pipeline.toml"
         self.pipeline_path.write_text(
             textwrap.dedent(
@@ -60,8 +65,9 @@ class AdapterFixture:
     def close(self) -> None:
         self.temporary.cleanup()
 
-    def write_skill(self, name: str) -> Path:
-        path = self.root / ".agents" / "skills" / name / "SKILL.md"
+    def write_skill(self, name: str, *, engine: bool = False) -> Path:
+        base = self.root / ENGINE_ARTIFACTS_PATH if engine else self.root
+        path = base / "skills" / name / "SKILL.md"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
             textwrap.dedent(
@@ -135,7 +141,7 @@ class AdapterGenerationTests(unittest.TestCase):
                         path = fixture.root / ".opencode" / "commands" / "specromancy-extra.md"
                         path.write_text("extra\n", encoding="utf-8")
                     else:
-                        with (fixture.root / "AGENTS.md").open("a", encoding="utf-8") as stream:
+                        with (fixture.root / AGENTS_SOURCE_PATH).open("a", encoding="utf-8") as stream:
                             stream.write("- A new canonical rule.\n")
                     changed_before_check = {
                         path: (fixture.root / path).read_bytes()
@@ -171,7 +177,10 @@ class AdapterGenerationTests(unittest.TestCase):
         extra.unlink()
         result = self.fixture.generate()
         self.assertFalse(generated.exists())
-        self.assertEqual(result["adapters"]["removed"], [".claude/skills/extra/SKILL.md"])
+        self.assertEqual(
+            result["adapters"]["removed"],
+            [".agents/skills/extra/SKILL.md", ".claude/skills/extra/SKILL.md"],
+        )
 
     def test_stale_modified_file_is_preserved_with_an_error(self) -> None:
         extra = self.fixture.write_skill("extra")
@@ -198,9 +207,9 @@ class AdapterGenerationTests(unittest.TestCase):
             modes,
             {
                 "claude": "generated",
-                "codex": "native",
+                "codex": "generated",
                 "copilot": "generated",
-                "hermes": "native",
+                "hermes": "generated",
                 "opencode": "generated",
             },
         )
@@ -214,6 +223,144 @@ class AdapterGenerationTests(unittest.TestCase):
             self.assertEqual(
                 entry["sha256"], sha256_bytes((self.fixture.root / path).read_bytes())
             )
+
+    def test_shared_skills_are_generated_from_pipeline_sources(self) -> None:
+        source = self.fixture.root / "skills" / "compose" / "SKILL.md"
+        before = source.read_bytes()
+        self.fixture.generate()
+        shared = self.fixture.root / ".agents" / "skills" / "compose" / "SKILL.md"
+        claude = self.fixture.root / ".claude" / "skills" / "compose" / "SKILL.md"
+        self.assertEqual(shared.read_bytes(), claude.read_bytes())
+        self.assertIn("# Canonical source: skills/compose/SKILL.md.", shared.read_text())
+        self.assertEqual(source.read_bytes(), before)
+
+        manifest = json.loads((self.fixture.root / MANIFEST_PATH).read_text())
+        inputs = {
+            entry["path"] for entry in manifest["canonical_source"]["inputs"]
+            if entry["kind"] == "canonical-skill"
+        }
+        self.assertEqual(inputs, {"skills/compose/SKILL.md"})
+        targets = {entry["name"]: entry for entry in manifest["targets"]}
+        for harness in ("codex", "copilot", "hermes", "opencode"):
+            self.assertIn(".agents/skills/compose/SKILL.md", targets[harness]["paths"])
+
+    def test_engine_artifacts_generate_instructions_and_orchestrator_directly(self) -> None:
+        source = self.fixture.root / AGENTS_SOURCE_PATH
+        skill = self.fixture.root / ENGINE_ARTIFACTS_PATH / "skills/pipeline/SKILL.md"
+        before = {path: path.read_bytes() for path in (source, skill)}
+        self.assertFalse((self.fixture.root / "AGENTS.md").exists())
+        self.fixture.generate()
+        root_instructions = self.fixture.root / "AGENTS.md"
+        self.assertIn(f"Canonical source: {AGENTS_SOURCE_PATH}.", root_instructions.read_text())
+        for relative in ("AGENTS.md", ".claude/CLAUDE.md", ".github/copilot-instructions.md"):
+            self.assertIn(source.read_text(), (self.fixture.root / relative).read_text())
+        for surface in (".agents", ".claude"):
+            generated = self.fixture.root / surface / "skills/pipeline/SKILL.md"
+            self.assertIn(f"# Canonical source: {ENGINE_ARTIFACTS_PATH}/skills/pipeline/SKILL.md.", generated.read_text())
+        self.assertEqual(before, {path: path.read_bytes() for path in before})
+
+        manifest = json.loads((self.fixture.root / MANIFEST_PATH).read_text())
+        inputs = {entry["path"] for entry in manifest["canonical_source"]["inputs"]}
+        self.assertIn(AGENTS_SOURCE_PATH, inputs)
+        self.assertIn(f"{ENGINE_ARTIFACTS_PATH}/skills/pipeline/SKILL.md", inputs)
+        self.assertNotIn("AGENTS.md", inputs)
+        self.assertFalse(any(path.startswith(".agents/") for path in inputs))
+
+    def test_generated_instructions_are_outputs_and_never_adapter_inputs(self) -> None:
+        self.fixture.generate()
+        instructions = self.fixture.root / "AGENTS.md"
+        instructions.write_text("A change in generated instructions.\n")
+        with self.assertRaises(AdapterError) as caught:
+            self.fixture.generate(check=True)
+        self.assertEqual(caught.exception.details["modified"], ["AGENTS.md"])
+        self.fixture.generate()
+        self.assertNotIn("A change in generated instructions.", instructions.read_text())
+        self.fixture.generate(check=True)
+
+    def test_unowned_root_instructions_are_preserved(self) -> None:
+        instructions = self.fixture.root / "AGENTS.md"
+        instructions.write_text("Existing user instructions.\n")
+        with self.assertRaises(AdapterError) as caught:
+            self.fixture.generate()
+        self.assertEqual(caught.exception.details["unowned"], ["AGENTS.md"])
+        self.assertEqual(instructions.read_text(), "Existing user instructions.\n")
+        self.assertFalse((self.fixture.root / MANIFEST_PATH).exists())
+
+    def test_engine_skill_changes_update_every_mirror(self) -> None:
+        self.fixture.generate()
+        source = self.fixture.root / ENGINE_ARTIFACTS_PATH / "skills/pipeline/SKILL.md"
+        source.write_text(source.read_text() + "An updated orchestration procedure.\n")
+        with self.assertRaises(AdapterError) as caught:
+            self.fixture.generate(check=True)
+        for surface in (".agents", ".claude"):
+            self.assertIn(f"{surface}/skills/pipeline/SKILL.md", caught.exception.details["modified"])
+        self.fixture.generate()
+        for surface in (".agents", ".claude"):
+            self.assertIn("An updated orchestration procedure.", (self.fixture.root / surface / "skills/pipeline/SKILL.md").read_text())
+        self.fixture.generate(check=True)
+
+    def test_workflow_cannot_override_an_engine_skill(self) -> None:
+        duplicate = self.fixture.write_skill("pipeline")
+        with self.assertRaises(AdapterError) as caught:
+            self.fixture.generate()
+        self.assertEqual(caught.exception.details["conflicting_sources"], ["skills/pipeline/SKILL.md"])
+        self.assertTrue(duplicate.is_file())
+        self.assertFalse((self.fixture.root / "AGENTS.md").exists())
+
+    def test_shared_skill_drift_and_canonical_updates_are_checked(self) -> None:
+        self.fixture.generate()
+        shared = self.fixture.root / ".agents" / "skills" / "compose" / "SKILL.md"
+        shared.write_text("user change\n", encoding="utf-8")
+        with self.assertRaises(AdapterError) as caught:
+            self.fixture.generate(check=True)
+        self.assertIn(".agents/skills/compose/SKILL.md", caught.exception.details["modified"])
+        self.assertEqual(shared.read_text(), "user change\n")
+        self.fixture.generate()
+
+        source = self.fixture.root / "skills" / "compose" / "SKILL.md"
+        source.write_text(source.read_text() + "A new canonical procedure.\n")
+        with self.assertRaises(AdapterError) as caught:
+            self.fixture.generate(check=True)
+        self.assertIn(".agents/skills/compose/SKILL.md", caught.exception.details["modified"])
+        self.fixture.generate()
+        self.assertIn("A new canonical procedure.", shared.read_text())
+        self.fixture.generate(check=True)
+
+    def test_unowned_shared_skill_is_preserved_before_any_generation(self) -> None:
+        path = self.fixture.root / ".agents" / "skills" / "compose" / "SKILL.md"
+        path.parent.mkdir(parents=True)
+        path.write_text("user owned\n", encoding="utf-8")
+        with self.assertRaises(AdapterError) as caught:
+            self.fixture.generate()
+        self.assertEqual(caught.exception.details["unowned"], [".agents/skills/compose/SKILL.md"])
+        self.assertEqual(path.read_text(), "user owned\n")
+        self.assertFalse((self.fixture.root / ".claude").exists())
+        self.assertFalse((self.fixture.root / MANIFEST_PATH).exists())
+
+    def test_modified_stale_shared_skill_is_preserved(self) -> None:
+        source = self.fixture.write_skill("extra")
+        self.fixture.generate()
+        path = self.fixture.root / ".agents" / "skills" / "extra" / "SKILL.md"
+        path.write_text("user change\n", encoding="utf-8")
+        source.unlink()
+        with self.assertRaises(AdapterError) as caught:
+            self.fixture.generate()
+        self.assertEqual(caught.exception.details["stale_modified"], [".agents/skills/extra/SKILL.md"])
+        self.assertEqual(path.read_text(), "user change\n")
+        self.assertTrue((self.fixture.root / ".claude/skills/extra/SKILL.md").is_file())
+
+    def test_shared_skill_symlink_destination_is_rejected(self) -> None:
+        path = self.fixture.root / ".agents" / "skills" / "compose" / "SKILL.md"
+        path.parent.mkdir(parents=True)
+        source = self.fixture.root / "skills" / "compose" / "SKILL.md"
+        before = source.read_bytes()
+        path.symlink_to(source)
+        with self.assertRaises(AdapterError) as caught:
+            self.fixture.generate()
+        self.assertEqual(caught.exception.details["unsafe"], [{
+            "path": ".agents/skills/compose/SKILL.md", "reason": "target-is-symlink",
+        }])
+        self.assertEqual(source.read_bytes(), before)
 
     def test_tampered_manifest_cannot_claim_an_unrelated_path(self) -> None:
         self.fixture.generate()

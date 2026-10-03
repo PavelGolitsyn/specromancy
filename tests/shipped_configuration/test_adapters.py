@@ -7,7 +7,7 @@ import sys
 import unittest
 from pathlib import Path
 
-from specromancy.adapters import HARNESS_MODES
+from specromancy.adapters import HARNESS_MODES, SHARED_HARNESSES
 from specromancy.contracts import RESERVED_COMMANDS
 from specromancy.hashing import sha256_bytes
 
@@ -38,8 +38,12 @@ class ShippedAdapterTests(unittest.TestCase):
         self.assertEqual(set(targets), set(HARNESS_MODES))
         generated_by_target = {name: [] for name in HARNESS_MODES}
         for entry in self.manifest["generated"]:
-            self.assertIn(entry["target"], targets)
-            generated_by_target[entry["target"]].append(entry["path"])
+            if entry["target"] == "agents":
+                for name in SHARED_HARNESSES:
+                    generated_by_target[name].append(entry["path"])
+            else:
+                self.assertIn(entry["target"], targets)
+                generated_by_target[entry["target"]].append(entry["path"])
             content = (ROOT / entry["path"]).read_bytes()
             self.assertEqual(entry["sha256"], sha256_bytes(content), entry["path"])
         for name, mode in HARNESS_MODES.items():
@@ -75,12 +79,24 @@ class ShippedAdapterTests(unittest.TestCase):
 
     def test_wrappers_match_shipped_skills_and_supported_commands(self) -> None:
         canonical = {
-            path.parent.name for path in (ROOT / ".agents" / "skills").glob("*/SKILL.md")
+            path.parent.name for path in (
+                *(ROOT / "workflow" / "skills").glob("*/SKILL.md"),
+                *(ROOT / "specromancy" / "artifacts" / "skills").glob("*/SKILL.md"),
+            )
         }
         mirrored = {
             path.parent.name for path in (ROOT / ".claude" / "skills").glob("*/SKILL.md")
         }
         self.assertEqual(mirrored, canonical)
+        shared = {
+            path.parent.name for path in (ROOT / ".agents" / "skills").glob("*/SKILL.md")
+        }
+        self.assertEqual(shared, canonical)
+        for name in canonical:
+            self.assertEqual(
+                (ROOT / ".agents" / "skills" / name / "SKILL.md").read_bytes(),
+                (ROOT / ".claude" / "skills" / name / "SKILL.md").read_bytes(),
+            )
         wrappers = [
             ROOT / entry["path"]
             for entry in self.manifest["generated"]

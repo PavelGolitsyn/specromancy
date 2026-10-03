@@ -48,7 +48,7 @@ class SafetyFixture:
             if line.strip().startswith("id ="):
                 names.append(line.split('"')[1])
         for name in names:
-            skill = self.root / ".agents" / "skills" / name / "SKILL.md"
+            skill = self.root / "skills" / name / "SKILL.md"
             skill.parent.mkdir(parents=True, exist_ok=True)
             skill.write_text(f"---\nname: {name}\ndescription: Test.\n---\n")
         self.pipeline_path = self.root / "pipeline.toml"

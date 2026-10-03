@@ -77,7 +77,7 @@ Use `tomllib` for syntax and frozen dataclasses for validated configuration. Do 
 
 - Phase and outcome IDs match `^[a-z0-9]+(?:-[a-z0-9]+)*$`.
 - IDs are unique and cannot use reserved CLI command names.
-- Skill paths resolve to `.agents/skills/<skill>/SKILL.md` inside the repository.
+- Skill paths resolve to `skills/<skill>/SKILL.md` beside the selected pipeline file (the shipped workflow uses `workflow/skills/`).
 - Template and validator paths cannot escape the repository through `..` or symlinks.
 - Output patterns resolve inside the current run directory.
 - Referenced files exist at configuration-load time.

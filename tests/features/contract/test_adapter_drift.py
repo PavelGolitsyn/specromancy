@@ -70,10 +70,14 @@ class AdapterDriftContractTests(unittest.TestCase):
         self.assertEqual(
             set(targets), {"claude", "codex", "copilot", "hermes", "opencode"}
         )
-        self.assertEqual(targets["codex"]["mode"], "native")
-        self.assertEqual(targets["codex"]["paths"], [])
-        self.assertEqual(targets["hermes"]["mode"], "native")
-        self.assertEqual(targets["hermes"]["paths"], [])
+        shared = sorted(
+            entry["path"] for entry in self.manifest["generated"]
+            if entry["target"] == "agents"
+        )
+        self.assertTrue(shared)
+        for name in ("codex", "hermes"):
+            self.assertEqual(targets[name]["mode"], "generated")
+            self.assertEqual(targets[name]["paths"], shared)
         for entry in self.manifest["generated"]:
             content = (self.root / entry["path"]).read_bytes()
             self.assertEqual(entry["sha256"], sha256_bytes(content), entry["path"])
@@ -101,7 +105,10 @@ class AdapterDriftContractTests(unittest.TestCase):
     def test_wrappers_reference_only_existing_commands_and_skills(self) -> None:
         canonical_skills = {
             path.parent.name
-            for path in (self.root / ".agents" / "skills").glob("*/SKILL.md")
+            for path in (
+                *(self.root / "skills").glob("*/SKILL.md"),
+                *(self.root / "specromancy" / "artifacts" / "skills").glob("*/SKILL.md"),
+            )
         }
         mirrored_skills = {
             path.parent.name

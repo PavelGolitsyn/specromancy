@@ -43,10 +43,12 @@ multiple non-blocking outcomes and is rejected when there is only one.
 Both `bin/specromancy` and `python -m specromancy` invoke the same package entry point. The repository root is found by walking upward to a `.git` directory or worktree marker. `--root` supplies an explicit root for fixtures and non-Git directories.
 
 `adapters generate` deterministically renders harness-native adapters from
-`AGENTS.md`, the validated pipeline configuration, canonical `.agents/skills`,
-and CLI command/help metadata. `--check` performs no writes and exits with
-`ADAPTER_DRIFT` when the manifest or managed tree differs from the expected
-rendering.
+the instruction and skill templates under `specromancy/artifacts/`, the validated
+pipeline configuration, canonical `skills/` beside the selected pipeline, and
+CLI command/help metadata. Root `AGENTS.md` and both engine and workflow skill
+mirrors are generated outputs, never canonical source inputs. `--check`
+performs no writes and exits with `ADAPTER_DRIFT` when the manifest or managed
+tree differs from the expected rendering.
 
 ## Filesystem ownership
 
@@ -61,8 +63,15 @@ The CLI never deletes, resets, stages, or commits repository work. Cleanup is li
 `adapters/manifest.json` is the schema-versioned ownership boundary. It records
 the generator version and regeneration command, canonical source records and
 aggregate hash, every generated adapter path and content hash, and generated or
-native mode for every supported harness. The manifest omits its own hash to
-avoid self-reference and contains no timestamps or absolute paths.
+native mode for every supported harness. Root `AGENTS.md` and shared
+`.agents/skills/` files use `target = "agents"` in generated entries and appear
+in the path lists for Codex,
+Copilot, Hermes, and OpenCode. Each shared file has one ownership entry even
+though multiple harnesses discover it. Workflow skills cannot reuse an engine
+skill name; collisions fail before any generated file is changed. Generation
+preserves and reports an unowned root `AGENTS.md`, as it does for other
+unowned destinations. The manifest omits its own hash to avoid self-reference
+and contains no timestamps or absolute paths.
 
 ## Run persistence
 
@@ -118,8 +127,10 @@ An action packet uses schema version 1 and contains stable keys for `run_id`,
 `visit_id`, `visit_attempt`, `visit_status`, `phase`, `skill`, `inputs`,
 `output`, `template`, `mutation`, `completion_criteria`, `validation`,
 `approval_conditions`, `stop_conditions`, `outcomes`, and
-`final_validation_command`. Literal artifact records retain repository- or
-run-relative paths and add `absolute_path` for direct harness use.
+`final_validation_command`. The skill record resolves to canonical `skills/<skill>/SKILL.md` beside the
+selected pipeline, not a generated discovery mirror. Literal artifact records
+retain repository- or run-relative paths and add `absolute_path` for direct
+harness use.
 
 ## Validation and safety
 

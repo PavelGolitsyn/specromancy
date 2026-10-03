@@ -9,7 +9,8 @@ from specromancy.contracts import RESERVED_COMMANDS
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SKILLS = ROOT / ".agents" / "skills"
+SKILLS = ROOT / "workflow" / "skills"
+ENGINE_SKILLS = ROOT / "specromancy" / "artifacts" / "skills"
 ALLOWED_FRONTMATTER = {"name", "description", "license", "compatibility", "metadata"}
 
 
@@ -48,7 +49,7 @@ class ShippedSkillTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.pipeline = load_pipeline(DEFAULT_PIPELINE_PATH, ROOT)
-        cls.paths = sorted(SKILLS.glob("*/SKILL.md"))
+        cls.paths = sorted([*SKILLS.glob("*/SKILL.md"), *ENGINE_SKILLS.glob("*/SKILL.md")])
 
     def test_pipeline_skills_exist_and_all_shipped_skills_are_portable(self) -> None:
         available = {path.resolve() for path in self.paths}

@@ -26,12 +26,19 @@ class ShippedLayoutTests(unittest.TestCase):
         for path in (
             "workflow/pipeline.toml",
             "workflow/templates/",
-            ".agents/skills/",
+            "workflow/skills/",
+            "specromancy/artifacts/",
             "AGENTS.md",
             "specromancy/",
         ):
             with self.subTest(path=path):
                 self.assertIn(path, guide)
+
+    def test_engine_artifacts_have_sources_outside_the_workflow(self) -> None:
+        artifacts = ROOT / "specromancy" / "artifacts"
+        self.assertTrue((artifacts / "AGENTS.md").is_file())
+        self.assertTrue((artifacts / "skills" / "pipeline" / "SKILL.md").is_file())
+        self.assertFalse((ROOT / "workflow" / "skills" / "pipeline" / "SKILL.md").exists())
 
 
 if __name__ == "__main__":

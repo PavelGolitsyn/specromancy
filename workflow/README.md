@@ -10,26 +10,30 @@ generic engine and should not need editing when the workflow changes.
 | --- | --- |
 | Phase graph, gates, policies, and validation | `workflow/pipeline.toml` |
 | Artifact structure and required sections | `workflow/templates/` |
-| Phase procedures | `.agents/skills/<skill>/SKILL.md` |
-| Repository-wide agent constraints | `AGENTS.md` |
+| Phase procedures | `workflow/skills/<skill>/SKILL.md` |
+| Repository-wide agent constraints | `specromancy/artifacts/AGENTS.md` |
+| Generic orchestration skill | `specromancy/artifacts/skills/pipeline/SKILL.md` |
 
-`AGENTS.md` and `.agents/skills/` remain at their conventional repository paths
-so supported agent harnesses can discover them directly. Together with this
-directory, they are the complete editable workflow surface.
+Canonical phase skills live in `skills/` beside `templates/` and resolve
+relative to the pipeline file. Generic instructions and the pipeline skill
+have source templates under `specromancy/artifacts/`; these are separate from
+workflow phase procedures. See `specromancy/artifacts/README.md` for their output
+paths and reserved engine skill names.
 
-Do not edit `.claude/`, `.github/copilot-instructions.md`,
-`.github/prompts/`, or `.opencode/commands/` directly. They are generated
-adapters recorded in `adapters/manifest.json`.
+Do not edit `AGENTS.md`, `.agents/skills/`, `.claude/`,
+`.github/copilot-instructions.md`, `.github/prompts/`, or `.opencode/commands/`
+directly. They are generated adapters recorded in `adapters/manifest.json`.
 
 ## Safe customization sequence
 
 1. Edit the graph in `workflow/pipeline.toml`.
 2. Add or update its referenced templates in `workflow/templates/`.
-3. Add or update the matching phase procedure in `.agents/skills/`.
+3. Add or update the matching phase procedure in `workflow/skills/`.
 4. Run `bin/specromancy adapters generate`.
 5. Run `bin/specromancy adapters generate --check`.
 6. Run `python -m unittest discover`.
 
-Pipeline-relative paths such as `templates/research.md` resolve from this
+Pipeline-relative paths such as `skills/research/SKILL.md` and
+`templates/research.md` resolve from this
 directory. See `docs/poc-v3/authoring-pipelines.md` for the configuration
 contract and replacement workflow example.

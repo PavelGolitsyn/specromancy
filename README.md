@@ -23,9 +23,13 @@ Runtime data is written only under ignored `.specromancy/runs/` storage.
 
 ## Customize the workflow
 
-The editable graph and artifact templates live in [`workflow/`](workflow/).
-Phase procedures live in [`.agents/skills/`](.agents/skills/) for native harness
-discovery, and repository-wide agent constraints live in [`AGENTS.md`](AGENTS.md).
+The editable graph, artifact templates, and canonical phase procedures live in
+[`workflow/`](workflow/), with skills in [`workflow/skills/`](workflow/skills/)
+beside the templates. Templates for repository-wide instructions and the
+generic pipeline skill live in [`specromancy/artifacts/`](specromancy/artifacts/).
+Run `bin/specromancy adapters generate` after editing canonical sources;
+`AGENTS.md`, `.agents/skills/`, and the other harness surfaces
+are generated mirrors recorded in `adapters/manifest.json`.
 The Python package under `specromancy/` is the generic engine, not a workflow
 customization surface. Start with the
 [`workflow/README.md`](workflow/README.md) customization map.

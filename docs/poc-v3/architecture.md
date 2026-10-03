@@ -9,8 +9,9 @@ from files under `.specromancy/`, never from conversation history.
 
 | Concern | Authoritative source |
 | --- | --- |
-| Always-on repository constraints | `AGENTS.md` |
-| Phase procedure | `.agents/skills/<skill>/SKILL.md` |
+| Always-on repository constraints | `specromancy/artifacts/AGENTS.md` template |
+| Generic orchestration procedure | `specromancy/artifacts/skills/pipeline/SKILL.md` template |
+| Phase procedure | `workflow/skills/<skill>/SKILL.md` |
 | Graph, policies, gates, and validators | `workflow/pipeline.toml` |
 | State transitions and persistence | `specromancy/` Python package |
 | Current run state | `.specromancy/runs/<run-id>/run.json` and artifacts |
@@ -18,10 +19,10 @@ from files under `.specromancy/`, never from conversation history.
 | Harness discovery surfaces | generated adapters recorded in `adapters/manifest.json` |
 
 The editable workflow surface is intentionally outside the Python package:
-start in `workflow/` for the graph and templates, then use `.agents/skills/`
-for phase procedures or `AGENTS.md` for always-on constraints. Files under
-`specromancy/` implement the generic runtime and are not changed to add,
-remove, reorder, or tune phases.
+start in `workflow/` for the graph, templates, and canonical phase skills.
+Generic instruction and orchestration templates live in
+`specromancy/artifacts/`. Python modules under `specromancy/` implement the
+generic runtime and are not changed to add, remove, reorder, or tune phases.
 
 The engine is generic. Phase identifiers such as the default pipeline's names
 belong only in configuration, skills, templates, tests, and examples.
@@ -110,11 +111,17 @@ bounded, secret-redacted summaries are recorded in the manifest.
 
 ## Canonical and generated content
 
-`AGENTS.md`, `workflow/pipeline.toml`, `.agents/skills/`, and
-`workflow/templates/` are canonical. Claude Code, Copilot, and OpenCode
-adapters are deterministic projections. Codex and Hermes consume canonical
-files directly. Generated files contain provenance and invocation glue only;
-they contain no phase graph, approval policy, or unique workflow procedure.
+`specromancy/artifacts/`, `workflow/pipeline.toml`, `workflow/skills/`, and
+`workflow/templates/` are canonical. Root `AGENTS.md` is generated from the
+engine instruction template, and the generic pipeline skill is generated from
+the engine skill template. All harness adapters are deterministic
+projections. Instructions are rendered directly from the engine template,
+never from a generated `AGENTS.md`. The shared `.agents/skills/` mirrors serve
+Codex, Copilot, OpenCode, and Hermes; Claude Code has its own `.claude/skills/`
+mirrors. Action packets
+resolve canonical skills beside the selected pipeline, independently of these
+discovery surfaces. Generated files contain provenance, mirrored canonical
+content, and invocation glue; they contain no unique workflow procedure.
 
 ## POC limitations
 

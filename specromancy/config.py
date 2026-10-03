@@ -497,10 +497,9 @@ class _Loader:
             )
         skill = self.require_identifier(raw.get("skill"), "skill", phase=phase_id)
         skill_path = self.existing_path(
-            f".agents/skills/{skill}/SKILL.md",
+            f"skills/{skill}/SKILL.md",
             "skill",
             phase=phase_id,
-            base=self.repository_root,
         )
         inputs = self.string_list(raw.get("inputs"), "inputs", phase=phase_id)
         _validate_inputs(inputs, phase_id, self.fail)

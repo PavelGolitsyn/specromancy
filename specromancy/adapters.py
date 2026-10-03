@@ -27,6 +27,8 @@ ADAPTER_SCHEMA_VERSION = 1
 GENERATOR_VERSION = 1
 MANIFEST_PATH = "adapters/manifest.json"
 REGENERATION_COMMAND = "bin/specromancy adapters generate"
+ENGINE_ARTIFACTS_PATH = "specromancy/artifacts"
+AGENTS_SOURCE_PATH = f"{ENGINE_ARTIFACTS_PATH}/AGENTS.md"
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,11 +70,14 @@ ADAPTER_COMMANDS = (
 
 HARNESS_MODES = {
     "claude": "generated",
-    "codex": "native",
+    "codex": "generated",
     "copilot": "generated",
-    "hermes": "native",
+    "hermes": "generated",
     "opencode": "generated",
 }
+
+# These harnesses discover shared generated instructions and skills.
+SHARED_HARNESSES = {"codex", "copilot", "hermes", "opencode"}
 
 
 class AdapterError(SpecromancyError):
@@ -165,8 +170,8 @@ def render_adapters(
     """Render all generated adapter files in stable path order."""
 
     root = repository_root.resolve(strict=True)
-    agents = _normalized_text(root / "AGENTS.md", "AGENTS.md")
-    skill_sources = _skill_sources(root)
+    agents = _normalized_text(root / AGENTS_SOURCE_PATH, AGENTS_SOURCE_PATH)
+    skill_sources = _skill_sources(root, pipeline)
     cli_commands = _known_cli_commands(command_metadata)
     for command in ADAPTER_COMMANDS:
         if command.cli_command not in cli_commands:
@@ -176,13 +181,17 @@ def render_adapters(
             )
 
     files: dict[str, bytes] = {}
+    files["AGENTS.md"] = _markdown_document(AGENTS_SOURCE_PATH, agents)
     files[".claude/CLAUDE.md"] = _markdown_document(
-        "AGENTS.md",
+        AGENTS_SOURCE_PATH,
         agents,
-        preface="The following repository instructions mirror the canonical AGENTS.md.\n\n",
+        preface="The following repository instructions mirror the canonical engine template.\n\n",
     )
     for skill_path, skill_text in skill_sources:
         name = Path(skill_path).parent.name
+        files[f".agents/skills/{name}/SKILL.md"] = _skill_mirror(
+            skill_path, skill_text
+        )
         files[f".claude/skills/{name}/SKILL.md"] = _skill_mirror(
             skill_path, skill_text
         )
@@ -192,7 +201,7 @@ def render_adapters(
         )
 
     files[".github/copilot-instructions.md"] = _markdown_document(
-        "AGENTS.md",
+        AGENTS_SOURCE_PATH,
         agents,
         preface=(
             "These repository-work rules mirror the canonical instructions used by "
@@ -212,7 +221,7 @@ def render_adapters(
 
 
 def _command_wrapper(harness: str, command: AdapterCommand) -> bytes:
-    source = "CLI help metadata and canonical .agents skills"
+    source = "CLI help metadata and canonical pipeline skills"
     invocation = _harness_invocation(harness, command)
     if command.name == "init":
         follow = (
@@ -322,7 +331,12 @@ def _manifest(
         )
     targets = []
     for name in sorted(HARNESS_MODES):
-        paths = [item["path"] for item in generated if item["target"] == name]
+        paths = [
+            item["path"]
+            for item in generated
+            if item["target"] == name
+            or (item["target"] == "agents" and name in SHARED_HARNESSES)
+        ]
         targets.append({"name": name, "mode": HARNESS_MODES[name], "paths": paths})
     return {
         "schema_version": ADAPTER_SCHEMA_VERSION,
@@ -350,17 +364,21 @@ def _canonical_sources(
     command_metadata: Mapping[str, Any],
 ) -> list[dict[str, str]]:
     sources = [
-        _file_source(root, "AGENTS.md"),
+        _file_source(root, AGENTS_SOURCE_PATH),
         {
             "kind": "validated-pipeline",
             "path": relative_path(pipeline.path, root),
             "sha256": sha256_bytes(pipeline.canonical_json.encode("utf-8")),
         },
     ]
-    for path, text in _skill_sources(root):
+    for path, text in _skill_sources(root, pipeline):
         sources.append(
             {
-                "kind": "canonical-skill",
+                "kind": (
+                    "engine-skill"
+                    if path.startswith(f"{ENGINE_ARTIFACTS_PATH}/skills/")
+                    else "canonical-skill"
+                ),
                 "path": path,
                 "sha256": sha256_bytes(text.encode("utf-8")),
             }
@@ -384,13 +402,27 @@ def _file_source(root: Path, path: str) -> dict[str, str]:
     }
 
 
-def _skill_sources(root: Path) -> list[tuple[str, str]]:
-    skills_root = root / ".agents" / "skills"
+def _skill_sources(root: Path, pipeline: PipelineConfig) -> list[tuple[str, str]]:
+    engine_skills = _skills_at(root, root / ENGINE_ARTIFACTS_PATH / "skills")
+    workflow_skills = _skills_at(root, pipeline.path.parent / "skills")
+    names = {Path(path).parent.name for path, _ in engine_skills}
+    collisions = sorted(
+        path for path, _ in workflow_skills if Path(path).parent.name in names
+    )
+    if collisions:
+        raise AdapterError(
+            "workflow skills conflict with canonical engine skills",
+            {"conflicting_sources": collisions},
+        )
+    return sorted([*engine_skills, *workflow_skills])
+
+
+def _skills_at(root: Path, skills_root: Path) -> list[tuple[str, str]]:
     paths = sorted(skills_root.glob("*/SKILL.md"), key=lambda item: item.as_posix())
     if not paths:
         raise AdapterError(
             "no canonical skills found",
-            {"path": ".agents/skills/*/SKILL.md"},
+            {"path": f"{relative_path(skills_root, root)}/*/SKILL.md"},
         )
     return [
         (relative_path(path, root), _normalized_text(path, relative_path(path, root)))
@@ -422,6 +454,8 @@ def _known_cli_commands(metadata: Mapping[str, Any]) -> set[str]:
 
 
 def _target_for_path(path: str) -> str:
+    if path == "AGENTS.md" or path.startswith(".agents/"):
+        return "agents"
     if path.startswith(".claude/"):
         return "claude"
     if path.startswith(".github/"):
@@ -583,12 +617,13 @@ def _has_drift(drift: Mapping[str, Any]) -> bool:
 
 def _managed_paths(root: Path) -> set[str]:
     paths: set[str] = set()
-    singles = (".claude/CLAUDE.md", ".github/copilot-instructions.md")
+    singles = ("AGENTS.md", ".claude/CLAUDE.md", ".github/copilot-instructions.md")
     for path in singles:
         target = root / path
         if target.exists() or target.is_symlink():
             paths.add(path)
     scans = (
+        (root / ".agents" / "skills", "*/SKILL.md"),
         (root / ".claude" / "skills", "*/SKILL.md"),
         (root / ".claude" / "commands" / "specromancy", "*.md"),
         (root / ".github" / "prompts", "specromancy-*.prompt.md"),
@@ -608,9 +643,9 @@ def _managed_paths(root: Path) -> set[str]:
 
 def _is_managed_adapter_path(path: str) -> bool:
     parts = Path(path).parts
-    if path in {".claude/CLAUDE.md", ".github/copilot-instructions.md"}:
+    if path in {"AGENTS.md", ".claude/CLAUDE.md", ".github/copilot-instructions.md"}:
         return True
-    if len(parts) == 4 and parts[:2] == (".claude", "skills"):
+    if len(parts) == 4 and parts[:2] in {(".agents", "skills"), (".claude", "skills")}:
         return parts[3] == "SKILL.md"
     if len(parts) == 4 and parts[:3] == (".claude", "commands", "specromancy"):
         return parts[3].endswith(".md")

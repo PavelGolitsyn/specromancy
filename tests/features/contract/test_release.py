@@ -84,7 +84,10 @@ class ReleaseContractTests(unittest.TestCase):
         self.assertEqual(ignored.returncode, 0)
         self.assertTrue((ROOT / "LICENSE").read_text(encoding="utf-8").startswith("MIT License"))
         for path in sorted(
-            (ROOT / WORKFLOW_FIXTURE / ".agents" / "skills").glob("*/SKILL.md")
+            [
+                *(ROOT / WORKFLOW_FIXTURE / "skills").glob("*/SKILL.md"),
+                *(ROOT / WORKFLOW_FIXTURE / "specromancy" / "artifacts" / "skills").glob("*/SKILL.md"),
+            ]
         ):
             with self.subTest(path=path.relative_to(ROOT)):
                 self.assertIn("\nlicense: MIT\n", path.read_text(encoding="utf-8"))

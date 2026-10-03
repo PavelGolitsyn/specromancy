@@ -18,8 +18,9 @@ The agent authors and reasons. The CLI enforces and records.
 
 | Concern | Owner |
 | --- | --- |
-| Always-on repository rules | `AGENTS.md` |
-| On-demand phase procedures | `.agents/skills/*/SKILL.md` |
+| Always-on repository rules | `specromancy/artifacts/AGENTS.md` template; generated root `AGENTS.md` |
+| On-demand phase procedures | `workflow/skills/*/SKILL.md` |
+| Generic orchestration procedure | `specromancy/artifacts/skills/pipeline/SKILL.md` template |
 | Phase graph and gates | `workflow/pipeline.toml` |
 | State transitions, hashes, validation, exit codes | `bin/specromancy` and Python package |
 | Cross-phase state | `.specromancy/runs/<run-id>/` artifacts and manifest |

@@ -66,7 +66,7 @@ class PipelineFixture:
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         (self.root / ".git").mkdir()
-        skill = self.root / ".agents" / "skills" / "compose" / "SKILL.md"
+        skill = self.root / "config" / "skills" / "compose" / "SKILL.md"
         skill.parent.mkdir(parents=True)
         skill.write_text("---\nname: compose\ndescription: Test.\n---\n", encoding="utf-8")
         templates = self.root / "config" / "templates"
@@ -393,11 +393,34 @@ class ConfigTests(unittest.TestCase):
         )
         loaded = load_pipeline(self.fixture.write(document(phase)))
         configured = loaded.phase("compose")
+        self.assertEqual(
+            configured.skill_path,
+            (self.fixture.root / "config" / "skills" / "compose" / "SKILL.md").resolve(),
+        )
         self.assertEqual(configured.output_template, "templates/result.md")
         self.assertEqual(
             configured.output_template_path,
             (self.fixture.root / "config" / "templates" / "result.md").resolve(),
         )
+
+    def test_pipeline_uses_canonical_skill_instead_of_generated_mirror(self) -> None:
+        mirror = self.fixture.root / ".agents" / "skills" / "compose" / "SKILL.md"
+        mirror.parent.mkdir(parents=True)
+        mirror.write_text("Generated content must not be a pipeline input.\n")
+        canonical = self.fixture.root / "config" / "skills" / "compose" / "SKILL.md"
+        loaded = load_pipeline(self.fixture.write(document()))
+        self.assertEqual(loaded.phase("compose").skill_path, canonical.resolve())
+        canonical.unlink()
+        self.assert_error(document(), "missing-file")
+
+    def test_skill_symlink_cannot_escape_repository(self) -> None:
+        with tempfile.TemporaryDirectory() as outside:
+            target = Path(outside) / "SKILL.md"
+            target.write_text("Outside skill.\n")
+            skill = self.fixture.root / "config" / "skills" / "compose" / "SKILL.md"
+            skill.unlink()
+            skill.symlink_to(target)
+            self.assert_error(document(), "unsafe-path")
 
     def test_unsupported_json_schema_keyword_is_rejected_at_load(self) -> None:
         schema = self.fixture.root / "config" / "result.schema.json"

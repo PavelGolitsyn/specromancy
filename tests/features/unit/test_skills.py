@@ -11,7 +11,8 @@ from specromancy.validation import markdown_heading_counts
 
 ROOT = Path(__file__).resolve().parents[3]
 WORKFLOW_FIXTURE = ROOT / "tests" / "features" / "fixtures" / "example-pipeline"
-FIXTURE_SKILLS = WORKFLOW_FIXTURE / ".agents" / "skills"
+FIXTURE_SKILLS = WORKFLOW_FIXTURE / "skills"
+ENGINE_SKILLS = WORKFLOW_FIXTURE / "specromancy" / "artifacts" / "skills"
 ALLOWED_FRONTMATTER = {"name", "description", "license", "compatibility", "metadata"}
 
 
@@ -44,7 +45,10 @@ def parse_portable_frontmatter(path: Path) -> tuple[dict[str, str], dict[str, st
 
 class SkillFileFixtureTests(unittest.TestCase):
     def skill_paths(self) -> list[Path]:
-        return sorted(FIXTURE_SKILLS.glob("*/SKILL.md"))
+        return sorted(
+            [*FIXTURE_SKILLS.glob("*/SKILL.md"), *ENGINE_SKILLS.glob("*/SKILL.md")],
+            key=lambda path: path.parent.name,
+        )
 
     def test_frontmatter_is_portable_and_names_match_directories(self) -> None:
         paths = self.skill_paths()
@@ -98,7 +102,7 @@ class SkillFileFixtureTests(unittest.TestCase):
             with self.subTest(skill=path.parent.name):
                 for value in forbidden:
                     self.assertNotIn(value, text)
-        orchestrator = (FIXTURE_SKILLS / "pipeline" / "SKILL.md").read_text(
+        orchestrator = (ENGINE_SKILLS / "pipeline" / "SKILL.md").read_text(
             encoding="utf-8"
         )
         self.assertIn("never edit `run.json`", orchestrator)

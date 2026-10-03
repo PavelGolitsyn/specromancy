@@ -49,7 +49,10 @@ class StaticArchitectureContractTests(unittest.TestCase):
             "tools",
         }
         for path in sorted(
-            (WORKFLOW_FIXTURE / ".agents" / "skills").glob("*/SKILL.md")
+            [
+                *(WORKFLOW_FIXTURE / "skills").glob("*/SKILL.md"),
+                *(WORKFLOW_FIXTURE / "specromancy" / "artifacts" / "skills").glob("*/SKILL.md"),
+            ]
         ):
             lines = path.read_text(encoding="utf-8").splitlines()
             closing = lines.index("---", 1)
@@ -63,7 +66,8 @@ class StaticArchitectureContractTests(unittest.TestCase):
 
     def test_instructions_never_direct_agents_to_edit_runtime_state(self) -> None:
         paths = [
-            *sorted((WORKFLOW_FIXTURE / ".agents" / "skills").glob("*/SKILL.md")),
+            *sorted((WORKFLOW_FIXTURE / "skills").glob("*/SKILL.md")),
+            *sorted((WORKFLOW_FIXTURE / "specromancy" / "artifacts" / "skills").glob("*/SKILL.md")),
             *sorted((ROOT / "docs" / "poc-v3").glob("*.md")),
         ]
         for path in paths:
