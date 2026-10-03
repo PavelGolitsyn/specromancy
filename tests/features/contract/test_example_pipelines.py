@@ -24,7 +24,7 @@ class DefaultExamplePipelineTests(unittest.TestCase):
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         shutil.copytree(EXAMPLE_PIPELINE, self.root, dirs_exist_ok=True)
-        self.pipeline_path = self.root / "pipeline.toml"
+        self.pipeline_path = self.root / "workflow/pipelines/engine-example.toml"
         self.pipeline = load_pipeline(self.pipeline_path, self.root)
         self.store = RunStore(self.root)
         self.engine = Engine(self.pipeline, self.store)
@@ -125,7 +125,7 @@ class ReplacementPipelineContractTests(unittest.TestCase):
             FIXTURES / "replacement-pipeline", self.root,
             dirs_exist_ok=True,
         )
-        self.pipeline = self.root / "pipeline.toml"
+        self.pipeline = self.root / "workflow/pipelines/replacement.toml"
 
     def tearDown(self) -> None:
         self.temporary.cleanup()
@@ -140,7 +140,7 @@ class ReplacementPipelineContractTests(unittest.TestCase):
                 "--root",
                 str(self.root),
                 "--pipeline",
-                str(self.pipeline),
+                "replacement",
                 *arguments,
             ],
             cwd=ROOT,

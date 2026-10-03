@@ -12,10 +12,12 @@ from typing import Any, TextIO
 
 from .contracts import RESERVED_COMMANDS
 from .actions import render_action_packet
-from .config import load_pipeline
+from .config import PipelineConfig, load_pipeline
 from .engine import Engine
 from .errors import SpecromancyError, UsageError
 from .exit_codes import EXIT_CODE_DESCRIPTIONS, ExitCode
+from .registry import PipelineRegistry, load_registry
+from .run_store import RunStore
 from .status import render_status
 
 ACTIONABLE_CODES = frozenset(
@@ -93,9 +95,9 @@ def _add_common_options(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--pipeline",
-        metavar="PATH",
+        metavar="ID",
         default=argparse.SUPPRESS,
-        help="pipeline configuration path",
+        help="registered pipeline ID (required for init)",
     )
     parser.add_argument(
         "--json",
@@ -266,24 +268,6 @@ def _write_payload(payload: dict[str, Any], stream: TextIO, as_json: bool) -> No
     stream.write("\n")
 
 
-def _raw_option(raw_args: Sequence[str], name: str) -> str | None:
-    for index, value in enumerate(raw_args):
-        if value == name and index + 1 < len(raw_args):
-            return raw_args[index + 1]
-        prefix = name + "="
-        if value.startswith(prefix):
-            return value.removeprefix(prefix)
-    return None
-
-
-def _pipeline_path(root: Path, declared: str | None) -> Path:
-    if declared is not None:
-        path = Path(declared).expanduser()
-        return (root / path).resolve() if not path.is_absolute() else path.resolve()
-    canonical = root / "workflow" / "pipeline.toml"
-    return canonical if canonical.is_file() else root / "pipeline.toml"
-
-
 def _description(arguments: argparse.Namespace, root: Path) -> str:
     inline = arguments.description
     declared_file = getattr(arguments, "description_file", None)
@@ -304,17 +288,8 @@ def _description(arguments: argparse.Namespace, root: Path) -> str:
 
 
 def _dispatch(
-    arguments: argparse.Namespace, root: Path, pipeline: Any
+    arguments: argparse.Namespace, root: Path, pipeline: PipelineConfig
 ) -> dict[str, Any]:
-    if arguments.command == "adapters":
-        from .adapters import generate_adapters
-
-        return generate_adapters(
-            root,
-            pipeline,
-            adapter_command_metadata(pipeline.phase_ids),
-            check=arguments.check,
-        )
     engine = Engine(pipeline)
     if arguments.command == "init":
         return engine.initialize(_description(arguments, root))
@@ -364,6 +339,37 @@ def adapter_command_metadata(dynamic_phases: Iterable[str] = ()) -> dict[str, An
     return {"commands": commands}
 
 
+def _initial_arguments(raw_args: Sequence[str]) -> argparse.Namespace:
+    """Parse stable commands and provisionally parse a run-specific alias."""
+
+    probe = CommandParser(add_help=False)
+    _add_common_options(probe)
+    probe.add_argument("command", nargs="?")
+    probe.add_argument("remainder", nargs=argparse.REMAINDER)
+    command = probe.parse_args(raw_args)
+    if command.command and command.command not in RESERVED_COMMANDS:
+        if not command.remainder:
+            return build_parser().parse_args(raw_args)
+        return build_parser([command.command]).parse_args(raw_args)
+    return build_parser().parse_args(raw_args)
+
+
+def _selected_pipeline(
+    arguments: argparse.Namespace, root: Path, registry: PipelineRegistry
+) -> PipelineConfig:
+    selector = getattr(arguments, "pipeline", None)
+    if arguments.command == "init":
+        if selector is None:
+            raise UsageError("init requires --pipeline ID; there is no default pipeline")
+        return registry.load(selector)
+
+    saved = RunStore(root).load(arguments.run_id, verify_artifacts=False)["pipeline"]
+    path = root / saved["path"]
+    if selector is not None and selector != saved["id"]:
+        raise UsageError("--pipeline must match the run's recorded pipeline ID")
+    return load_pipeline(path, root)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -393,20 +399,38 @@ def main(
         return int(ExitCode.SUCCESS)
 
     try:
-        root = discover_repository_root(
-            explicit_root=_raw_option(raw_args, "--root")
-        )
-        path = _pipeline_path(root, _raw_option(raw_args, "--pipeline"))
-        pipeline = load_pipeline(path, root)
-        arguments = build_parser(pipeline.phase_ids).parse_args(raw_args)
+        if any(arg in {"-h", "--help"} for arg in raw_args):
+            build_parser().parse_args(raw_args)
+            return int(ExitCode.SUCCESS)
+        arguments = _initial_arguments(raw_args)
         if arguments.command is None:
             raise UsageError("a command is required")
+        root = discover_repository_root(
+            explicit_root=getattr(arguments, "root", None)
+        )
+        registry = load_registry(root)
+        selector = getattr(arguments, "pipeline", None)
         if arguments.command == "adapters" and not getattr(
             arguments, "adapter_command", None
         ):
             raise UsageError("an adapters command is required")
+        if arguments.command == "adapters":
+            if selector is not None:
+                raise UsageError("adapters generate processes all registered pipelines; omit --pipeline")
+            from .adapters import generate_adapters
 
-        payload = _dispatch(arguments, root, pipeline)
+            pipelines = registry.load_all()
+            phases = sorted({phase for pipeline in pipelines for phase in pipeline.phase_ids})
+            payload = generate_adapters(
+                root,
+                registry,
+                adapter_command_metadata(phases),
+                check=arguments.check,
+            )
+        else:
+            pipeline = _selected_pipeline(arguments, root, registry)
+            arguments = build_parser(pipeline.phase_ids).parse_args(raw_args)
+            payload = _dispatch(arguments, root, pipeline)
         if wants_json or not wants_quiet:
             _write_payload(payload, output, wants_json)
         return int(payload["code"])

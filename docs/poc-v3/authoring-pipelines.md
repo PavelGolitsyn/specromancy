@@ -1,10 +1,15 @@
 # Authoring pipelines
 
 The primary replaceability proof is
-`tests/features/fixtures/replacement-pipeline/pipeline.toml`. It uses `inspect`,
+`tests/features/fixtures/replacement-pipeline/workflow/pipelines/replacement.toml`. It uses `inspect`,
 `transform`, and `verify` with its own skills and templates; the generic engine
 does not change. Copy that fixture when learning the format, then use the
-default pipeline for richer approval and repair examples.
+implementation pipeline for richer approval and repair examples.
+
+Register each graph in mandatory `workflow/pipelines.toml`, with a unique ID
+and a path under `workflow/pipelines/`. There is no default; use
+`bin/specromancy init DESCRIPTION --pipeline ID`. See
+[Workflow customization](../../workflow/README.md) for add/edit/remove steps.
 
 Pipeline files use TOML so Python 3.11 can load them without a dependency. A
 pipeline declares schema version, identity, start phase, terminal outcomes,
@@ -73,7 +78,11 @@ Skills fields (`name`, `description`, `license`, `compatibility`, and optional
 `metadata`). Keep vendor models, tool allowlists, and slash-command syntax in
 generated harness surfaces, never canonical skills.
 
-`output_template` is relative to the pipeline file. A Markdown validator can
+`output_template` is relative to the pipeline file. `../templates/result.md`
+can reference shared `workflow/templates/`; multiple graphs may use the same
+canonical skill or template. The resolved file must remain inside the repository.
+The `.agents/skills/specromancy-*` namespace holds generated launch skills and
+is not a phase-procedure customization surface. A Markdown validator can
 declare `required_headings` and `heading_occurrence`; a JSON validator may use
 the documented project-owned schema subset. Templates should contain every
 required heading exactly once and meaningful placeholder content that a valid
@@ -121,7 +130,8 @@ redirections are not interpreted.
 
 ## Regeneration and active runs
 
-After changing `AGENTS.md`, a canonical skill, the pipeline, or CLI help
+After changing `AGENTS.md`, a canonical skill, the registry, a pipeline or its
+referenced templates/schemas, or CLI help
 metadata, run:
 
 ```bash
@@ -136,3 +146,9 @@ Approval records also become stale. The POC deliberately has no active-run
 migration: finish the old run before editing its pipeline, restore the exact
 old configuration to resume it, or initialize a new run under the new hash.
 Never edit `run.json` to force compatibility.
+
+Removing a registration disables new runs and removes unchanged generated
+launch skills on regeneration. Keep original graph, skill, and template files
+for active runs, which continue to resolve their persisted provenance. Removing
+the files or moving the graph prevents continuation. Registry order and edits
+to another graph do not change the selected run.

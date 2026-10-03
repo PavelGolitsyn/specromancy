@@ -46,8 +46,6 @@ class LauncherContractTests(unittest.TestCase):
                     str(ROOT / "adapters" / "generate.py"),
                     "--root",
                     str(fixture),
-                    "--pipeline",
-                    str(fixture / "pipeline.toml"),
                 ],
                 cwd=ROOT / "docs" / "poc-v3",
                 check=False,

@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .config import PipelineConfig
 from .errors import SpecromancyError
 from .exit_codes import ExitCode
 from .hashing import (
@@ -21,6 +20,7 @@ from .hashing import (
     sha256_bytes,
     sha256_json,
 )
+from .registry import PipelineRegistry
 
 
 ADAPTER_SCHEMA_VERSION = 1
@@ -43,7 +43,7 @@ ADAPTER_COMMANDS = (
     AdapterCommand(
         "init",
         "init",
-        "DESCRIPTION",
+        "PIPELINE_ID DESCRIPTION",
         "Initialize a Specromancy run and return its recorded next action.",
     ),
     AdapterCommand(
@@ -84,7 +84,7 @@ class AdapterError(SpecromancyError):
 
 def generate_adapters(
     repository_root: Path,
-    pipeline: PipelineConfig,
+    registry: PipelineRegistry,
     command_metadata: Mapping[str, Any],
     *,
     check: bool = False,
@@ -92,8 +92,8 @@ def generate_adapters(
     """Generate adapters or compare the worktree to deterministic output."""
 
     root = repository_root.resolve(strict=True)
-    rendered = render_adapters(root, pipeline, command_metadata)
-    expected_manifest = _manifest(root, pipeline, command_metadata, rendered)
+    rendered = render_adapters(root, registry, command_metadata)
+    expected_manifest = _manifest(root, registry, command_metadata, rendered)
     manifest_bytes = canonical_json_bytes(expected_manifest) + b"\n"
 
     if check:
@@ -159,14 +159,22 @@ def generate_adapters(
 
 def render_adapters(
     repository_root: Path,
-    pipeline: PipelineConfig,
+    registry: PipelineRegistry,
     command_metadata: Mapping[str, Any],
 ) -> dict[str, bytes]:
     """Render all generated adapter files in stable path order."""
 
     root = repository_root.resolve(strict=True)
+    if root != registry.repository_root:
+        raise AdapterError("registry and adapter roots differ", {"path": str(registry.path)})
+    registry.load_all()
     agents = _normalized_text(root / "AGENTS.md", "AGENTS.md")
     skill_sources = _skill_sources(root)
+    if ".agents/skills/pipeline/SKILL.md" not in {path for path, _ in skill_sources}:
+        raise AdapterError(
+            "canonical pipeline orchestrator skill is missing",
+            {"path": ".agents/skills/pipeline/SKILL.md"},
+        )
     cli_commands = _known_cli_commands(command_metadata)
     for command in ADAPTER_COMMANDS:
         if command.cli_command not in cli_commands:
@@ -186,6 +194,11 @@ def render_adapters(
         files[f".claude/skills/{name}/SKILL.md"] = _skill_mirror(
             skill_path, skill_text
         )
+    for registration in registry.pipelines:
+        name = f"specromancy-{registration.id}"
+        skill = _pipeline_skill(registration.id)
+        files[f".agents/skills/{name}/SKILL.md"] = skill
+        files[f".claude/skills/{name}/SKILL.md"] = skill
     for command in ADAPTER_COMMANDS:
         files[f".claude/commands/specromancy/{command.name}.md"] = (
             _command_wrapper("claude", command)
@@ -209,6 +222,31 @@ def render_adapters(
 
     # Sorting here is part of the public reproducibility guarantee.
     return {path: files[path] for path in sorted(files)}
+
+
+def _pipeline_skill(pipeline_id: str) -> bytes:
+    source = "workflow/pipelines.toml and .agents/skills/pipeline/SKILL.md"
+    lines = [
+        "---",
+        *_yaml_provenance(source),
+        f"name: specromancy-{pipeline_id}",
+        f"description: Coordinate the {pipeline_id} pipeline when the user requests this workflow.",
+        "license: MIT",
+        "compatibility: Specromancy pipeline schema version 1.",
+        "metadata:",
+        "  role: orchestrator",
+        "---",
+        "",
+        f"# {pipeline_id}",
+        "",
+        f"For a new request, run `bin/specromancy init DESCRIPTION --pipeline {pipeline_id} --json`.",
+        "Retain the emitted RUN_ID. For an existing invocation, obtain RUN_ID from the user.",
+        "Then load `.agents/skills/pipeline/SKILL.md` and follow its existing-run procedure",
+        "using that RUN_ID and the CLI's persisted status and action packets.",
+        "Never edit run.json or events.jsonl.",
+        "",
+    ]
+    return "\n".join(lines).encode("utf-8")
 
 
 def _command_wrapper(harness: str, command: AdapterCommand) -> bytes:
@@ -257,20 +295,20 @@ def _command_wrapper(harness: str, command: AdapterCommand) -> bytes:
 def _harness_invocation(harness: str, command: AdapterCommand) -> str:
     if harness == "claude":
         arguments = {
-            "init": '"$ARGUMENTS"',
+            "init": '"$1" --pipeline "$0"',
             "resume": '"$0"',
             "status": '"$0"',
             "phase": '"$0" "$1"',
         }[command.name]
     elif harness == "opencode":
         arguments = {
-            "init": '"$ARGUMENTS"',
+            "init": '"$2" --pipeline "$1"',
             "resume": '"$1"',
             "status": '"$1"',
             "phase": '"$1" "$2"',
         }[command.name]
     else:
-        arguments = command.arguments
+        arguments = "DESCRIPTION --pipeline PIPELINE_ID" if command.name == "init" else command.arguments
     return f"bin/specromancy {command.cli_command} {arguments} --json"
 
 
@@ -306,11 +344,11 @@ def _yaml_provenance(source: str) -> list[str]:
 
 def _manifest(
     root: Path,
-    pipeline: PipelineConfig,
+    registry: PipelineRegistry,
     command_metadata: Mapping[str, Any],
     rendered: Mapping[str, bytes],
 ) -> dict[str, Any]:
-    sources = _canonical_sources(root, pipeline, command_metadata)
+    sources = _canonical_sources(root, registry, command_metadata)
     generated = []
     for path, content in rendered.items():
         generated.append(
@@ -324,6 +362,8 @@ def _manifest(
     for name in sorted(HARNESS_MODES):
         paths = [item["path"] for item in generated if item["target"] == name]
         targets.append({"name": name, "mode": HARNESS_MODES[name], "paths": paths})
+        if HARNESS_MODES[name] == "native":
+            targets[-1]["discovery_paths"] = [path for path in rendered if path.startswith(".agents/")]
     return {
         "schema_version": ADAPTER_SCHEMA_VERSION,
         "generator": {
@@ -346,17 +386,38 @@ def _manifest(
 
 def _canonical_sources(
     root: Path,
-    pipeline: PipelineConfig,
+    registry: PipelineRegistry,
     command_metadata: Mapping[str, Any],
 ) -> list[dict[str, str]]:
     sources = [
         _file_source(root, "AGENTS.md"),
         {
-            "kind": "validated-pipeline",
-            "path": relative_path(pipeline.path, root),
-            "sha256": sha256_bytes(pipeline.canonical_json.encode("utf-8")),
+            "kind": "validated-registry",
+            "path": relative_path(registry.path, root),
+            "sha256": sha256_bytes(registry.canonical_json.encode("utf-8")),
         },
     ]
+    dependencies: set[str] = set()
+    for pipeline in registry.load_all():
+        sources.append(
+            {
+                "kind": "validated-pipeline",
+                "path": relative_path(pipeline.path, root),
+                "sha256": sha256_bytes(pipeline.canonical_json.encode("utf-8")),
+            }
+        )
+        for phase in pipeline.phases:
+            for path in (phase.output_template_path, phase.validator.resolved_path):
+                if path is not None:
+                    dependencies.add(relative_path(path, root))
+    for path in sorted(dependencies):
+        sources.append(
+            {
+                "kind": "pipeline-dependency",
+                "path": path,
+                "sha256": sha256_bytes((root / path).read_bytes()),
+            }
+        )
     for path, text in _skill_sources(root):
         sources.append(
             {
@@ -386,7 +447,11 @@ def _file_source(root: Path, path: str) -> dict[str, str]:
 
 def _skill_sources(root: Path) -> list[tuple[str, str]]:
     skills_root = root / ".agents" / "skills"
-    paths = sorted(skills_root.glob("*/SKILL.md"), key=lambda item: item.as_posix())
+    paths = sorted(
+        (path for path in skills_root.glob("*/SKILL.md")
+         if not path.parent.name.startswith("specromancy-")),
+        key=lambda item: item.as_posix(),
+    )
     if not paths:
         raise AdapterError(
             "no canonical skills found",
@@ -422,6 +487,8 @@ def _known_cli_commands(metadata: Mapping[str, Any]) -> set[str]:
 
 
 def _target_for_path(path: str) -> str:
+    if path.startswith(".agents/"):
+        return "codex"
     if path.startswith(".claude/"):
         return "claude"
     if path.startswith(".github/"):
@@ -589,6 +656,7 @@ def _managed_paths(root: Path) -> set[str]:
         if target.exists() or target.is_symlink():
             paths.add(path)
     scans = (
+        (root / ".agents" / "skills", "specromancy-*/SKILL.md"),
         (root / ".claude" / "skills", "*/SKILL.md"),
         (root / ".claude" / "commands" / "specromancy", "*.md"),
         (root / ".github" / "prompts", "specromancy-*.prompt.md"),
@@ -610,6 +678,8 @@ def _is_managed_adapter_path(path: str) -> bool:
     parts = Path(path).parts
     if path in {".claude/CLAUDE.md", ".github/copilot-instructions.md"}:
         return True
+    if len(parts) == 4 and parts[:2] == (".agents", "skills"):
+        return parts[2].startswith("specromancy-") and parts[3] == "SKILL.md"
     if len(parts) == 4 and parts[:2] == (".claude", "skills"):
         return parts[3] == "SKILL.md"
     if len(parts) == 4 and parts[:3] == (".claude", "commands", "specromancy"):

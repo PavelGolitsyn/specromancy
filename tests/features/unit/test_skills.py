@@ -105,7 +105,7 @@ class SkillFileFixtureTests(unittest.TestCase):
 
     def test_fixture_templates_satisfy_declared_contracts(self) -> None:
         pipeline = load_pipeline(
-            WORKFLOW_FIXTURE / "pipeline.toml", WORKFLOW_FIXTURE
+            WORKFLOW_FIXTURE / "workflow/pipelines/engine-example.toml", WORKFLOW_FIXTURE
         )
         for phase in pipeline.phases:
             with self.subTest(phase=phase.id):

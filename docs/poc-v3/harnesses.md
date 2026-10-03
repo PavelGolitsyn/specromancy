@@ -16,9 +16,10 @@ bin/specromancy adapters generate --check
 
 - Discovery: `AGENTS.md` and `.agents/skills/*/SKILL.md` are native project
   instructions and skills.
-- Invocation: ask Codex to use the `pipeline` skill with a request, or provide
+- Invocation: ask Codex to use `specromancy-<id>` with a request, or `pipeline` with
+  an explicit registered pipeline ID, or provide
   `RUN_ID` to the phase skill named by `status`.
-- Generated files: none.
+- Generated files: shared `.agents/skills/specromancy-<id>/SKILL.md` launch skills.
 - Prerequisites: open the repository as a trusted writable workspace and allow
   only the commands needed by the configured validation.
 - Limitation: availability and presentation of skill invocation depend on the
@@ -28,11 +29,11 @@ bin/specromancy adapters generate --check
 
 - Discovery: generated `.claude/CLAUDE.md`, `.claude/skills/`, and
   `.claude/commands/specromancy/`.
-- Invocation: `/specromancy:init DESCRIPTION`,
+- Invocation: `/specromancy:init PIPELINE_ID DESCRIPTION`,
   `/specromancy:status RUN_ID`, `/specromancy:resume RUN_ID`, or
   `/specromancy:phase RUN_ID PHASE`.
-- Generated files: the Claude instruction mirror, portable skill mirrors, and
-  four thin commands listed in `adapters/manifest.json`.
+- Generated files: the Claude instruction mirror, canonical and per-pipeline
+  skill mirrors, and four thin commands listed in `adapters/manifest.json`.
 - Prerequisites: trust the repository and approve shell/filesystem access
   required by the phase and validation commands.
 - Limitation: command wrappers only invoke the CLI and hand off to canonical
@@ -43,7 +44,8 @@ bin/specromancy adapters generate --check
 - Discovery: generated `.github/copilot-instructions.md`, repository
   `.agents/skills/`, and `.github/prompts/specromancy-*.prompt.md`.
 - Invocation: select a `specromancy-init`, `-status`, `-resume`, or `-phase`
-  prompt and supply its argument hint.
+  prompt and supply its argument hint (`PIPELINE_ID DESCRIPTION` for init).
+  Generated `specromancy-<id>` skills in `.agents/skills/` also bind the pipeline ID.
 - Generated files: one instruction mirror and four prompt files.
 - Prerequisites: use an agent-capable surface with repository and terminal
   permissions.
@@ -56,7 +58,8 @@ bin/specromancy adapters generate --check
 - Discovery: `AGENTS.md`, `.agents/skills/`, and generated
   `.opencode/commands/specromancy-*.md`.
 - Invocation: use the matching `specromancy-init`, `-status`, `-resume`, or
-  `-phase` custom command with its positional arguments.
+  `-phase` custom command with its positional arguments (`PIPELINE_ID DESCRIPTION` for
+  init), or a generated `specromancy-<id>` skill discovered in `.agents/skills/`.
 - Generated files: four thin command files.
 - Prerequisites: trust the project and grant terminal/filesystem access needed
   by the current action packet.
@@ -66,9 +69,10 @@ bin/specromancy adapters generate --check
 ## Hermes
 
 - Discovery: `AGENTS.md` and `.agents/skills/*/SKILL.md` directly.
-- Invocation: invoke the canonical `pipeline` skill for a new run, or the
+- Invocation: invoke `specromancy-<id>` for a new run, or the canonical `pipeline` skill
+  with an explicit registered ID, or the
   current phase skill with `RUN_ID` after `status`.
-- Generated files: none.
+- Generated files: shared `.agents/skills/specromancy-<id>/SKILL.md` launch skills.
 - Prerequisites: run `hermes skills trust` in the repository and review the
   project skills before accepting them.
 - Limitation: project-skill trust is user-managed. Specromancy does not modify

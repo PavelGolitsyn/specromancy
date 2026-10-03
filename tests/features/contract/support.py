@@ -31,14 +31,14 @@ class CliRepository:
                 self.root,
                 dirs_exist_ok=True,
             )
-            self.pipeline = self.root / "pipeline.toml"
+            self.pipeline = self.root / "workflow/pipelines/replacement.toml"
         else:
             shutil.copytree(
                 EXAMPLE_PIPELINE,
                 self.root,
                 dirs_exist_ok=True,
             )
-            self.pipeline = self.root / "pipeline.toml"
+            self.pipeline = self.root / "workflow/pipelines/engine-example.toml"
         (self.root / "tracked.txt").write_text("baseline\n", encoding="utf-8")
         self._git("add", ".")
         self._git("commit", "--quiet", "-m", "fixture")
@@ -67,7 +67,7 @@ class CliRepository:
                 "--root",
                 str(self.root),
                 "--pipeline",
-                str(self.pipeline),
+                "replacement" if self.pipeline.stem == "replacement" else "engine-example",
                 *arguments,
             ],
             cwd=ROOT,

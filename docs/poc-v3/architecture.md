@@ -11,7 +11,8 @@ from files under `.specromancy/`, never from conversation history.
 | --- | --- |
 | Always-on repository constraints | `AGENTS.md` |
 | Phase procedure | `.agents/skills/<skill>/SKILL.md` |
-| Graph, policies, gates, and validators | `workflow/pipeline.toml` |
+| Pipeline registrations | `workflow/pipelines.toml` |
+| Graph, policies, gates, and validators | `workflow/pipelines/<id>.toml` |
 | State transitions and persistence | `specromancy/` Python package |
 | Current run state | `.specromancy/runs/<run-id>/run.json` and artifacts |
 | Audit history | `.specromancy/runs/<run-id>/events.jsonl` |
@@ -23,8 +24,15 @@ for phase procedures or `AGENTS.md` for always-on constraints. Files under
 `specromancy/` implement the generic runtime and are not changed to add,
 remove, reorder, or tune phases.
 
-The engine is generic. Phase identifiers such as the default pipeline's names
+The engine is generic. Phase identifiers such as the configured pipeline's names
 belong only in configuration, skills, templates, tests, and examples.
+
+The CLI loads the mandatory registry and requires a registered ID for init.
+Existing runs resolve their graph from persisted provenance, so unrelated graphs
+and registry ordering do not change their execution. Graph loading, transitions
+and run storage remain generic. Adapter generation validates every registered
+graph and projects each registration into a launch skill delegating to the
+canonical orchestrator.
 
 ## State and visit model
 
@@ -110,10 +118,12 @@ bounded, secret-redacted summaries are recorded in the manifest.
 
 ## Canonical and generated content
 
-`AGENTS.md`, `workflow/pipeline.toml`, `.agents/skills/`, and
-`workflow/templates/` are canonical. Claude Code, Copilot, and OpenCode
+`AGENTS.md`, `workflow/pipelines.toml`, `workflow/pipelines/`, canonical
+`.agents/skills/` procedures and `workflow/templates/` are editable sources.
+Generated `.agents/skills/specromancy-*/` are manifest-owned launch skills,
+excluded from canonical source hashing. Claude Code, Copilot, and OpenCode
 adapters are deterministic projections. Codex and Hermes consume canonical
-files directly. Generated files contain provenance and invocation glue only;
+files directly and discover generated per-pipeline launch skills natively. Generated files contain provenance and invocation glue only;
 they contain no phase graph, approval policy, or unique workflow procedure.
 
 ## POC limitations

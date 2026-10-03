@@ -23,9 +23,6 @@ IDENTIFIER_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SUPPORTED_SCHEMA_VERSION = 1
 MUTATION_POLICIES = frozenset({"read-only", "repository-write", "allowlist"})
 VALIDATOR_TYPES = frozenset({"markdown", "json", "file"})
-DEFAULT_PIPELINE_PATH = (
-    Path(__file__).resolve().parent.parent / "workflow" / "pipeline.toml"
-)
 _MISSING = object()
 
 
@@ -1017,7 +1014,7 @@ def _canonical_document(
 
 
 def load_pipeline(
-    path: str | Path = DEFAULT_PIPELINE_PATH,
+    path: str | Path,
     repository_root: str | Path | None = None,
     *,
     root: str | Path | None = None,
@@ -1107,7 +1104,7 @@ def load_pipeline(
 
 
 def load_config(
-    path: str | Path = DEFAULT_PIPELINE_PATH,
+    path: str | Path,
     repository_root: str | Path | None = None,
 ) -> PipelineConfig:
     """Backward-compatible descriptive alias for :func:`load_pipeline`."""

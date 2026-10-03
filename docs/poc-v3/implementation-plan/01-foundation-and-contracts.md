@@ -75,7 +75,7 @@ Resolve the repository root by walking upward to `.git`; fall back to an explici
 Reserve these commands:
 
 ```text
-init DESCRIPTION
+init DESCRIPTION --pipeline ID
 phase RUN_ID PHASE
 <dynamic-phase> RUN_ID
 validate RUN_ID [PHASE]
@@ -92,7 +92,7 @@ Common options:
 
 ```text
 --root PATH
---pipeline PATH
+--pipeline ID
 --json
 --quiet
 ```

@@ -16,9 +16,14 @@ metadata:
 Treat the CLI's persisted state and action packets as authoritative. Do not
 reconstruct state from conversation and never edit `run.json` or `events.jsonl`.
 
-For a new request, run `bin/specromancy init DESCRIPTION --json` and retain the
-emitted `RUN_ID`. For an existing invocation, obtain `RUN_ID` from the user; do
-not guess it.
+For a new request, require a pipeline ID from the invocation or the user, using
+the registrations in `workflow/pipelines.toml`. Never select a default or the
+first registration. Run `bin/specromancy init DESCRIPTION --pipeline ID --json`
+and retain the emitted `RUN_ID`. A generated `specromancy-<id>` skill supplies
+its registered ID and initializes the run before delegating here.
+For an existing invocation, use its supplied `RUN_ID`, or obtain it from the
+user; do not guess it or initialize a second run. Existing-run commands resolve
+the pipeline from persisted provenance and need no pipeline selector.
 
 1. Run `bin/specromancy status RUN_ID --json`.
 2. If the run is awaiting agent work, use its recorded phase and next command to

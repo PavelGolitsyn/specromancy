@@ -7,7 +7,7 @@ Load an arbitrary declarative pipeline and reject configurations that cannot be 
 ## Files introduced or completed
 
 ```text
-workflow/pipeline.toml
+workflow/pipelines/implementation.toml
 specromancy/config.py
 specromancy/graph.py
 specromancy/schemas/pipeline.schema.json
@@ -45,7 +45,7 @@ Example shape:
 
 ```toml
 schema_version = 1
-id = "default"
+id = "implementation"
 version = 1
 start = "research"
 artifact_pattern = "artifacts/{visit:03}-{phase}.md"
@@ -55,7 +55,7 @@ id = "research"
 skill = "research"
 inputs = ["request"]
 output_name = "{visit:03}-research.md"
-output_template = "templates/research.md"
+output_template = "../templates/research.md"
 mutation = "read-only"
 required_headings = ["Summary", "Evidence", "Open Questions"]
 max_visits = 1
@@ -156,7 +156,7 @@ Add table-driven fixtures for:
 
 ## Exit criteria
 
-- The default configuration loads into immutable domain objects.
+- Every registered configuration loads into immutable domain objects.
 - Invalid graphs fail before a run is created.
 - The loader contains no checks for example phase names.
 - A fixture with unrelated phase names passes validation.

@@ -4,7 +4,7 @@ import re
 import unittest
 from pathlib import Path
 
-from specromancy.config import DEFAULT_PIPELINE_PATH, load_pipeline
+from specromancy.registry import load_registry
 from specromancy.contracts import RESERVED_COMMANDS
 
 
@@ -26,6 +26,8 @@ def parse_frontmatter(path: Path) -> tuple[dict[str, str], dict[str, str]]:
     metadata: dict[str, str] = {}
     in_metadata = False
     for line in lines[1:closing]:
+        if line.startswith("#"):
+            continue
         if line.startswith("  "):
             if not in_metadata or ":" not in line:
                 raise AssertionError(f"{path} has non-portable nested frontmatter")
@@ -47,12 +49,12 @@ def parse_frontmatter(path: Path) -> tuple[dict[str, str], dict[str, str]]:
 class ShippedSkillTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
-        cls.pipeline = load_pipeline(DEFAULT_PIPELINE_PATH, ROOT)
+        cls.pipelines = load_registry(ROOT).load_all()
         cls.paths = sorted(SKILLS.glob("*/SKILL.md"))
 
     def test_pipeline_skills_exist_and_all_shipped_skills_are_portable(self) -> None:
         available = {path.resolve() for path in self.paths}
-        for phase in self.pipeline.phases:
+        for phase in (phase for pipeline in self.pipelines for phase in pipeline.phases):
             with self.subTest(phase=phase.id):
                 self.assertIn(phase.skill_path.resolve(), available)
         for path in self.paths:

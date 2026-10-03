@@ -39,8 +39,6 @@ class AdapterDriftContractTests(unittest.TestCase):
                 "specromancy",
                 "--root",
                 str(self.root),
-                "--pipeline",
-                str(self.root / "pipeline.toml"),
                 "adapters",
                 "generate",
                 *arguments,
@@ -71,9 +69,9 @@ class AdapterDriftContractTests(unittest.TestCase):
             set(targets), {"claude", "codex", "copilot", "hermes", "opencode"}
         )
         self.assertEqual(targets["codex"]["mode"], "native")
-        self.assertEqual(targets["codex"]["paths"], [])
+        self.assertEqual(targets["codex"]["discovery_paths"], [".agents/skills/specromancy-engine-example/SKILL.md"])
         self.assertEqual(targets["hermes"]["mode"], "native")
-        self.assertEqual(targets["hermes"]["paths"], [])
+        self.assertEqual(targets["hermes"]["discovery_paths"], targets["codex"]["discovery_paths"])
         for entry in self.manifest["generated"]:
             content = (self.root / entry["path"]).read_bytes()
             self.assertEqual(entry["sha256"], sha256_bytes(content), entry["path"])

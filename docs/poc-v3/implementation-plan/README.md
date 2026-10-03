@@ -4,13 +4,17 @@
 
 Build a minimal but robust, harness-agnostic agentic pipeline framework with:
 
-- one canonical workflow definition;
+- a canonical registry of independently configured workflows;
 - one canonical set of `SKILL.md` files;
 - one stable command-line contract;
 - artifact-based runtime state;
 - thin, generated harness adapters.
 
 The POC proves that a workflow can be reordered, extended, or replaced by editing the state-machine configuration and the Markdown skills/templates referenced by its phases. The Python engine must not contain knowledge of `research`, `plan`, `implement`, or `review`.
+
+The current multi-pipeline registry and selection contracts are documented in
+[Workflow customization](../../../workflow/README.md) and
+[Public contracts](../contracts.md); the stages below describe the original POC.
 
 ## Architectural boundary
 
@@ -20,12 +24,12 @@ The agent authors and reasons. The CLI enforces and records.
 | --- | --- |
 | Always-on repository rules | `AGENTS.md` |
 | On-demand phase procedures | `.agents/skills/*/SKILL.md` |
-| Phase graph and gates | `workflow/pipeline.toml` |
+| Phase graph and gates | `workflow/pipelines/implementation.toml` |
 | State transitions, hashes, validation, exit codes | `bin/specromancy` and Python package |
 | Cross-phase state | `.specromancy/runs/<run-id>/` artifacts and manifest |
 | Harness conventions | Generated adapters |
 
-`pipeline.toml` is used for the POC instead of YAML so Python 3.11 can load it with `tomllib` and the CLI can remain dependency-free. If YAML becomes a hard product requirement, replace the configuration loader behind its existing interface and add a real YAML dependency; do not implement a partial YAML parser.
+`pipelines.toml` and per-pipeline TOML files are used for the POC instead of YAML so Python 3.11 can load it with `tomllib` and the CLI can remain dependency-free. If YAML becomes a hard product requirement, replace the configuration loader behind its existing interface and add a real YAML dependency; do not implement a partial YAML parser.
 
 ## Invariants shared by every stage
 
@@ -60,7 +64,7 @@ Each stage must land with its tests passing. Later stages may refine interfaces,
 The POC is complete when all of the following are true:
 
 - A fresh clone works with Python 3.11+ without package installation.
-- `bin/specromancy init "task"` creates a valid run.
+- `bin/specromancy init "task" --pipeline implementation` creates a valid run.
 - A run can be resumed from a new process with no conversation context.
 - The example pipeline reaches a terminal state using only CLI transitions and artifacts.
 - A fixture with entirely different phase names and ordering runs through the same engine.

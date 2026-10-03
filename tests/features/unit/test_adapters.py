@@ -14,6 +14,7 @@ from specromancy.adapters import (
 )
 from specromancy.cli import adapter_command_metadata, main
 from specromancy.config import load_pipeline
+from specromancy.registry import load_registry
 from specromancy.exit_codes import ExitCode
 from specromancy.hashing import sha256_bytes
 
@@ -28,7 +29,12 @@ class AdapterFixture:
             encoding="utf-8",
         )
         self.write_skill("compose")
-        self.pipeline_path = self.root / "pipeline.toml"
+        self.write_skill("pipeline")
+        self.pipeline_path = self.root / "workflow/pipelines/adapter-fixture.toml"
+        self.pipeline_path.parent.mkdir(parents=True)
+        (self.root / "workflow/pipelines.toml").write_text(
+            'schema_version = 1\n[[pipelines]]\nid = "adapter-fixture"\npath = "pipelines/adapter-fixture.toml"\n', encoding="utf-8"
+        )
         self.pipeline_path.write_text(
             textwrap.dedent(
                 """
@@ -91,7 +97,7 @@ class AdapterFixture:
         pipeline = self.pipeline()
         return generate_adapters(
             self.root,
-            pipeline,
+            load_registry(self.root),
             adapter_command_metadata(pipeline.phase_ids),
             check=check,
         )
@@ -206,7 +212,7 @@ class AdapterGenerationTests(unittest.TestCase):
         )
         for target in manifest["targets"]:
             if target["mode"] == "native":
-                self.assertEqual(target["paths"], [])
+                self.assertEqual(target["discovery_paths"], [".agents/skills/specromancy-adapter-fixture/SKILL.md"])
         for entry in manifest["generated"]:
             path = entry["path"]
             self.assertFalse(Path(path).is_absolute())
@@ -244,8 +250,6 @@ class AdapterGenerationTests(unittest.TestCase):
         common = [
             "--root",
             str(self.fixture.root),
-            "--pipeline",
-            str(self.fixture.pipeline_path),
             "--json",
             "adapters",
             "generate",

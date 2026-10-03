@@ -30,8 +30,6 @@ def build_action_packet(
         "specromancy",
         "--root",
         str(pipeline.repository_root),
-        "--pipeline",
-        str(pipeline.path),
         "validate",
         manifest["run_id"],
         phase.id,
