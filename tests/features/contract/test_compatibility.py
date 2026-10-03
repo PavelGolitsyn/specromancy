@@ -5,6 +5,7 @@ import unittest
 
 import specromancy
 from specromancy import artifacts, config, git, hashing, run_store
+from specromancy import config_errors, config_models, schema_validation, validation
 from specromancy.engine import Engine
 from tests.features.contract.compatibility_support import (
     RUN_ID, CompatibilityFixture, capture_canonical, capture_diagnostics,
@@ -14,6 +15,21 @@ from tests.features.unit.test_adapters import AdapterFixture
 
 
 class CompatibilityContractTests(unittest.TestCase):
+    def test_configuration_and_schema_reexports_share_the_defining_objects(self) -> None:
+        for name in (
+            "PhaseConfig", "PipelineConfig", "TransitionConfig",
+            "ValidationCommand", "ValidatorConfig",
+        ):
+            with self.subTest(name=name):
+                self.assertIs(getattr(config, name), getattr(config_models, name))
+        self.assertIs(config.PipelineConfigError, config_errors.PipelineConfigError)
+        self.assertIs(config._MISSING, config_errors._MISSING)
+        for name in (
+            "SchemaDefinitionError", "load_json_schema", "validate_schema_definition",
+        ):
+            with self.subTest(name=name):
+                self.assertIs(getattr(validation, name), getattr(schema_validation, name))
+
     def test_public_imports_and_compatibility_aliases_remain_available(self) -> None:
         exports = {
             "ExitCode", "Engine", "EngineError", "PipelineConfig", "PipelineConfigError",

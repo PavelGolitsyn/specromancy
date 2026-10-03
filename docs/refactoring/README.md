@@ -1,7 +1,8 @@
 # Staged refactoring plan
 
-Status: Stage 01 compatibility baseline implemented; Stages 02–08 remain
-proposed. No runtime refactoring has been implemented by this plan.
+Status: Stages 01–02 implemented; Stages 03–08 remain proposed. Configuration
+models, diagnostics, loading, serialization, and schema validation are separated
+behind the existing public imports.
 Prepared on 2026-10-03 against commit
 `594c2983895903f09ac15f4b1d12a9309d39bbf8`.
 

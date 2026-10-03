@@ -2,6 +2,8 @@
 
 Prerequisite: Stage 01. Keep the `specromancy.config` import surface stable.
 
+Status: implemented on 2026-10-03; no migration or adapter regeneration required.
+
 ## Purpose and evidence
 
 `config.py` combines immutable dataclasses, TOML loading, field validation,
@@ -28,26 +30,26 @@ imports use leaf models; public re-exports reference the same class objects.
 
 ## Work items
 
-- [ ] Move dataclasses without changing fields, defaults, properties, equality,
+- [x] Move dataclasses without changing fields, defaults, properties, equality,
   frozen behavior, or constructor signatures. Re-export their names from config.
-- [ ] Move configuration diagnostics with the existing `_MISSING` semantics so
+- [x] Move configuration diagnostics with the existing `_MISSING` semantics so
   omitted values do not become explicit null diagnostic fields.
-- [ ] Extract `_canonical_document` and its serializer byte-for-byte. Preserve
+- [x] Extract `_canonical_document` and its serializer byte-for-byte. Preserve
   ordering, default omission, transition sorting, and Unicode escaping.
-- [ ] Keep pipeline encoding separate from `canonical_json_bytes`: the current
+- [x] Keep pipeline encoding separate from `canonical_json_bytes`: the current
   pipeline `json.dumps` call uses default ASCII escaping while run hashing does
   not. Sharing hash digest operations is safe only after byte equivalence is
   established; sharing serialization defaults is not automatically safe.
-- [ ] Move schema definition and value validation into a leaf module that does
+- [x] Move schema definition and value validation into a leaf module that does
   not import config loading. Preserve `ValidationFailure` and
   `SchemaDefinitionError` identities and public helper imports through re-exports
   as needed; choose one defining module for each exception to avoid cycles.
-- [ ] Move the loader after these dependencies are acyclic. Preserve rejection
+- [x] Move the loader after these dependencies are acyclic. Preserve rejection
   order, filesystem containment, relative template/schema paths, reserved names,
   graph callbacks, root discovery, and `root`/`repository_root` argument behavior.
-- [ ] Keep registry serialization independent unless exact equivalence is proven.
+- [x] Keep registry serialization independent unless exact equivalence is proven.
   Do not add caching that hides graph or dependency changes between commands.
-- [ ] Update architecture documentation with the new internal dependency direction.
+- [x] Update architecture documentation with the new internal dependency direction.
 
 ## Verification
 
@@ -71,3 +73,46 @@ their original pipeline provenance. Adapter check passes without rewriting
 generated files. Configuration and schema helpers have no import cycle.
 Deliver models/serialization, schema extraction, and loader moves as separate
 reviewable changes if necessary. Roll back code only; no migration is involved.
+
+
+## Execution results
+
+The proposed module map is implemented. Runtime consumers import configuration
+records from `config_models`; `config` re-exports the same classes, loader,
+constants, and compatibility helpers. `config_errors` defines the single
+omitted-value sentinel used by both loader and diagnostic construction.
+`schema_validation` defines `SchemaDefinitionError` and the existing schema
+algorithms, re-exported through `validation`. `ValidationFailure` remains defined
+in `validation`, since schema algorithms return value errors without raising it.
+Registry serialization, generic hashing, graph algorithms, workflow sources,
+and generated adapters are unchanged.
+
+Validation on Python 3.14.4:
+
+- The four planned unit modules plus compatibility and architecture contracts:
+  **63 tests passed**.
+- Multi-pipeline and replacement-pipeline contracts: **9 tests passed**.
+- `python3 -m unittest discover`: **180 tests passed** in 23.242 seconds.
+- `bin/specromancy adapters generate --check`: passed, with no generated writes.
+- `git diff --check`: passed.
+
+Stage 01 canonical strings/hashes, diagnostic fixtures, adapter bytes, and
+version-1 run replay all pass unchanged. Temporary fixture comparisons also
+confirmed reordered TOML fields match all three Stage 01 Unicode/pause baselines;
+shared template/schema paths match the original loader's canonical strings and
+hashes. AST comparison against the pre-extraction source confirmed all moved
+records, diagnostic/schema algorithms, path helpers, and loader entry point are
+unchanged. The loader class differs only in schema imports and delegation to
+the extracted serializer.
+
+New regression checks cover identity of facade re-exports, omitted versus null
+diagnostic values, root discovery/alias precedence, schema path containment,
+and re-reading schema dependencies on every load. Each extracted module and
+artifact validation is imported in an isolated interpreter without package
+facade initialization, checking that leaf dependencies do not load the parser
+and neither parser nor artifact validation imports the other.
+
+Environment limitation: the prescribed `python -m unittest discover` could not
+start because `python` is unavailable; the documented `python3` equivalent was
+used. Python 3.11 is not installed here, so minimum-version execution remains
+unverified. No design deviations or implementation issues were deferred.

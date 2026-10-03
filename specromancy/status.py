@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .config import PipelineConfig
+from .config_models import PipelineConfig
 
 
 STATUS_SCHEMA_VERSION = 1

@@ -10,7 +10,7 @@ from .actions import build_action_packet
 from .approvals import approval_integrity_errors, build_approval_record
 from .artifacts import ArtifactError, artifact_record, verify_manifest_artifacts
 from .commands import execute_validation_commands, first_required_failure
-from .config import PhaseConfig, PipelineConfig
+from .config_models import PhaseConfig, PipelineConfig
 from .errors import SpecromancyError, UsageError
 from .exit_codes import ExitCode
 from .git import GitError, capture_repository_snapshot, enforce_mutation_policy

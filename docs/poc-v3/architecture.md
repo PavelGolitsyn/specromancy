@@ -34,6 +34,39 @@ and run storage remain generic. Adapter generation validates every registered
 graph and projects each registration into a launch skill delegating to the
 canonical orchestrator.
 
+## Configuration dependencies
+
+`specromancy.config` remains the public configuration entry point. Its records
+are the same frozen class objects defined in `config_models`; configuration
+diagnostics and the omitted-value sentinel live in `config_errors`.
+
+```text
+config facade -> config_loader -> config_models / config_errors
+                              -> graph
+                              -> config_serialization -> config_models
+                              -> schema_validation
+
+validation -> config_models / schema_validation
+runtime consumers -> config_models
+registry -> config_loader / config_models / config_errors
+```
+
+The loader owns TOML parsing, field rejection order, repository discovery, and
+resource containment. Graph analysis remains in `graph`, with diagnostic
+callbacks supplied by the loader. Models, diagnostics, canonical serialization,
+and schema validation do not import the loader or public facade. Artifact
+validation owns artifact reads, Markdown/file checks, and `ValidationFailure`;
+it delegates JSON schema algorithms to `schema_validation` and re-exports the
+existing schema helpers and `SchemaDefinitionError`.
+
+`config_serialization` preserves the canonical pipeline document and its exact
+JSON encoding, including ASCII escaping, transition sorting, and omission of
+false pause defaults. This encoding is deliberately separate from the generic
+`hashing.canonical_json_bytes` UTF-8 encoding used for run data. Registry
+serialization remains independent. Loading does not cache graph or dependency
+contents between commands. These internal boundaries add no public APIs or
+stored-data migrations; existing configuration imports and hashes are retained.
+
 ## State and visit model
 
 A run owns an ordered list of visits. Each visit is one attempt at one

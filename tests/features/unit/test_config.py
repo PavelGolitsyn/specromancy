@@ -408,6 +408,71 @@ class ConfigTests(unittest.TestCase):
         )
         self.assert_error(document(phase), "unsupported-json-schema")
 
+    def test_root_alias_discovery_and_failure_precedence_are_preserved(self) -> None:
+        path = self.fixture.write(document())
+        root = self.fixture.root
+        expected = load_pipeline(path)
+        self.assertEqual(load_pipeline(path, root), expected)
+        self.assertEqual(load_pipeline(path, root=root), expected)
+        with self.assertRaisesRegex(TypeError, "pass repository_root or root, not both"):
+            load_pipeline(path, root, root=root)
+        missing = path.with_name("missing.toml")
+        with self.assertRaises(PipelineConfigError) as raised:
+            load_pipeline(missing, root, root=root)
+        self.assertEqual(raised.exception.diagnostic_code, "pipeline-not-found")
+        with self.assertRaises(PipelineConfigError) as raised:
+            load_pipeline(path, missing)
+        self.assertEqual(raised.exception.diagnostic_code, "invalid-repository-root")
+        self.assertEqual(raised.exception.details["value"], str(missing.resolve()))
+        with self.assertRaises(PipelineConfigError) as raised:
+            load_pipeline(path, root / ".agents")
+        self.assertEqual(raised.exception.diagnostic_code, "pipeline-outside-repository")
+        (root / ".git").rmdir()
+        with self.assertRaises(PipelineConfigError) as raised:
+            load_pipeline(path)
+        self.assertEqual(raised.exception.diagnostic_code, "repository-root-not-found")
+        self.assertNotIn("value", raised.exception.details)
+        self.assertEqual(load_pipeline(path, root=root), expected)
+
+    def test_missing_diagnostic_values_remain_distinct_from_explicit_null(self) -> None:
+        options = {"path": self.fixture.path, "remediation": "Correct the value."}
+        omitted = PipelineConfigError("example", "Example", **options)
+        explicit = PipelineConfigError("example", "Example", value=None, **options)
+        self.assertNotIn("value", omitted.as_dict()["details"])
+        self.assertIsNone(explicit.as_dict()["details"]["value"])
+        unknown = self.assert_error("extra = true\n" + document(), "unknown-field")
+        self.assertEqual(unknown.details["field"], "extra")
+        self.assertIs(unknown.details["value"], True)
+
+    def test_schema_paths_and_dependencies_are_resolved_on_every_load(self) -> None:
+        schema = self.fixture.root / "shared.schema.json"
+        schema.write_text('{"type":"string"}', encoding="utf-8")
+        phase = PHASE.replace(
+            'validator = "file"',
+            'validator = { type = "json", schema = "../shared.schema.json" }',
+        )
+        path = self.fixture.write(document(phase))
+        first = load_pipeline(path)
+        self.assertEqual(first.phases[0].validator.resolved_path, schema.resolve())
+        schema.write_text('{"type":"integer"}', encoding="utf-8")
+        second = load_pipeline(path)
+        self.assertEqual(second.phases[0].validator.json_schema, {"type": "integer"})
+        self.assertEqual(first.config_hash, second.config_hash)
+        schema.write_text('{"minLength":1}', encoding="utf-8")
+        with self.assertRaises(PipelineConfigError) as raised:
+            load_pipeline(path)
+        self.assertEqual(raised.exception.diagnostic_code, "unsupported-json-schema")
+        self.assertEqual(raised.exception.details["field"], "validator_path")
+        self.assertEqual(raised.exception.details["value"], "../shared.schema.json")
+        with tempfile.TemporaryDirectory() as outside:
+            external = Path(outside) / "schema.json"
+            external.write_text('{}', encoding="utf-8")
+            schema.unlink()
+            schema.symlink_to(external)
+            with self.assertRaises(PipelineConfigError) as raised:
+                load_pipeline(path)
+            self.assertEqual(raised.exception.diagnostic_code, "unsafe-path")
+
 
 if __name__ == "__main__":
     unittest.main()

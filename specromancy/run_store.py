@@ -22,7 +22,7 @@ from .artifacts import (
     verify_manifest_artifacts,
     write_artifact_atomic,
 )
-from .config import PipelineConfig
+from .config_models import PipelineConfig
 from .errors import SpecromancyError
 from .exit_codes import ExitCode
 from .hashing import (

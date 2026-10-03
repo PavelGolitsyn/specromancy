@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import ast
 import re
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -20,6 +22,37 @@ EXAMPLE_PHASES = ("research", "plan", "implement", "review")
 
 
 class StaticArchitectureContractTests(unittest.TestCase):
+    def test_configuration_modules_import_without_facade_initialization(self) -> None:
+        # Bypass the eager package exports so they cannot mask import cycles.
+        script = """
+import importlib
+import sys
+import types
+
+package = types.ModuleType('specromancy')
+package.__path__ = [sys.argv[1]]
+sys.modules['specromancy'] = package
+importlib.import_module('specromancy.' + sys.argv[2])
+unexpected = set(sys.argv[3:]) & set(sys.modules)
+assert not unexpected, unexpected
+"""
+        for module in (
+            "config_models", "config_errors", "config_serialization",
+            "schema_validation", "config_loader", "validation",
+        ):
+            forbidden = ["config", "cli", "engine", "registry"]
+            if module != "config_loader":
+                forbidden.append("config_loader")
+            if module != "validation":
+                forbidden.append("validation")
+            with self.subTest(module=module):
+                result = subprocess.run(
+                    [sys.executable, "-c", script, str(ROOT / "specromancy"), module,
+                     *(f"specromancy.{name}" for name in forbidden)],
+                    capture_output=True, text=True, check=False,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_generic_engine_modules_do_not_name_example_phases(self) -> None:
         pattern = re.compile(
             r"(?:'|\")(?:" + "|".join(EXAMPLE_PHASES) + r")(?:'|\")"

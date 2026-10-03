@@ -12,7 +12,8 @@ from typing import Any, TextIO
 
 from .contracts import RESERVED_COMMANDS
 from .actions import render_action_packet
-from .config import PipelineConfig, load_pipeline
+from .config_loader import load_pipeline
+from .config_models import PipelineConfig
 from .engine import Engine
 from .errors import SpecromancyError, UsageError
 from .exit_codes import EXIT_CODE_DESCRIPTIONS, ExitCode

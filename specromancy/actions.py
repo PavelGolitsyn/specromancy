@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .config import PipelineConfig
+from .config_models import PipelineConfig
 
 
 ACTION_PACKET_SCHEMA_VERSION = 1
