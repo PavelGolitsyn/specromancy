@@ -109,6 +109,52 @@ class VisitStoreBoundaryTests(unittest.TestCase):
         self.assertIsNone(visit["output"]["sha256"])
         self.assertIsNone(visit["completed_at"])
 
+    def test_successor_binds_sealed_inputs_under_lock_and_retry_skips_resources(self):
+        fixture = EngineFixture()
+        self.addCleanup(fixture.close)
+        fixture.pipeline_path.write_text(fixture.pipeline_path.read_text().replace(
+            '"request", "latest:survey"', '"request", "latest:survey", "visit:1"',
+        ))
+        pipeline = load_pipeline(fixture.pipeline_path, fixture.root)
+        store = fixture.store
+        store.create(pipeline, "sealed inputs", run_id=RUN_ID)
+        store.start_visit(RUN_ID, pipeline, "survey")
+        store.write_visit_output(RUN_ID, 1, "evidence")
+        before = store.load(RUN_ID)
+        events_before = store.read_events(RUN_ID)
+        skill = pipeline.phase("publish").skill_path
+        original_open = Path.open
+        captured = []
+
+        def observe(path, *args, **kwargs):
+            if path == skill and args == ("rb",):
+                with self.assertRaises(LockHeldError):
+                    RunStore(fixture.root).load(RUN_ID)
+                captured.append(path)
+            return original_open(path, *args, **kwargs)
+
+        with patch.object(Path, "open", observe):
+            result = store.transition_visit(
+                RUN_ID, pipeline, 1, outcome="continue", transition_target="publish",
+            )
+        self.assertTrue(captured)
+        self.assertEqual(result["revision"], before["revision"] + 1)
+        self.assertEqual(len(store.read_events(RUN_ID)), len(events_before) + 1)
+        sealed, successor = result["visits"]
+        self.assertEqual(successor["inputs"][1:], [
+            {"reference": reference, **sealed["output"]}
+            for reference in ("latest:survey", "visit:1")
+        ])
+        self.assertIsNone(successor["started_at"])
+        directory = store.run_directory(RUN_ID)
+        snapshot = tuple((directory / name).read_bytes() for name in ("run.json", "events.jsonl"))
+        skill.unlink()
+        self.assertEqual(store.transition_visit(
+            RUN_ID, pipeline, 1, outcome="continue", transition_target="publish",
+        ), result)
+        self.assertEqual(snapshot, tuple((directory / name).read_bytes()
+                                        for name in ("run.json", "events.jsonl")))
+
     def test_exact_loop_limits_commit_block_without_sealing_or_successor(self):
         for kind in ("phase", "transition"):
             with self.subTest(kind=kind):

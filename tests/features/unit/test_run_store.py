@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import tempfile
 import textwrap
@@ -18,6 +19,7 @@ from specromancy.run_store import (
     is_valid_run_id,
     validate_run_id,
 )
+from specromancy.visit_preparation import collect_resources
 
 
 RUN_ID = "20260925T120000Z-01020304"
@@ -165,6 +167,28 @@ class RunStoreTests(unittest.TestCase):
             with self.assertRaises(LockHeldError) as raised:
                 RunStore(self.fixture.root).load(RUN_ID)
         self.assertIn("remove the lock file manually", raised.exception.details["remediation"])
+
+    def test_resource_collection_borrows_state_and_returns_detached_inputs(self) -> None:
+        manifest = self.create()
+        before = copy.deepcopy(manifest)
+        directory = self.store.run_directory(RUN_ID)
+        files_before = {p.relative_to(directory): p.read_bytes()
+                        for p in directory.rglob("*") if p.is_file()}
+        with self.store.lock(RUN_ID):
+            resources = collect_resources(
+                directory, manifest, self.fixture.pipeline,
+                self.fixture.pipeline.phase("compose"),
+                repository_root=self.store.repository_root, ordinal=1,
+            )
+        self.assertEqual(manifest, before)
+        self.assertEqual(resources.inputs, [{"reference": "request", **manifest["request"]}])
+        self.assertIsNone(resources.template)
+        self.assertFalse((directory / resources.output_path).exists())
+        resources.inputs[0]["sha256"] = "changed"
+        resources.inputs.clear()
+        self.assertEqual(manifest, before)
+        self.assertEqual({p.relative_to(directory): p.read_bytes()
+                          for p in directory.rglob("*") if p.is_file()}, files_before)
 
     def test_completed_artifact_hash_detects_edits(self) -> None:
         self.create()

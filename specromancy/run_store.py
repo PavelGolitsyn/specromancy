@@ -27,7 +27,7 @@ from .hashing import (
 )
 from .locking import RunLock
 from .run_persistence import RunPersistence
-from . import run_validation, visit_transitions
+from . import run_validation, visit_preparation, visit_transitions
 from .run_errors import RunCorruptionError, RunNotFoundError, RunStoreError
 from .run_identity import (
     RUN_ID_PATTERN, format_timestamp, generate_run_id, is_valid_run_id,
@@ -527,32 +527,15 @@ class RunStore:
         attempt = sum(
             visit["phase_id"] == phase_id for visit in manifest["visits"]
         ) + 1
-        inputs = [
-            resolve_input_reference(reference, manifest, directory)
-            for reference in phase.inputs
-        ]
-        output_path = render_output_path(pipeline, phase, ordinal)
-        reserved_paths = {visit["output"]["path"] for visit in manifest["visits"]}
-        if output_path in reserved_paths or (directory / output_path).exists():
-            raise ArtifactError(
-                f"visit output path would overwrite an earlier artifact: {output_path}",
-                diagnostic_code="artifact-path-collision",
-                details={"path": output_path, "visit_number": ordinal},
-            )
-        skill = {
-            "path": relative_path(phase.skill_path, self.repository_root),
-            "sha256": sha256_file(phase.skill_path),
-        }
-        template = None
-        if phase.output_template_path is not None:
-            template = {
-                "path": relative_path(phase.output_template_path, self.repository_root),
-                "sha256": sha256_file(phase.output_template_path),
-            }
+        resources = visit_preparation.collect_resources(
+            directory, manifest, pipeline, phase,
+            repository_root=self.repository_root, ordinal=ordinal,
+        )
         return visit_transitions.new_visit(
             phase_id=phase_id, ordinal=ordinal, attempt=attempt, status=status,
-            inputs=inputs, output_path=output_path, mutation_policy=phase.mutation,
-            mutation_baseline=mutation_baseline, skill=skill, template=template,
+            inputs=resources.inputs, output_path=resources.output_path,
+            mutation_policy=phase.mutation, mutation_baseline=mutation_baseline,
+            skill=resources.skill, template=resources.template,
             started_at=self._timestamp() if status == "active" else None,
             deviations=deviations,
         )

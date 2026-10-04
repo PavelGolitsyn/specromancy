@@ -4,10 +4,12 @@
 
 Prepared on 2026-10-04 against `c29094e58fd0369c5f0c585091a07cf4899f46b6`.
 The first refactoring pass below is complete. The new plan continues its numbering
-so completed work and historical verification remain intact. **Stages 09–10 are
-complete; stages 11–15 remain planned.** Stage 09 execution added characterization
+so completed work and historical verification remain intact. **Stages 09–11 are
+complete; stages 12–15 remain planned.** Stage 09 execution added characterization
 tests and recorded design decisions without runtime changes. Stage 10 separated
 field and phase parsing from pipeline assembly with compatibility checks passing.
+Stage 11 extracted visit resource observations while preserving lock scope,
+resource ordering, and stored/event bytes.
 
 The follow-on objective is to simplify remaining configuration and command
 boundaries, then address two narrowly scoped correctness issues in separate
@@ -19,7 +21,7 @@ extractions or introduce a service framework around them.
 | --- | --- | --- | --- |
 | [09 — Baseline and contract decisions](09-follow-on-baseline.md) | Complete: current evidence, gap matrix, compatibility decisions | Completed 01–08 | Characterization / low |
 | [10 — Configuration parsing](10-configuration-parsing.md) | Complete: field and phase parsing behind existing imports | 09 | Refactoring / medium |
-| [11 — Visit preparation](11-visit-preparation.md) | Explicit resource observations for visit construction | 09–10 | Refactoring / medium |
+| [11 — Visit preparation](11-visit-preparation.md) | Complete: explicit resource observations for visit construction | 09–10 | Refactoring / medium |
 | [12 — Approval orchestration](12-approval-orchestration.md) | One focused approval command coordinator | 09–11 | Refactoring / high |
 | [13 — Concurrent approval decisions](13-concurrent-approval-decisions.md) | Controlled retry/conflict outcomes under the run lock | 12 | Explicit behavior correction / high |
 | [14 — Persisted-data diagnostics](14-persisted-data-diagnostics.md) | Controlled errors for malformed status values; nested-validation decision record | 09, 13 | Narrow behavior correction and design / medium |

@@ -46,6 +46,7 @@ cli -> cli_commands
               -> validation_service -> validation / commands / git
               -> approvals
               -> RunStore -> visit_transitions
+                          -> visit_preparation -> artifacts / hashing
                           -> run_persistence -> locking / run_validation / hashing
                           -> artifacts
 
@@ -174,10 +175,27 @@ dictionary annotations and pure selectors, `run_identity` owns injected
 clock/random helpers, `run_errors` defines shared exceptions, and
 `run_validation` checks persisted fields without filesystem mutation or
 engine/CLI dependencies. The store retains run-path ownership, artifact checks,
-evidence collection, and defensive copies. It delegates locking, serialization,
-audit consistency, revision stamping, and recovery to `run_persistence`, and
+observation ordering, timestamps, and defensive copies. It delegates locking,
+serialization, audit consistency, revision stamping, and recovery to `run_persistence`, and
 in-memory visit decisions to `visit_transitions`. Engine, action, status, and
 approval code share the record vocabulary.
+
+`visit_preparation` collects literal inputs, checks output collisions, and reads
+skill/template provenance into a detached `VisitResources` result. It borrows
+the supplied manifest without mutation and uses the existing `artifacts` and
+`hashing` policies. It does not acquire locks, write files, construct visits, or
+commit state. `RunStore._new_visit` retains status/phase checks, ordinal/attempt
+calculation, and active-start timestamps, then supplies the observations to
+`visit_transitions.new_visit` for record construction.
+
+All preparation reads stay under the calling store operation's run lock. A
+successor resolves inputs against the sealed, uncommitted proposal, so its
+`latest:` and `visit:` references can bind the just-completed output. Skill and
+optional template hashes are captured in that order before an active visit's
+start timestamp. Pending preparation has no start timestamp or mutation baseline;
+activation records those without refreshing resources. Exact transition retries
+also skip resource capture. The lock coordinates store operations, not external
+filesystem edits; missing resource reads retain their existing raw IO failures.
 
 Selectors borrow records from their arguments. Current-visit presentation
 lookups tolerate an absent ordinal and can return a completed visit; the

@@ -41,7 +41,7 @@ assert not unexpected, unexpected
             "schema_validation", "config_fields", "config_phase_parser",
             "config_loader", "validation",
             "run_records", "run_validation", "run_identity", "run_errors",
-            "run_persistence", "visit_transitions",
+            "run_persistence", "visit_transitions", "visit_preparation",
             "engine_errors", "provenance", "validation_service", "responses",
             "approvals",
             "cli_commands", "adapter_contracts", "adapter_sources",
@@ -60,6 +60,10 @@ assert not unexpected, unexpected
                 forbidden.append("run_store")
             if module.startswith("run_") or module == "visit_transitions":
                 forbidden.extend(("run_store", "actions", "status", "artifacts"))
+            if module == "visit_preparation":
+                forbidden.extend(("run_store", "run_persistence", "locking",
+                                  "run_identity", "visit_transitions", "responses",
+                                  "actions", "status"))
             if module.startswith("adapter_") or module == "cli_commands":
                 forbidden.extend(("adapters", "run_store"))
             if module in {"adapter_rendering", "adapter_ownership"}:
