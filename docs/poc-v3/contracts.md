@@ -131,6 +131,26 @@ after replacement but before the event append, the next load appends a
 event sequence, or any other manifest/event disagreement is corrupt state and
 is not repaired heuristically.
 
+The internal `run_persistence` component owns serialization, reconciliation,
+and commits. `RunStore` retains repository/run path ownership checks, artifact
+verification, and visit decisions. One lock spans manifest/event loading, the
+change, validation, replacement, and append; internal commit helpers do not
+reacquire it. Idempotent activation, transition, and resume returns do not add
+a revision or event. The general `mutate` API always commits, even if its callback
+leaves the record unchanged.
+
+`load(recover=False)` checks consistency without appending recovery events.
+`load(verify_artifacts=False)` skips artifact verification independently and
+still permits recovery by default. Normal loads, including those invoked by
+`status`, may append the allowed recovery event; recovery precedes artifact
+verification, so an artifact error may be reported after that append.
+
+Creation first makes the run directory and request artifact, then commits
+revision 1. Engine initialization prepares its first visit in a separate commit.
+Interruption can therefore leave a directory/request without a manifest or a
+created run without a visit. These operations are not one transaction, and the
+store does not automatically clean up partially initialized runs.
+
 Each run uses an exclusive `.lock` file containing the owner PID and acquisition
 time. Locks are never expired based on age alone. After verifying that its owner
 is no longer running, a stale lock must be removed manually.

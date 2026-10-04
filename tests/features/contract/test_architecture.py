@@ -40,6 +40,7 @@ assert not unexpected, unexpected
             "config_models", "config_errors", "config_serialization",
             "schema_validation", "config_loader", "validation",
             "run_records", "run_validation", "run_identity", "run_errors",
+            "run_persistence",
         ):
             forbidden = ["config", "cli", "engine", "registry"]
             if module != "config_loader":
