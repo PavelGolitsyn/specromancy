@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import copy
-import inspect
 import json
 import os
-import re
 import secrets
 import tempfile
 from collections.abc import Callable, Mapping
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -23,133 +21,24 @@ from .artifacts import (
     write_artifact_atomic,
 )
 from .config_models import PipelineConfig
-from .errors import SpecromancyError
 from .exit_codes import ExitCode
 from .hashing import (
-    SHA256_PATTERN,
-    normalize_relative_path,
     relative_path,
     resolve_relative_path,
     sha256_file,
     sha256_json,
 )
 from .locking import RunLock
-
-
-RUN_SCHEMA_VERSION = 1
-EVENT_SCHEMA_VERSION = 1
-RUN_ID_PATTERN = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$")
-EVENT_TYPE_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-RUN_STATUSES = frozenset(
-    {
-        "active",
-        "awaiting-agent",
-        "awaiting-approval",
-        "paused",
-        "completed",
-        "failed",
-        "blocked",
-    }
+from . import run_validation
+from .run_errors import RunCorruptionError, RunNotFoundError, RunStoreError
+from .run_identity import (
+    RUN_ID_PATTERN, format_timestamp, generate_run_id, is_valid_run_id,
+    utc_now, validate_run_id,
 )
-VISIT_STATUSES = frozenset(
-    {"pending", "active", "awaiting-approval", "completed", "failed", "blocked"}
+from .run_records import (
+    EVENT_SCHEMA_VERSION, EVENT_TYPE_PATTERN, RUN_SCHEMA_VERSION,
+    RUN_STATUSES, VISIT_STATUSES, EventRecord, RunRecord, VisitRecord,
 )
-
-
-def utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def format_timestamp(value: datetime) -> str:
-    if value.tzinfo is None:
-        value = value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc).isoformat(timespec="microseconds").replace(
-        "+00:00", "Z"
-    )
-
-
-def validate_run_id(run_id: str) -> str:
-    """Return a valid path-safe run ID or raise ``ValueError``."""
-
-    if not isinstance(run_id, str) or not RUN_ID_PATTERN.fullmatch(run_id):
-        raise ValueError(f"invalid run ID: {run_id!r}")
-    try:
-        datetime.strptime(run_id[:16], "%Y%m%dT%H%M%SZ")
-    except ValueError as exc:
-        raise ValueError(f"invalid run ID timestamp: {run_id!r}") from exc
-    return run_id
-
-
-def is_valid_run_id(run_id: str) -> bool:
-    try:
-        validate_run_id(run_id)
-    except (TypeError, ValueError):
-        return False
-    return True
-
-
-def generate_run_id(
-    *,
-    clock: Callable[[], datetime] = utc_now,
-    random_source: Callable[..., bytes | str] = secrets.token_bytes,
-) -> str:
-    """Generate a UTC timestamp plus four cryptographically random bytes."""
-
-    now = clock()
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
-    timestamp = now.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    try:
-        inspect.signature(random_source).bind(4)
-    except (TypeError, ValueError):
-        random_value = random_source()
-    else:
-        random_value = random_source(4)
-    suffix = random_value.hex() if isinstance(random_value, bytes) else random_value
-    run_id = f"{timestamp}-{suffix}"
-    return validate_run_id(run_id)
-
-
-class RunStoreError(SpecromancyError):
-    """Base error for expected run-store failures."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        diagnostic_code: str,
-        details: Mapping[str, Any] | None = None,
-        code: ExitCode = ExitCode.INTERNAL_ERROR,
-    ) -> None:
-        values = {"error_code": diagnostic_code}
-        if details:
-            values.update(details)
-        super().__init__(code, message, values)
-        self.diagnostic_code = diagnostic_code
-
-
-class RunNotFoundError(RunStoreError):
-    def __init__(self, run_id: str) -> None:
-        super().__init__(
-            f"run not found: {run_id}",
-            diagnostic_code="run-not-found",
-            details={"run_id": run_id},
-            code=ExitCode.NOT_FOUND,
-        )
-
-
-class RunCorruptionError(RunStoreError):
-    def __init__(
-        self, message: str, *, run_id: str, details: Mapping[str, Any] | None = None
-    ) -> None:
-        values: dict[str, Any] = {"run_id": run_id}
-        if details:
-            values.update(details)
-        super().__init__(
-            message,
-            diagnostic_code="corrupt-run",
-            details=values,
-        )
 
 
 class RunStore:
@@ -210,7 +99,7 @@ class RunStore:
         run_id: str | None = None,
         git_base: Any = None,
         git_head: Any = None,
-    ) -> dict[str, Any]:
+    ) -> RunRecord:
         """Create a run, its immutable request, manifest, and first event."""
 
         if pipeline.repository_root.resolve() != self.repository_root:
@@ -244,7 +133,7 @@ class RunStore:
                 directory, request_path, request_content, replace=False
             )
             timestamp = self._timestamp()
-            manifest: dict[str, Any] = {
+            manifest: RunRecord = {
                 "schema_version": RUN_SCHEMA_VERSION,
                 "revision": 1,
                 "run_id": chosen_id,
@@ -285,7 +174,7 @@ class RunStore:
         *,
         recover: bool = True,
         verify_artifacts: bool = True,
-    ) -> dict[str, Any]:
+    ) -> RunRecord:
         """Reconstruct current state from disk, optionally repairing an event gap."""
 
         directory = self.run_directory(run_id)
@@ -304,7 +193,7 @@ class RunStore:
 
     load_run = load
 
-    def read_events(self, run_id: str, *, recover: bool = True) -> list[dict[str, Any]]:
+    def read_events(self, run_id: str, *, recover: bool = True) -> list[EventRecord]:
         directory = self.run_directory(run_id)
         with RunLock(directory / ".lock", clock=self._clock):
             manifest = self._read_manifest(directory, run_id)
@@ -322,7 +211,7 @@ class RunStore:
         *,
         mutation_baseline: Any = None,
         deviations: list[Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> VisitRecord:
         """Resolve visit inputs now and persist their literal immutable records."""
 
         directory = self.run_directory(run_id)
@@ -365,7 +254,7 @@ class RunStore:
         phase_id: str,
         *,
         deviations: list[Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> VisitRecord:
         """Create the next pending visit and resolve its immutable inputs."""
 
         directory = self.run_directory(run_id)
@@ -405,7 +294,7 @@ class RunStore:
         visit_number: int,
         *,
         mutation_baseline: Any = None,
-    ) -> dict[str, Any]:
+    ) -> VisitRecord:
         """Activate a pending visit, returning an active visit unchanged on retry."""
 
         directory = self.run_directory(run_id)
@@ -484,10 +373,10 @@ class RunStore:
         command_results: list[Any] | None = None,
         mutation_result: Any = None,
         diagnostic: Mapping[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> RunRecord:
         """Persist resumable validation evidence without completing a visit."""
 
-        def change(manifest: dict[str, Any]) -> None:
+        def change(manifest: RunRecord) -> None:
             visit = self._visit(manifest, visit_number)
             if visit["status"] not in {"active", "awaiting-approval"}:
                 raise RunStoreError(
@@ -519,7 +408,7 @@ class RunStore:
         validation_checks: list[Any] | None = None,
         command_results: list[Any] | None = None,
         deviations: list[Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> VisitRecord:
         """Seal an output hash and mark a visit completed without overwriting it."""
 
         directory = self.run_directory(run_id)
@@ -575,7 +464,7 @@ class RunStore:
         validation_checks: list[Any] | None = None,
         command_results: list[Any] | None = None,
         mutation_result: Any = None,
-    ) -> dict[str, Any]:
+    ) -> RunRecord:
         """Complete a visit and atomically prepare its configured successor."""
 
         directory = self.run_directory(run_id)
@@ -692,7 +581,7 @@ class RunStore:
             )
             return copy.deepcopy(updated)
 
-    def resume_paused(self, run_id: str, pipeline: PipelineConfig) -> dict[str, Any]:
+    def resume_paused(self, run_id: str, pipeline: PipelineConfig) -> RunRecord:
         """Release a durable checkpoint without starting its pending visit."""
 
         directory = self.run_directory(run_id)
@@ -728,9 +617,9 @@ class RunStore:
 
     def _transition_limit_block(
         self,
-        manifest: dict[str, Any],
+        manifest: RunRecord,
         pipeline: PipelineConfig,
-        visit: dict[str, Any],
+        visit: VisitRecord,
         outcome: str,
         transition_target: str | None,
     ) -> dict[str, Any] | None:
@@ -784,11 +673,11 @@ class RunStore:
         self,
         run_id: str,
         event_type: str,
-        mutator: Callable[[dict[str, Any]], None],
+        mutator: Callable[[RunRecord], None],
         *,
         visit_number: int | None = None,
         payload: Mapping[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> RunRecord:
         """Apply a validated in-memory mutation using the store's commit protocol."""
 
         if not EVENT_TYPE_PATTERN.fullmatch(event_type):
@@ -813,8 +702,8 @@ class RunStore:
 
     update = mutate
 
-    def block(self, run_id: str, reason: Any) -> dict[str, Any]:
-        def change(manifest: dict[str, Any]) -> None:
+    def block(self, run_id: str, reason: Any) -> RunRecord:
+        def change(manifest: RunRecord) -> None:
             manifest["status"] = "blocked"
             manifest["block_reason"] = reason
 
@@ -822,8 +711,8 @@ class RunStore:
             run_id, "run-blocked", change, payload={"reason": reason}
         )
 
-    def complete(self, run_id: str, result: Any) -> dict[str, Any]:
-        def change(manifest: dict[str, Any]) -> None:
+    def complete(self, run_id: str, result: Any) -> RunRecord:
+        def change(manifest: RunRecord) -> None:
             manifest["status"] = "completed"
             manifest["terminal_result"] = result
 
@@ -834,14 +723,14 @@ class RunStore:
     def _new_visit(
         self,
         directory: Path,
-        manifest: dict[str, Any],
+        manifest: RunRecord,
         pipeline: PipelineConfig,
         phase_id: str,
         *,
         status: str,
         mutation_baseline: Any,
         deviations: list[Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> VisitRecord:
         if status not in {"pending", "active"}:
             raise ValueError(f"invalid initial visit status: {status!r}")
         try:
@@ -917,7 +806,7 @@ class RunStore:
         if self._fault_injector is not None:
             self._fault_injector(point)
 
-    def _read_manifest(self, directory: Path, run_id: str) -> dict[str, Any]:
+    def _read_manifest(self, directory: Path, run_id: str) -> RunRecord:
         path = directory / "run.json"
         try:
             raw = path.read_text(encoding="utf-8")
@@ -936,7 +825,7 @@ class RunStore:
         return value
 
     def _write_manifest_atomic(
-        self, directory: Path, manifest: dict[str, Any]
+        self, directory: Path, manifest: RunRecord
     ) -> None:
         target = directory / "run.json"
         self._fault("before-manifest-temporary-write")
@@ -965,7 +854,7 @@ class RunStore:
         finally:
             temporary.unlink(missing_ok=True)
 
-    def _append_event(self, directory: Path, event: dict[str, Any]) -> None:
+    def _append_event(self, directory: Path, event: EventRecord) -> None:
         self._validate_event(event, event["run_id"])
         path = directory / "events.jsonl"
         payload = (
@@ -992,7 +881,7 @@ class RunStore:
             ) from exc
         self._fault("after-event-append")
 
-    def _read_events(self, directory: Path, run_id: str) -> list[dict[str, Any]]:
+    def _read_events(self, directory: Path, run_id: str) -> list[EventRecord]:
         path = directory / "events.jsonl"
         try:
             lines = path.read_text(encoding="utf-8").splitlines()
@@ -1002,7 +891,7 @@ class RunStore:
                 run_id=run_id,
                 details={"path": str(path), "error": str(exc)},
             ) from exc
-        events: list[dict[str, Any]] = []
+        events: list[EventRecord] = []
         for index, line in enumerate(lines, 1):
             if not line:
                 raise RunCorruptionError(
@@ -1044,8 +933,8 @@ class RunStore:
         return events
 
     def _ensure_event_consistency(
-        self, directory: Path, manifest: dict[str, Any]
-    ) -> list[dict[str, Any]]:
+        self, directory: Path, manifest: RunRecord
+    ) -> list[EventRecord]:
         events = self._read_events(directory, manifest["run_id"])
         if self._events_match_manifest(events, manifest):
             return events
@@ -1075,7 +964,7 @@ class RunStore:
         )
 
     def _assert_event_consistency(
-        self, directory: Path, manifest: dict[str, Any]
+        self, directory: Path, manifest: RunRecord
     ) -> None:
         events = self._read_events(directory, manifest["run_id"])
         if not self._events_match_manifest(events, manifest):
@@ -1087,7 +976,7 @@ class RunStore:
 
     @staticmethod
     def _events_match_manifest(
-        events: list[dict[str, Any]], manifest: dict[str, Any]
+        events: list[EventRecord], manifest: RunRecord
     ) -> bool:
         if not events:
             return False
@@ -1100,8 +989,8 @@ class RunStore:
     def _commit_locked(
         self,
         directory: Path,
-        manifest: dict[str, Any],
-        events: list[dict[str, Any]],
+        manifest: RunRecord,
+        events: list[EventRecord],
         event_type: str,
         visit_number: int | None,
         payload: dict[str, Any],
@@ -1120,13 +1009,13 @@ class RunStore:
 
     def _event(
         self,
-        manifest: dict[str, Any],
+        manifest: RunRecord,
         *,
         sequence: int,
         event_type: str,
         visit_number: int | None,
         payload: dict[str, Any],
-    ) -> dict[str, Any]:
+    ) -> EventRecord:
         return {
             "schema_version": EVENT_SCHEMA_VERSION,
             "sequence": sequence,
@@ -1140,7 +1029,7 @@ class RunStore:
         }
 
     def _require_pipeline(
-        self, manifest: dict[str, Any], pipeline: PipelineConfig
+        self, manifest: RunRecord, pipeline: PipelineConfig
     ) -> None:
         expected = manifest["pipeline"]
         actual_path = relative_path(pipeline.path, self.repository_root)
@@ -1166,7 +1055,7 @@ class RunStore:
             )
 
     @staticmethod
-    def _visit(manifest: dict[str, Any], visit_number: int) -> dict[str, Any]:
+    def _visit(manifest: RunRecord, visit_number: int) -> VisitRecord:
         for visit in manifest["visits"]:
             if visit["ordinal"] == visit_number:
                 return visit
@@ -1178,139 +1067,12 @@ class RunStore:
         )
 
     def _validate_manifest(self, value: dict[str, Any], run_id: str) -> None:
-        required = {
-            "schema_version",
-            "revision",
-            "run_id",
-            "pipeline",
-            "status",
-            "current_visit",
-            "request",
-            "git",
-            "created_at",
-            "updated_at",
-            "visits",
-            "approvals",
-            "terminal_result",
-            "block_reason",
-        }
-        if set(value) != required:
-            self._invalid_manifest(run_id, "manifest fields do not match the schema")
-        if value["schema_version"] != RUN_SCHEMA_VERSION:
-            self._invalid_manifest(run_id, "unsupported run schema version")
-        if not isinstance(value["revision"], int) or value["revision"] < 1:
-            self._invalid_manifest(run_id, "manifest revision must be positive")
-        if value["run_id"] != run_id or not is_valid_run_id(value["run_id"]):
-            self._invalid_manifest(run_id, "manifest run ID is invalid")
-        if value["status"] not in RUN_STATUSES:
-            self._invalid_manifest(run_id, "manifest status is invalid")
-        self._validate_timestamp(value["created_at"], run_id)
-        self._validate_timestamp(value["updated_at"], run_id)
-        pipeline = value["pipeline"]
-        if not isinstance(pipeline, dict) or set(pipeline) != {
-            "id",
-            "version",
-            "path",
-            "sha256",
-        }:
-            self._invalid_manifest(run_id, "pipeline record is invalid")
-        if (
-            not isinstance(pipeline["id"], str)
-            or not isinstance(pipeline["version"], int)
-            or pipeline["version"] < 1
-            or not isinstance(pipeline["sha256"], str)
-            or not SHA256_PATTERN.fullmatch(pipeline["sha256"])
-        ):
-            self._invalid_manifest(run_id, "pipeline provenance is invalid")
-        self._validate_path(pipeline["path"], run_id)
-        self._validate_artifact_record(value["request"], run_id, hash_required=True)
-        if not isinstance(value["git"], dict) or set(value["git"]) != {"base", "head"}:
-            self._invalid_manifest(run_id, "git metadata is invalid")
-        if not isinstance(value["visits"], list):
-            self._invalid_manifest(run_id, "visits must be a list")
-        attempts: dict[str, int] = {}
-        for expected_ordinal, visit in enumerate(value["visits"], 1):
-            if not isinstance(visit, dict):
-                self._invalid_manifest(run_id, "visit record must be an object")
-            self._validate_visit(visit, run_id, expected_ordinal)
-            phase_id = visit["phase_id"]
-            attempts[phase_id] = attempts.get(phase_id, 0) + 1
-            if visit["attempt"] != attempts[phase_id]:
-                self._invalid_manifest(run_id, "visit attempt is not ordered")
-        current = value["current_visit"]
-        if current is not None and (
-            not isinstance(current, int) or current < 1 or current > len(value["visits"])
-        ):
-            self._invalid_manifest(run_id, "current visit is invalid")
-        if not isinstance(value["approvals"], list) or not all(
-            isinstance(item, dict) for item in value["approvals"]
-        ):
-            self._invalid_manifest(run_id, "approvals must be an ordered object list")
-        try:
-            json.dumps(value, allow_nan=False)
-        except (TypeError, ValueError) as exc:
-            self._invalid_manifest(run_id, f"manifest is not JSON serializable: {exc}")
+        run_validation.validate_manifest(value, run_id)
 
     def _validate_visit(
         self, visit: dict[str, Any], run_id: str, expected_ordinal: int
     ) -> None:
-        required = {
-            "phase_id",
-            "ordinal",
-            "attempt",
-            "status",
-            "inputs",
-            "output",
-            "mutation_policy",
-            "mutation_baseline",
-            "mutation_result",
-            "validation_checks",
-            "command_results",
-            "chosen_outcome",
-            "transition_target",
-            "skill",
-            "template",
-            "started_at",
-            "completed_at",
-            "deviations",
-        }
-        if set(visit) != required:
-            self._invalid_manifest(run_id, "visit fields do not match the schema")
-        if (
-            not isinstance(visit["phase_id"], str)
-            or visit["ordinal"] != expected_ordinal
-            or not isinstance(visit["attempt"], int)
-            or visit["attempt"] < 1
-            or visit["status"] not in VISIT_STATUSES
-        ):
-            self._invalid_manifest(run_id, "visit identity or status is invalid")
-        if not isinstance(visit["inputs"], list):
-            self._invalid_manifest(run_id, "visit inputs must be a list")
-        for record in visit["inputs"]:
-            self._validate_artifact_record(record, run_id, hash_required=True, reference=True)
-        self._validate_artifact_record(
-            visit["output"], run_id, hash_required=visit["status"] == "completed"
-        )
-        if visit["status"] != "completed" and visit["output"]["sha256"] is not None:
-            self._invalid_manifest(run_id, "mutable visit output cannot have a sealed hash")
-        for name in ("validation_checks", "command_results", "deviations"):
-            if not isinstance(visit[name], list):
-                self._invalid_manifest(run_id, f"visit {name} must be a list")
-        if not isinstance(visit["skill"], dict):
-            self._invalid_manifest(run_id, "visit skill provenance is invalid")
-        self._validate_provenance(visit["skill"], run_id)
-        if visit["template"] is not None:
-            if not isinstance(visit["template"], dict):
-                self._invalid_manifest(run_id, "visit template provenance is invalid")
-            self._validate_provenance(visit["template"], run_id)
-        if visit["started_at"] is not None:
-            self._validate_timestamp(visit["started_at"], run_id)
-        if visit["status"] != "pending" and visit["started_at"] is None:
-            self._invalid_manifest(run_id, "started visit lacks a start timestamp")
-        if visit["completed_at"] is not None:
-            self._validate_timestamp(visit["completed_at"], run_id)
-        if visit["status"] == "completed" and visit["completed_at"] is None:
-            self._invalid_manifest(run_id, "completed visit lacks a completion timestamp")
+        run_validation.validate_visit(visit, run_id, expected_ordinal)
 
     def _validate_artifact_record(
         self,
@@ -1320,85 +1082,27 @@ class RunStore:
         hash_required: bool,
         reference: bool = False,
     ) -> None:
-        fields = {"path", "sha256", "reference"} if reference else {"path", "sha256"}
-        if not isinstance(value, dict) or set(value) != fields:
-            self._invalid_manifest(run_id, "artifact record is invalid")
-        self._validate_path(value["path"], run_id)
-        digest = value["sha256"]
-        if hash_required and (
-            not isinstance(digest, str) or not SHA256_PATTERN.fullmatch(digest)
-        ):
-            self._invalid_manifest(run_id, "artifact hash is invalid")
-        if not hash_required and digest is not None:
-            self._invalid_manifest(run_id, "artifact hash must be null until sealed")
-        if reference and not isinstance(value["reference"], str):
-            self._invalid_manifest(run_id, "artifact reference is invalid")
+        run_validation.validate_artifact_record(
+            value, run_id, hash_required=hash_required, reference=reference
+        )
 
     def _validate_provenance(self, value: dict[str, Any], run_id: str) -> None:
-        if set(value) != {"path", "sha256"}:
-            self._invalid_manifest(run_id, "provenance record is invalid")
-        self._validate_path(value["path"], run_id)
-        if not isinstance(value["sha256"], str) or not SHA256_PATTERN.fullmatch(
-            value["sha256"]
-        ):
-            self._invalid_manifest(run_id, "provenance hash is invalid")
+        run_validation.validate_provenance(value, run_id)
 
     def _validate_event(self, event: dict[str, Any], run_id: str) -> None:
-        required = {
-            "schema_version",
-            "sequence",
-            "timestamp",
-            "run_id",
-            "visit_number",
-            "type",
-            "payload",
-            "manifest_revision",
-            "manifest_hash",
-        }
-        if set(event) != required:
-            raise RunCorruptionError("event fields do not match the schema", run_id=run_id)
-        if (
-            event["schema_version"] != EVENT_SCHEMA_VERSION
-            or event["run_id"] != run_id
-            or not isinstance(event["sequence"], int)
-            or event["sequence"] < 1
-            or not isinstance(event["manifest_revision"], int)
-            or event["manifest_revision"] < 1
-            or not isinstance(event["type"], str)
-            or not EVENT_TYPE_PATTERN.fullmatch(event["type"])
-            or not isinstance(event["payload"], dict)
-            or not isinstance(event["manifest_hash"], str)
-            or not SHA256_PATTERN.fullmatch(event["manifest_hash"])
-        ):
-            raise RunCorruptionError("event record is invalid", run_id=run_id)
-        visit_number = event["visit_number"]
-        if visit_number is not None and (
-            not isinstance(visit_number, int) or visit_number < 1
-        ):
-            raise RunCorruptionError("event visit number is invalid", run_id=run_id)
-        self._validate_timestamp(event["timestamp"], run_id)
+        run_validation.validate_event(event, run_id)
 
     @staticmethod
     def _validate_timestamp(value: Any, run_id: str) -> None:
-        if not isinstance(value, str) or not value.endswith("Z"):
-            raise RunCorruptionError("timestamp is invalid", run_id=run_id)
-        try:
-            datetime.fromisoformat(value.removesuffix("Z") + "+00:00")
-        except ValueError as exc:
-            raise RunCorruptionError("timestamp is invalid", run_id=run_id) from exc
+        run_validation.validate_timestamp(value, run_id)
 
     @staticmethod
     def _validate_path(value: Any, run_id: str) -> None:
-        if not isinstance(value, str):
-            raise RunCorruptionError("persisted path is invalid", run_id=run_id)
-        try:
-            normalize_relative_path(value)
-        except ValueError as exc:
-            raise RunCorruptionError("persisted path is unsafe", run_id=run_id) from exc
+        run_validation.validate_path(value, run_id)
 
     @staticmethod
     def _invalid_manifest(run_id: str, message: str) -> None:
-        raise RunCorruptionError(message, run_id=run_id)
+        run_validation.invalid_manifest(run_id, message)
 
     @staticmethod
     def _fsync_directory(path: Path) -> None:

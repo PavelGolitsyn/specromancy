@@ -116,6 +116,13 @@ Run IDs use a UTC timestamp and eight lowercase hexadecimal characters, for
 example `20260922T142501Z-a1b2c3d4`. Only IDs matching that form may be used to
 address `.specromancy/runs/`.
 
+The `specromancy.run_store` imports and compatibility aliases remain available,
+including the same exception classes re-exported from `run_errors`. Run and
+event schema versions remain 1. `RunStore` returns ordinary, defensively copied
+dictionaries; record annotations neither construct defaults nor validate
+external data. Generation accepts injected clocks and zero-argument or sized
+random sources, and timestamp formatting remains UTC with microseconds and `Z`.
+
 `run.json` is the validated current snapshot. Each mutation increments its
 `revision`, atomically replaces the file, and appends an `events.jsonl` record
 that contains the revision and canonical manifest hash. If interruption occurs

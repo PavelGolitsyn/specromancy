@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from .run_records import ApprovalRecord
 
 
 def build_approval_record(
@@ -16,7 +16,7 @@ def build_approval_record(
     pipeline_sha256: str,
     outcome: str,
     requested_at: str,
-) -> dict[str, Any]:
+) -> ApprovalRecord:
     return {
         "run_id": run_id,
         "phase_id": phase_id,
@@ -35,7 +35,7 @@ def build_approval_record(
 
 
 def approval_integrity_errors(
-    approval: dict[str, Any], *, artifact_sha256: str, pipeline_sha256: str
+    approval: ApprovalRecord, *, artifact_sha256: str, pipeline_sha256: str
 ) -> list[str]:
     """Return stable mismatch labels for an approval's bound inputs."""
 

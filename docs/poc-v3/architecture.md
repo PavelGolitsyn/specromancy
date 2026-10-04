@@ -112,6 +112,29 @@ run and command contract portable and testable.
 
 ## Persistence and provenance
 
+`run_store` remains the compatibility entry point for `RunStore`, identity
+helpers, constants, exceptions, and aliases. Internally, `run_records` defines
+dictionary annotations and pure selectors, `run_identity` owns injected
+clock/random helpers, `run_errors` defines shared exceptions, and
+`run_validation` checks persisted fields without filesystem mutation or
+engine/CLI dependencies. The store delegates its existing validation methods
+and retains locking, serialization, audit consistency, recovery, and defensive
+copies. Engine, action, status, and approval code share the record vocabulary.
+
+Selectors borrow records from their arguments. Current-visit presentation
+lookups tolerate an absent ordinal and can return a completed visit; the
+store's explicit visit lookup still raises when missing. Status selects the
+latest pending approval across the run, while engine approval decisions and
+next-command selection filter by visit. Approval invalidation and idempotency
+retain their separate matching rules.
+
+Annotations do not validate or fill missing fields. The existing runtime checks
+and published run/event schemas differ in several places; the
+[Stage 03 comparison](../refactoring/03-persisted-records.md#schema-comparison-and-deferred-validation-issues)
+records these differences and follow-up candidates. Artifact schema validation
+is a limited subset and cannot replace cross-record run checks. These internal
+modules add no public API or stored-data migration.
+
 One run has this shape:
 
 ```text

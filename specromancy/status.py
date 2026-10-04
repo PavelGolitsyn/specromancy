@@ -5,13 +5,14 @@ from __future__ import annotations
 from typing import Any
 
 from .config_models import PipelineConfig
+from .run_records import RunRecord, VisitRecord, current_visit, latest_approval
 
 
 STATUS_SCHEMA_VERSION = 1
 
 
 def build_status(
-    manifest: dict[str, Any],
+    manifest: RunRecord,
     pipeline: PipelineConfig | None,
     *,
     warnings: list[dict[str, Any]] | None = None,
@@ -27,14 +28,7 @@ def build_status(
         for visit in manifest["visits"]
         if visit["status"] == "completed"
     ]
-    pending_approval = next(
-        (
-            approval
-            for approval in reversed(manifest["approvals"])
-            if approval.get("status") == "pending"
-        ),
-        None,
-    )
+    pending_approval = latest_approval(manifest, "pending")
     return {
         "schema_version": STATUS_SCHEMA_VERSION,
         "run_id": manifest["run_id"],
@@ -62,7 +56,7 @@ def build_status(
     }
 
 
-def next_command(manifest: dict[str, Any]) -> list[str] | None:
+def next_command(manifest: RunRecord) -> list[str] | None:
     run_id = manifest["run_id"]
     current = _current_visit(manifest)
     if manifest["status"] == "awaiting-agent" and current is not None:
@@ -70,10 +64,8 @@ def next_command(manifest: dict[str, Any]) -> list[str] | None:
     if manifest["status"] == "active" and current is not None:
         return ["specromancy", "validate", run_id, current["phase_id"]]
     if manifest["status"] == "awaiting-approval" and current is not None:
-        pending = any(
-            approval.get("visit_number") == current["ordinal"]
-            and approval.get("status") == "pending"
-            for approval in manifest["approvals"]
+        pending = latest_approval(
+            manifest, "pending", visit_number=current["ordinal"]
         )
         if pending:
             return ["specromancy", "approve", run_id, current["phase_id"]]
@@ -110,11 +102,5 @@ def render_status(status: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _current_visit(manifest: dict[str, Any]) -> dict[str, Any] | None:
-    ordinal = manifest["current_visit"]
-    if ordinal is None:
-        return None
-    for visit in manifest["visits"]:
-        if visit["ordinal"] == ordinal:
-            return visit
-    return None
+def _current_visit(manifest: RunRecord) -> VisitRecord | None:
+    return current_visit(manifest)

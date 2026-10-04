@@ -22,7 +22,7 @@ EXAMPLE_PHASES = ("research", "plan", "implement", "review")
 
 
 class StaticArchitectureContractTests(unittest.TestCase):
-    def test_configuration_modules_import_without_facade_initialization(self) -> None:
+    def test_leaf_modules_import_without_facade_initialization(self) -> None:
         # Bypass the eager package exports so they cannot mask import cycles.
         script = """
 import importlib
@@ -39,12 +39,15 @@ assert not unexpected, unexpected
         for module in (
             "config_models", "config_errors", "config_serialization",
             "schema_validation", "config_loader", "validation",
+            "run_records", "run_validation", "run_identity", "run_errors",
         ):
             forbidden = ["config", "cli", "engine", "registry"]
             if module != "config_loader":
                 forbidden.append("config_loader")
             if module != "validation":
                 forbidden.append("validation")
+            if module.startswith("run_"):
+                forbidden.extend(("run_store", "actions", "status", "artifacts"))
             with self.subTest(module=module):
                 result = subprocess.run(
                     [sys.executable, "-c", script, str(ROOT / "specromancy"), module,

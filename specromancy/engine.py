@@ -16,6 +16,9 @@ from .exit_codes import ExitCode
 from .git import GitError, capture_repository_snapshot, enforce_mutation_policy
 from .hashing import relative_path, sha256_file
 from .run_store import RunStore, format_timestamp, utc_now
+from .run_records import (
+    ApprovalRecord, RunRecord, VisitRecord, current_visit, latest_approval,
+)
 from .status import build_status
 from .validation import ValidationFailure, validate_artifact
 
@@ -235,7 +238,7 @@ class Engine:
             requested_at=requested_at,
         )
 
-        def change(value: dict[str, Any]) -> None:
+        def change(value: RunRecord) -> None:
             current = self._current_visit(value)
             assert current is not None
             current["status"] = "awaiting-approval"
@@ -300,7 +303,7 @@ class Engine:
             )
         decided_at = format_timestamp(utc_now())
 
-        def decide(value: dict[str, Any]) -> None:
+        def decide(value: RunRecord) -> None:
             record = self._pending_approval(value, visit["ordinal"])
             assert record is not None
             record["status"] = "approved"
@@ -349,7 +352,7 @@ class Engine:
             "recorded_at": format_timestamp(utc_now()),
         }
 
-        def change(value: dict[str, Any]) -> None:
+        def change(value: RunRecord) -> None:
             current = self._current_visit(value)
             assert current is not None
             current["status"] = "blocked"
@@ -398,15 +401,7 @@ class Engine:
         manifest = self._load(run_id)
         visit = self._current_visit(manifest)
         if manifest["status"] == "awaiting-approval" and visit is not None:
-            approved = next(
-                (
-                    item
-                    for item in reversed(manifest["approvals"])
-                    if item.get("visit_number") == visit["ordinal"]
-                    and item.get("status") == "approved"
-                ),
-                None,
-            )
+            approved = self._approved_record(manifest, visit["ordinal"])
             if approved is not None:
                 return self._advance_approved(manifest, visit, approved)
         if visit is not None and visit["status"] == "pending":
@@ -415,9 +410,9 @@ class Engine:
 
     def _advance_approved(
         self,
-        manifest: dict[str, Any],
-        visit: dict[str, Any],
-        approval: dict[str, Any],
+        manifest: RunRecord,
+        visit: VisitRecord,
+        approval: ApprovalRecord,
     ) -> dict[str, Any]:
         try:
             current_hash = self._artifact_hash(manifest, visit)
@@ -464,7 +459,7 @@ class Engine:
         return self._after_transition(updated, approval["outcome"])
 
     def _after_transition(
-        self, manifest: dict[str, Any], outcome: str
+        self, manifest: RunRecord, outcome: str
     ) -> dict[str, Any]:
         if manifest["status"] == "blocked":
             return self._blocked_response(
@@ -487,7 +482,7 @@ class Engine:
         )
 
     def _response_for_state(
-        self, manifest: dict[str, Any], message: str
+        self, manifest: RunRecord, message: str
     ) -> dict[str, Any]:
         visit = self._current_visit(manifest)
         if manifest["status"] in {"awaiting-agent", "active"} and visit is not None:
@@ -503,7 +498,7 @@ class Engine:
             return self._blocked_response(manifest, message)
         return self._status_response(manifest, message)
 
-    def _load(self, run_id: str) -> dict[str, Any]:
+    def _load(self, run_id: str) -> RunRecord:
         manifest = self.store.load(run_id)
         if not self._pipeline_matches(manifest):
             raise EngineError(
@@ -532,7 +527,7 @@ class Engine:
         return manifest
 
     def _provenance_warnings(
-        self, manifest: dict[str, Any]
+        self, manifest: RunRecord
     ) -> list[dict[str, Any]]:
         warnings: list[dict[str, Any]] = []
         for visit in manifest["visits"]:
@@ -566,7 +561,7 @@ class Engine:
                     )
         return warnings
 
-    def _pipeline_matches(self, manifest: dict[str, Any]) -> bool:
+    def _pipeline_matches(self, manifest: RunRecord) -> bool:
         saved = manifest["pipeline"]
         return saved == {
             "id": self.pipeline.id,
@@ -577,8 +572,8 @@ class Engine:
 
     def _perform_validation(
         self,
-        manifest: dict[str, Any],
-        visit: dict[str, Any],
+        manifest: RunRecord,
+        visit: VisitRecord,
         phase: PhaseConfig,
     ) -> tuple[list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
         checks: list[dict[str, Any]] = []
@@ -672,8 +667,8 @@ class Engine:
 
     def _record_validation_failure(
         self,
-        manifest: dict[str, Any],
-        visit: dict[str, Any],
+        manifest: RunRecord,
+        visit: VisitRecord,
         checks: list[dict[str, Any]],
         command_results: list[dict[str, Any]],
         mutation_result: dict[str, Any] | None,
@@ -689,7 +684,7 @@ class Engine:
         )
 
     def _artifact_hash(
-        self, manifest: dict[str, Any], visit: dict[str, Any]
+        self, manifest: RunRecord, visit: VisitRecord
     ) -> str:
         try:
             return artifact_record(
@@ -708,14 +703,14 @@ class Engine:
 
     def _invalidate_approval(
         self,
-        manifest: dict[str, Any],
-        visit: dict[str, Any],
-        approval: dict[str, Any],
+        manifest: RunRecord,
+        visit: VisitRecord,
+        approval: ApprovalRecord,
         mismatches: list[str],
     ) -> None:
         decided_at = format_timestamp(utc_now())
 
-        def invalidate(value: dict[str, Any]) -> None:
+        def invalidate(value: RunRecord) -> None:
             record = next(
                 item
                 for item in value["approvals"]
@@ -775,45 +770,23 @@ class Engine:
         return outcomes[0]
 
     @staticmethod
-    def _current_visit(manifest: dict[str, Any]) -> dict[str, Any] | None:
-        ordinal = manifest["current_visit"]
-        if ordinal is None:
-            return None
-        return next(
-            (visit for visit in manifest["visits"] if visit["ordinal"] == ordinal),
-            None,
-        )
+    def _current_visit(manifest: RunRecord) -> VisitRecord | None:
+        return current_visit(manifest)
 
     @staticmethod
     def _pending_approval(
-        manifest: dict[str, Any], visit_number: int
-    ) -> dict[str, Any] | None:
-        return next(
-            (
-                approval
-                for approval in reversed(manifest["approvals"])
-                if approval.get("visit_number") == visit_number
-                and approval.get("status") == "pending"
-            ),
-            None,
-        )
+        manifest: RunRecord, visit_number: int
+    ) -> ApprovalRecord | None:
+        return latest_approval(manifest, "pending", visit_number=visit_number)
 
     @staticmethod
     def _approved_record(
-        manifest: dict[str, Any], visit_number: int
-    ) -> dict[str, Any] | None:
-        return next(
-            (
-                approval
-                for approval in reversed(manifest["approvals"])
-                if approval.get("visit_number") == visit_number
-                and approval.get("status") == "approved"
-            ),
-            None,
-        )
+        manifest: RunRecord, visit_number: int
+    ) -> ApprovalRecord | None:
+        return latest_approval(manifest, "approved", visit_number=visit_number)
 
     @staticmethod
-    def _require_phase(visit: dict[str, Any], requested: str | None) -> None:
+    def _require_phase(visit: VisitRecord, requested: str | None) -> None:
         if requested is not None and requested != visit["phase_id"]:
             raise EngineError(
                 ExitCode.ILLEGAL_TRANSITION,
@@ -825,7 +798,7 @@ class Engine:
 
     @staticmethod
     def _illegal(
-        message: str, manifest: dict[str, Any], **details: Any
+        message: str, manifest: RunRecord, **details: Any
     ) -> EngineError:
         return EngineError(
             ExitCode.ILLEGAL_TRANSITION,
@@ -836,7 +809,7 @@ class Engine:
         )
 
     def _idempotent_approval_result(
-        self, manifest: dict[str, Any], phase_id: str
+        self, manifest: RunRecord, phase_id: str
     ) -> dict[str, Any]:
         approved = next(
             (
@@ -853,7 +826,7 @@ class Engine:
         return self._response_for_state(manifest, "approval was already recorded")
 
     def _action_response(
-        self, manifest: dict[str, Any], visit: dict[str, Any], message: str
+        self, manifest: RunRecord, visit: VisitRecord, message: str
     ) -> dict[str, Any]:
         return {
             "schema_version": RESPONSE_SCHEMA_VERSION,
@@ -865,8 +838,8 @@ class Engine:
 
     def _approval_response(
         self,
-        manifest: dict[str, Any],
-        approval: dict[str, Any] | None,
+        manifest: RunRecord,
+        approval: ApprovalRecord | None,
         message: str,
     ) -> dict[str, Any]:
         return {
@@ -879,7 +852,7 @@ class Engine:
         }
 
     def _blocked_response(
-        self, manifest: dict[str, Any], message: str
+        self, manifest: RunRecord, message: str
     ) -> dict[str, Any]:
         return {
             "schema_version": RESPONSE_SCHEMA_VERSION,
@@ -890,7 +863,7 @@ class Engine:
         }
 
     def _paused_response(
-        self, manifest: dict[str, Any], message: str
+        self, manifest: RunRecord, message: str
     ) -> dict[str, Any]:
         return {
             "schema_version": RESPONSE_SCHEMA_VERSION,
@@ -902,7 +875,7 @@ class Engine:
 
     def _status_response(
         self,
-        manifest: dict[str, Any],
+        manifest: RunRecord,
         message: str,
         *,
         warnings: list[dict[str, Any]] | None = None,
