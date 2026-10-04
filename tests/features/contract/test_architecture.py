@@ -41,12 +41,16 @@ assert not unexpected, unexpected
             "schema_validation", "config_loader", "validation",
             "run_records", "run_validation", "run_identity", "run_errors",
             "run_persistence", "visit_transitions",
+            "engine_errors", "provenance", "validation_service", "responses",
+            "approvals",
         ):
             forbidden = ["config", "cli", "engine", "registry"]
             if module != "config_loader":
                 forbidden.append("config_loader")
-            if module != "validation":
+            if module not in {"validation", "validation_service"}:
                 forbidden.append("validation")
+            if module in {"engine_errors", "provenance", "validation_service", "responses", "approvals"}:
+                forbidden.append("run_store")
             if module.startswith("run_") or module == "visit_transitions":
                 forbidden.extend(("run_store", "actions", "status", "artifacts"))
             with self.subTest(module=module):

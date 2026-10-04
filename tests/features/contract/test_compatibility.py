@@ -6,6 +6,7 @@ import unittest
 import specromancy
 from specromancy import artifacts, config, git, hashing, run_store
 from specromancy import config_errors, config_models, schema_validation, validation
+from specromancy import engine, engine_errors
 from specromancy.engine import Engine
 from tests.features.contract.compatibility_support import (
     RUN_ID, CompatibilityFixture, capture_canonical, capture_diagnostics,
@@ -31,6 +32,8 @@ class CompatibilityContractTests(unittest.TestCase):
                 self.assertIs(getattr(validation, name), getattr(schema_validation, name))
 
     def test_public_imports_and_compatibility_aliases_remain_available(self) -> None:
+        self.assertIs(engine.EngineError, engine_errors.EngineError)
+        self.assertIs(specromancy.EngineError, engine_errors.EngineError)
         exports = {
             "ExitCode", "Engine", "EngineError", "PipelineConfig", "PipelineConfigError",
             "PipelineRegistry", "PipelineRegistration", "RunCorruptionError",

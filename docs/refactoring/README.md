@@ -1,9 +1,10 @@
 # Staged refactoring plan
 
-Status: Stages 01–05 implemented; Stages 06–08 remain proposed. Configuration
+Status: Stages 01–06 implemented; Stages 07–08 remain proposed. Configuration
 boundaries, persisted record types, validators, identity helpers, errors, and
-the durable persistence protocol, and pure visit decisions are separated behind
-the existing public imports.
+the durable persistence protocol, pure visit decisions, response construction,
+provenance observations, validation evidence, and approval state changes are
+separated behind the existing public imports.
 Prepared on 2026-10-03 against commit
 `594c2983895903f09ac15f4b1d12a9309d39bbf8`.
 

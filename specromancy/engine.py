@@ -6,38 +6,25 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from .actions import build_action_packet
-from .approvals import approval_integrity_errors, build_approval_record
+from . import responses
+from .approvals import (
+    approval_integrity_errors, approved_for_phase, approved_record,
+    build_approval_record, granted_state, invalidated_state, pending_approval,
+    requested_state,
+)
 from .artifacts import ArtifactError, artifact_record, verify_manifest_artifacts
-from .commands import execute_validation_commands, first_required_failure
 from .config_models import PhaseConfig, PipelineConfig
-from .errors import SpecromancyError, UsageError
+from .engine_errors import EngineError
+from .errors import UsageError
 from .exit_codes import ExitCode
-from .git import GitError, capture_repository_snapshot, enforce_mutation_policy
-from .hashing import relative_path, sha256_file
+from .git import GitError, capture_repository_snapshot
+from .provenance import observe_provenance, pipeline_identity, pipeline_matches
+from .responses import RESPONSE_SCHEMA_VERSION  # Backward-compatible re-export.
 from .run_store import RunStore, format_timestamp, utc_now
 from .run_records import (
-    ApprovalRecord, RunRecord, VisitRecord, current_visit, latest_approval,
+    ApprovalRecord, RunRecord, VisitRecord, current_visit,
 )
-from .status import build_status
-from .validation import ValidationFailure, validate_artifact
-
-
-RESPONSE_SCHEMA_VERSION = 1
-
-
-class EngineError(SpecromancyError):
-    """An expected state-machine rejection with a stable diagnostic."""
-
-    def __init__(
-        self,
-        code: ExitCode,
-        message: str,
-        diagnostic_code: str,
-        **details: Any,
-    ) -> None:
-        super().__init__(code, message, {"error_code": diagnostic_code, **details})
-        self.diagnostic_code = diagnostic_code
+from .validation_service import ValidationResult, perform_validation
 
 
 class Engine:
@@ -79,7 +66,8 @@ class Engine:
             manifest["run_id"], self.pipeline, self.pipeline.start
         )
         manifest = self.store.load(manifest["run_id"])
-        return self._action_response(
+        return responses.action_response(
+            self.pipeline,
             manifest,
             visit,
             f"run {manifest['run_id']} initialized; agent action is required",
@@ -88,7 +76,9 @@ class Engine:
     def start_phase(self, run_id: str, phase_id: str) -> dict[str, Any]:
         manifest = self._load(run_id)
         if manifest["status"] == "paused":
-            return self._paused_response(manifest, "run is paused; resume it first")
+            return responses.paused_response(
+                self.pipeline, manifest, "run is paused; resume it first"
+            )
         visit = self._current_visit(manifest)
         if visit is None or visit["phase_id"] != phase_id:
             expected = visit["phase_id"] if visit is not None else None
@@ -128,7 +118,8 @@ class Engine:
                 phase=phase_id,
                 status=visit["status"],
             )
-        return self._action_response(
+        return responses.action_response(
+            self.pipeline,
             manifest, visit, f"phase {phase_id} is active; agent action is required"
         )
 
@@ -141,9 +132,13 @@ class Engine:
     ) -> dict[str, Any]:
         manifest = self._load(run_id)
         if manifest["status"] == "completed":
-            return self._status_response(manifest, "run is already completed")
+            return responses.status_response(
+                self.pipeline, manifest, "run is already completed"
+            )
         if manifest["status"] == "paused":
-            return self._paused_response(manifest, "run is paused; resume it first")
+            return responses.paused_response(
+                self.pipeline, manifest, "run is paused; resume it first"
+            )
         visit = self._current_visit(manifest)
         if visit is None:
             raise self._illegal("run has no current visit", manifest)
@@ -152,7 +147,8 @@ class Engine:
             if previous is not None and previous["status"] == "completed" and (
                 phase_id is None or phase_id == previous["phase_id"]
             ):
-                return self._action_response(
+                return responses.action_response(
+                    self.pipeline,
                     manifest,
                     visit,
                     "validation was already recorded; the next phase requires agent action",
@@ -170,9 +166,7 @@ class Engine:
         phase = self.pipeline.phase(visit["phase_id"])
         selected = self._select_outcome(phase, outcome)
         transition = next(item for item in phase.transitions if item.outcome == selected)
-        checks, mutation_result, command_results = self._perform_validation(
-            manifest, visit, phase
-        )
+        evidence = self._perform_validation(manifest, visit, phase)
         updated = self.store.transition_visit(
             run_id,
             self.pipeline,
@@ -184,11 +178,11 @@ class Engine:
                 "phase": phase.id,
                 "visit_number": visit["ordinal"],
             },
-            validation_checks=checks,
-            mutation_result=mutation_result,
-            command_results=command_results,
+            validation_checks=evidence.checks,
+            mutation_result=evidence.mutation_result,
+            command_results=evidence.command_results,
         )
-        return self._after_transition(updated, selected)
+        return responses.after_transition(self.pipeline, updated, selected)
 
     def request_approval(
         self,
@@ -205,11 +199,9 @@ class Engine:
         phase = self.pipeline.phase(visit["phase_id"])
         chosen_reason = _declared_reason(reason, phase.approval_conditions, "approval")
         selected_outcome = self._select_outcome(phase, outcome)
-        checks, mutation_result, command_results = self._perform_validation(
-            manifest, visit, phase
-        )
-        check = checks[0]
-        existing = self._pending_approval(manifest, visit["ordinal"])
+        evidence = self._perform_validation(manifest, visit, phase)
+        check = evidence.checks[0]
+        existing = pending_approval(manifest, visit["ordinal"])
         if existing is not None:
             if (
                 existing["reason"] == chosen_reason
@@ -217,11 +209,12 @@ class Engine:
                 and existing["artifact_sha256"] == check["sha256"]
                 and existing["outcome"] == selected_outcome
             ):
-                return self._approval_response(
+                return responses.approval_response(
+                    self.pipeline,
                     manifest, existing, "approval is already pending"
                 )
             raise self._illegal("a different approval is already pending", manifest)
-        approved = self._approved_record(manifest, visit["ordinal"])
+        approved = approved_record(manifest, visit["ordinal"])
         if approved is not None:
             return self._advance_approved(manifest, visit, approved)
 
@@ -239,14 +232,13 @@ class Engine:
         )
 
         def change(value: RunRecord) -> None:
-            current = self._current_visit(value)
-            assert current is not None
-            current["status"] = "awaiting-approval"
-            current["validation_checks"] = checks
-            current["mutation_result"] = mutation_result
-            current["command_results"] = command_results
-            value["status"] = "awaiting-approval"
-            value["approvals"].append(approval)
+            value.update(requested_state(
+                value,
+                approval,
+                validation_checks=evidence.checks,
+                mutation_result=evidence.mutation_result,
+                command_results=evidence.command_results,
+            ))
 
         manifest = self.store.mutate(
             run_id,
@@ -255,7 +247,9 @@ class Engine:
             visit_number=visit["ordinal"],
             payload={"reason": chosen_reason, "outcome": selected_outcome},
         )
-        return self._approval_response(manifest, approval, "approval is required")
+        return responses.approval_response(
+            self.pipeline, manifest, approval, "approval is required"
+        )
 
     def approve(self, run_id: str, phase_id: str) -> dict[str, Any]:
         # Approval verification intentionally loads persisted state before
@@ -267,9 +261,9 @@ class Engine:
             return self._idempotent_approval_result(manifest, phase_id)
         if visit["phase_id"] != phase_id or visit["status"] != "awaiting-approval":
             return self._idempotent_approval_result(manifest, phase_id)
-        approval = self._pending_approval(manifest, visit["ordinal"])
+        approval = pending_approval(manifest, visit["ordinal"])
         if approval is None:
-            approved = self._approved_record(manifest, visit["ordinal"])
+            approved = approved_record(manifest, visit["ordinal"])
             if approved is not None:
                 return self._advance_approved(manifest, visit, approved)
             raise self._illegal("visit has no pending approval request", manifest)
@@ -292,7 +286,7 @@ class Engine:
                 visit_number=visit["ordinal"],
                 mismatches=mismatches,
             )
-        provenance_warnings = self._provenance_warnings(manifest)
+        provenance_warnings = observe_provenance(self.pipeline, manifest)
         if provenance_warnings:
             warning = provenance_warnings[0]
             raise EngineError(
@@ -304,12 +298,7 @@ class Engine:
         decided_at = format_timestamp(utc_now())
 
         def decide(value: RunRecord) -> None:
-            record = self._pending_approval(value, visit["ordinal"])
-            assert record is not None
-            record["status"] = "approved"
-            record["decision"] = "approved"
-            record["actor"] = "user"
-            record["decided_at"] = decided_at
+            value.update(granted_state(value, visit["ordinal"], decided_at=decided_at))
 
         manifest = self.store.mutate(
             run_id,
@@ -338,7 +327,9 @@ class Engine:
                 raise self._illegal(
                     "run is already blocked with different details", manifest
                 )
-            return self._blocked_response(manifest, "run is already blocked")
+            return responses.blocked_response(
+                self.pipeline, manifest, "run is already blocked"
+            )
         visit = self._current_visit(manifest)
         if visit is None or visit["status"] != "active":
             raise self._illegal("only an active visit can be blocked", manifest)
@@ -366,12 +357,12 @@ class Engine:
             visit_number=visit["ordinal"],
             payload={"reason": chosen_reason, "details": details},
         )
-        return self._blocked_response(manifest, "run is blocked")
+        return responses.blocked_response(self.pipeline, manifest, "run is blocked")
 
     def status(self, run_id: str) -> dict[str, Any]:
         manifest = self.store.load(run_id, verify_artifacts=False)
         warnings: list[dict[str, Any]] = []
-        if not self._pipeline_matches(manifest):
+        if not pipeline_matches(self.pipeline, manifest):
             warnings.append(
                 {
                     "code": "pipeline-drift",
@@ -388,25 +379,29 @@ class Engine:
                     "details": exc.details,
                 }
             )
-        warnings.extend(self._provenance_warnings(manifest))
-        return self._status_response(manifest, "run status", warnings=warnings)
+        warnings.extend(observe_provenance(self.pipeline, manifest))
+        return responses.status_response(
+            self.pipeline, manifest, "run status", warnings=warnings
+        )
 
     def resume(self, run_id: str) -> dict[str, Any]:
         manifest = self._load(run_id)
         if manifest["status"] == "paused":
             manifest = self.store.resume_paused(run_id, self.pipeline)
-        return self._response_for_state(manifest, "run resumed")
+        return responses.response_for_state(self.pipeline, manifest, "run resumed")
 
     def run(self, run_id: str) -> dict[str, Any]:
         manifest = self._load(run_id)
         visit = self._current_visit(manifest)
         if manifest["status"] == "awaiting-approval" and visit is not None:
-            approved = self._approved_record(manifest, visit["ordinal"])
+            approved = approved_record(manifest, visit["ordinal"])
             if approved is not None:
                 return self._advance_approved(manifest, visit, approved)
         if visit is not None and visit["status"] == "pending":
             return self.start_phase(run_id, visit["phase_id"])
-        return self._response_for_state(manifest, "run reached a boundary")
+        return responses.response_for_state(
+            self.pipeline, manifest, "run reached a boundary"
+        )
 
     def _advance_approved(
         self,
@@ -434,9 +429,7 @@ class Engine:
                 mismatches=mismatches,
             )
         phase = self.pipeline.phase(visit["phase_id"])
-        checks, mutation_result, command_results = self._perform_validation(
-            manifest, visit, phase
-        )
+        evidence = self._perform_validation(manifest, visit, phase)
         transition = next(
             item for item in phase.transitions if item.outcome == approval["outcome"]
         )
@@ -452,70 +445,23 @@ class Engine:
                 "visit_number": visit["ordinal"],
                 "approval_reason": approval["reason"],
             },
-            validation_checks=checks,
-            mutation_result=mutation_result,
-            command_results=command_results,
+            validation_checks=evidence.checks,
+            mutation_result=evidence.mutation_result,
+            command_results=evidence.command_results,
         )
-        return self._after_transition(updated, approval["outcome"])
-
-    def _after_transition(
-        self, manifest: RunRecord, outcome: str
-    ) -> dict[str, Any]:
-        if manifest["status"] == "blocked":
-            return self._blocked_response(
-                manifest, "run blocked because a configured loop limit was reached"
-            )
-        if manifest["status"] == "completed":
-            return self._status_response(
-                manifest, f"run completed with outcome {outcome!r}"
-            )
-        if manifest["status"] == "paused":
-            return self._paused_response(
-                manifest, f"outcome {outcome!r} recorded; run paused at checkpoint"
-            )
-        visit = self._current_visit(manifest)
-        assert visit is not None
-        return self._action_response(
-            manifest,
-            visit,
-            f"outcome {outcome!r} recorded; next phase requires agent action",
-        )
-
-    def _response_for_state(
-        self, manifest: RunRecord, message: str
-    ) -> dict[str, Any]:
-        visit = self._current_visit(manifest)
-        if manifest["status"] in {"awaiting-agent", "active"} and visit is not None:
-            return self._action_response(manifest, visit, message)
-        if manifest["status"] == "awaiting-approval":
-            approval = self._pending_approval(
-                manifest, visit["ordinal"] if visit is not None else -1
-            )
-            return self._approval_response(manifest, approval, "approval is required")
-        if manifest["status"] == "paused":
-            return self._paused_response(manifest, message)
-        if manifest["status"] == "blocked":
-            return self._blocked_response(manifest, message)
-        return self._status_response(manifest, message)
+        return responses.after_transition(self.pipeline, updated, approval["outcome"])
 
     def _load(self, run_id: str) -> RunRecord:
         manifest = self.store.load(run_id)
-        if not self._pipeline_matches(manifest):
+        if not pipeline_matches(self.pipeline, manifest):
             raise EngineError(
                 ExitCode.INVALID_PIPELINE,
                 "pipeline configuration changed after the run was created",
                 "pipeline-hash-mismatch",
                 expected=manifest["pipeline"],
-                actual={
-                    "id": self.pipeline.id,
-                    "version": self.pipeline.version,
-                    "path": relative_path(
-                        self.pipeline.path, self.pipeline.repository_root
-                    ),
-                    "sha256": self.pipeline.config_hash,
-                },
+                actual=pipeline_identity(self.pipeline),
             )
-        provenance_warnings = self._provenance_warnings(manifest)
+        provenance_warnings = observe_provenance(self.pipeline, manifest)
         if provenance_warnings:
             warning = provenance_warnings[0]
             raise EngineError(
@@ -526,162 +472,31 @@ class Engine:
             )
         return manifest
 
-    def _provenance_warnings(
-        self, manifest: RunRecord
-    ) -> list[dict[str, Any]]:
-        warnings: list[dict[str, Any]] = []
-        for visit in manifest["visits"]:
-            for kind in ("skill", "template"):
-                record = visit[kind]
-                if record is None:
-                    continue
-                path = self.pipeline.repository_root / record["path"]
-                try:
-                    actual = sha256_file(path)
-                except OSError as exc:
-                    warnings.append(
-                        {
-                            "code": "provenance-missing",
-                            "message": f"visit {visit['ordinal']} {kind} provenance is missing",
-                            "details": {"path": record["path"], "error": str(exc)},
-                        }
-                    )
-                    continue
-                if actual != record["sha256"]:
-                    warnings.append(
-                        {
-                            "code": "provenance-hash-mismatch",
-                            "message": f"visit {visit['ordinal']} {kind} changed after preparation",
-                            "details": {
-                                "path": record["path"],
-                                "expected": record["sha256"],
-                                "actual": actual,
-                            },
-                        }
-                    )
-        return warnings
-
-    def _pipeline_matches(self, manifest: RunRecord) -> bool:
-        saved = manifest["pipeline"]
-        return saved == {
-            "id": self.pipeline.id,
-            "version": self.pipeline.version,
-            "path": relative_path(self.pipeline.path, self.pipeline.repository_root),
-            "sha256": self.pipeline.config_hash,
-        }
-
     def _perform_validation(
         self,
         manifest: RunRecord,
         visit: VisitRecord,
         phase: PhaseConfig,
-    ) -> tuple[list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
-        checks: list[dict[str, Any]] = []
-        command_results: list[dict[str, Any]] = []
-        mutation_result: dict[str, Any] | None = None
-        try:
-            check = validate_artifact(
-                self.store.run_directory(manifest["run_id"]),
-                visit["output"]["path"],
-                phase.validator,
-                template_path=phase.output_template_path,
-            )
-            checks.append(check)
-        except ValidationFailure as exc:
-            failed = {
-                "type": phase.validator.type,
-                "status": "failed",
-                "error_code": exc.diagnostic_code,
-                **exc.details,
-            }
-            self._record_validation_failure(
-                manifest,
-                visit,
-                [failed],
-                command_results,
-                mutation_result,
-                exc.diagnostic_code,
-            )
-            raise EngineError(
-                ExitCode.VALIDATION_FAILED,
-                exc.message,
-                exc.diagnostic_code,
-                **exc.details,
-            ) from exc
-
-        command_results = execute_validation_commands(
-            phase.validation_commands,
-            self.pipeline.repository_root,
+    ) -> ValidationResult:
+        # Keep this orchestration seam for overlapping-attempt fault injection.
+        result = perform_validation(
+            self.pipeline,
             self.store.run_directory(manifest["run_id"]),
-            visit["ordinal"],
-            fault_injector=self._command_fault_injector,
+            visit,
+            phase,
+            command_fault_injector=self._command_fault_injector,
         )
-        command_failure = first_required_failure(command_results)
-        try:
-            baseline = visit.get("mutation_baseline")
-            if not isinstance(baseline, dict):
-                raise GitError(
-                    "missing-mutation-baseline",
-                    "the visit has no repository mutation baseline",
-                )
-            current = capture_repository_snapshot(
-                self.pipeline.repository_root,
-                allow_non_git=self.pipeline.allow_non_git,
+        if result.failure is not None:
+            self.store.record_validation_attempt(
+                manifest["run_id"],
+                visit["ordinal"],
+                validation_checks=result.checks,
+                command_results=result.command_results,
+                mutation_result=result.mutation_result,
+                diagnostic={"error_code": result.failure.diagnostic_code},
             )
-            mutation_result = enforce_mutation_policy(
-                baseline, current, phase.mutation, phase.allowlist
-            )
-        except GitError as exc:
-            mutation_result = exc.details.get("mutation_result")
-            self._record_validation_failure(
-                manifest,
-                visit,
-                checks,
-                command_results,
-                mutation_result,
-                exc.diagnostic_code,
-            )
-            raise EngineError(
-                ExitCode.VALIDATION_FAILED,
-                exc.message,
-                exc.diagnostic_code,
-                **exc.details,
-            ) from exc
-        if command_failure is not None:
-            self._record_validation_failure(
-                manifest,
-                visit,
-                checks,
-                command_results,
-                mutation_result,
-                "validation-command-failed",
-            )
-            raise EngineError(
-                ExitCode.VALIDATION_FAILED,
-                "a required validation command failed",
-                "validation-command-failed",
-                command=command_failure,
-            )
-        assert mutation_result is not None
-        return checks, mutation_result, command_results
-
-    def _record_validation_failure(
-        self,
-        manifest: RunRecord,
-        visit: VisitRecord,
-        checks: list[dict[str, Any]],
-        command_results: list[dict[str, Any]],
-        mutation_result: dict[str, Any] | None,
-        diagnostic_code: str,
-    ) -> None:
-        self.store.record_validation_attempt(
-            manifest["run_id"],
-            visit["ordinal"],
-            validation_checks=checks,
-            command_results=command_results,
-            mutation_result=mutation_result,
-            diagnostic={"error_code": diagnostic_code},
-        )
+            raise result.failure from result.cause
+        return result
 
     def _artifact_hash(
         self, manifest: RunRecord, visit: VisitRecord
@@ -711,20 +526,9 @@ class Engine:
         decided_at = format_timestamp(utc_now())
 
         def invalidate(value: RunRecord) -> None:
-            record = next(
-                item
-                for item in value["approvals"]
-                if item.get("visit_number") == visit["ordinal"]
-                and item.get("requested_at") == approval.get("requested_at")
-            )
-            record["status"] = "stale"
-            record["decision"] = "invalidated"
-            record["actor"] = "system"
-            record["decided_at"] = decided_at
-            current = self._current_visit(value)
-            assert current is not None
-            current["status"] = "awaiting-approval"
-            value["status"] = "awaiting-approval"
+            value.update(invalidated_state(
+                value, visit["ordinal"], approval, decided_at=decided_at
+            ))
 
         self.store.mutate(
             manifest["run_id"],
@@ -773,17 +577,9 @@ class Engine:
     def _current_visit(manifest: RunRecord) -> VisitRecord | None:
         return current_visit(manifest)
 
-    @staticmethod
-    def _pending_approval(
-        manifest: RunRecord, visit_number: int
-    ) -> ApprovalRecord | None:
-        return latest_approval(manifest, "pending", visit_number=visit_number)
-
-    @staticmethod
-    def _approved_record(
-        manifest: RunRecord, visit_number: int
-    ) -> ApprovalRecord | None:
-        return latest_approval(manifest, "approved", visit_number=visit_number)
+    # Preserve selector entry points used by existing callers and tests.
+    _pending_approval = staticmethod(pending_approval)
+    _approved_record = staticmethod(approved_record)
 
     @staticmethod
     def _require_phase(visit: VisitRecord, requested: str | None) -> None:
@@ -811,82 +607,14 @@ class Engine:
     def _idempotent_approval_result(
         self, manifest: RunRecord, phase_id: str
     ) -> dict[str, Any]:
-        approved = next(
-            (
-                item
-                for item in reversed(manifest["approvals"])
-                if item.get("phase_id") == phase_id and item.get("status") == "approved"
-            ),
-            None,
-        )
+        approved = approved_for_phase(manifest, phase_id)
         if approved is None:
             raise self._illegal(
                 f"phase {phase_id!r} has no pending approval", manifest
             )
-        return self._response_for_state(manifest, "approval was already recorded")
-
-    def _action_response(
-        self, manifest: RunRecord, visit: VisitRecord, message: str
-    ) -> dict[str, Any]:
-        return {
-            "schema_version": RESPONSE_SCHEMA_VERSION,
-            "kind": "action",
-            "code": int(ExitCode.AGENT_ACTION_REQUIRED),
-            "message": message,
-            "action": build_action_packet(self.pipeline, manifest, visit),
-        }
-
-    def _approval_response(
-        self,
-        manifest: RunRecord,
-        approval: ApprovalRecord | None,
-        message: str,
-    ) -> dict[str, Any]:
-        return {
-            "schema_version": RESPONSE_SCHEMA_VERSION,
-            "kind": "approval",
-            "code": int(ExitCode.APPROVAL_REQUIRED),
-            "message": message,
-            "approval": approval,
-            "status": build_status(manifest, self.pipeline),
-        }
-
-    def _blocked_response(
-        self, manifest: RunRecord, message: str
-    ) -> dict[str, Any]:
-        return {
-            "schema_version": RESPONSE_SCHEMA_VERSION,
-            "kind": "status",
-            "code": int(ExitCode.RUN_BLOCKED),
-            "message": message,
-            "status": build_status(manifest, self.pipeline),
-        }
-
-    def _paused_response(
-        self, manifest: RunRecord, message: str
-    ) -> dict[str, Any]:
-        return {
-            "schema_version": RESPONSE_SCHEMA_VERSION,
-            "kind": "status",
-            "code": int(ExitCode.RUN_PAUSED),
-            "message": message,
-            "status": build_status(manifest, self.pipeline),
-        }
-
-    def _status_response(
-        self,
-        manifest: RunRecord,
-        message: str,
-        *,
-        warnings: list[dict[str, Any]] | None = None,
-    ) -> dict[str, Any]:
-        return {
-            "schema_version": RESPONSE_SCHEMA_VERSION,
-            "kind": "status",
-            "code": int(ExitCode.SUCCESS),
-            "message": message,
-            "status": build_status(manifest, self.pipeline, warnings=warnings),
-        }
+        return responses.response_for_state(
+            self.pipeline, manifest, "approval was already recorded"
+        )
 
 
 def capture_git_metadata(root: Path, *, include_status: bool = False) -> dict[str, Any]:

@@ -228,8 +228,24 @@ shell strings. Full stdout and stderr remain in ignored run storage; manifests
 contain byte-limited summaries with values from secret-like environment
 variables redacted. The environment itself is never persisted.
 
+Validation checks the output artifact first, runs commands sequentially, and
+then checks the repository mutation policy. A required command failure stops
+the command sequence; an optional failure does not. Mutation enforcement still
+runs after command execution and its failure takes precedence over a required
+command failure. An expected validation failure records one attempt with the
+available artifact, command, and mutation evidence before returning its error;
+the visit remains retriable.
+
 Approval records bind the run, phase, visit, reason, output hash, pipeline hash,
 outcome, actor, decision, and timestamps. Artifact or pipeline drift marks the
 record stale and leaves the visit awaiting a fresh approval. Phase-visit and
 transition-edge limits are checked atomically before a successor visit is
 created; exceeding a limit blocks the run without resetting its counters.
+
+Approval grant and advancement are separate durable operations. After an
+interruption following grant, `approve` can resume advancement and revalidation;
+failed revalidation retains the approval record and its audit history. Pending
+or granted approval drift is recorded as stale before `approve` returns the
+stale-approval error. Ordinary commands reject pipeline or prepared resource
+drift; `status` instead reports warnings and remains readable when artifact
+hashes drift.
