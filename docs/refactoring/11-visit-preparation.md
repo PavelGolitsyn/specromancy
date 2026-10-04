@@ -73,3 +73,14 @@ Then run shared verification gates.
 If an extraction changes the failure point, restore the caller order before
 proceeding. Roll back the helper/delegate change only; never rewrite artifacts or
 delete partial runs to make verification pass.
+
+## Stage 09 decisions to preserve
+
+The [baseline resource sequence](09-follow-on-baseline.md#extraction-to-test-map)
+records all three `_new_visit` callers and the sealed-successor lock boundary.
+New store tests cover resource capture before active timestamps, skill-before-
+template capture under a held lock, reserved/existing collisions before missing
+skill reads, and successor read failure without sealing/committing. Keep raw IO
+failure behavior during this extraction. Retain `_new_visit`; pending activation
+and exact transition retries must not refresh provenance. No new snapshot or
+filesystem concurrency guarantee is implied by the store lock.

@@ -91,3 +91,13 @@ Rollback is a normal reviewed code change to the smallest responsible stage.
 Do not stage, commit, reset, delete repository work, or rewrite user run artifacts
 as a side effect of validation. The preserved formats allow old runs to remain
 readable without a rollback migration.
+
+## Stage 09 handoff
+
+Stage 09 is complete; the [scoped decisions](09-follow-on-baseline.md#scoped-decisions)
+remain the follow-up ledger. Stages 10–12 retain all identified imports, delegates,
+clock/fault seams and sequential captures. Stage 13 has a decided request-identity,
+conflict and audit-count table; Stage 14 has a three-category acceptance inventory
+and concrete nested-validation dispositions. Neither correction is implemented
+by the baseline stage. Minimum-Python execution remains a Stage 15 gate, not an
+inference from the Stage 09 development-Python run.

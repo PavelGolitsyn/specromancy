@@ -33,24 +33,81 @@ Do not change general `RunStore.mutate`: it intentionally commits even when its
 callback leaves data unchanged. The new approval operation needs an explicit
 no-op result so duplicate decisions do not manufacture an audit event.
 
-## Proposed decision table
+## Stage 09 decision contract
 
-Finalize exact diagnostic text in Stage 09; use existing exit-code families.
+Decided on 2026-10-04; **not implemented by Stage 09**. Ordinary sequential
+responses remain unchanged. This table governs commands whose earlier observation
+has been overtaken before their locked approval decision. Lock acquisition itself
+still reports existing `LOCK_HELD` (10), without waiting/retrying implicitly.
 
-| State observed under lock | Result | New revision/event |
+An observed request identity consists of `run_id`, `visit_number`, `phase_id`,
+`reason`, `details`, `requested_at`, `outcome`, `pipeline_sha256`, and
+`artifact_sha256`. All must match the persisted record; status/decision/actor/
+`decided_at` are mutable decision fields, not identity. Match the containing run
+and referenced visit as well. Multiple matching records, missing identity fields,
+an invalid phase/visit association, or a replacement with different identity are
+ambiguous: return conflict, never select the latest record or match by phase alone.
+No persisted request ID is added.
+
+For *creation* of a duplicate request, compare that same binding **except
+`requested_at`**: overlapping creators have different local timestamps. Return
+the winning persisted request with its original timestamp/details/evidence; do
+not append or overwrite it. A changed details string is a different request.
+Fresh evidence belongs only to the visit observed for the request, even if a
+successor reuses the same phase ID. This check is part of the locked decision.
+
+Counts below are additional manifest revisions / audit events caused by the
+losing or deciding command, measured from the state it sees under lock. They
+exclude already committed winner work and separately identified continuation.
+
+| State under lock | Outcome / diagnostic | Revisions / events |
 | --- | --- | --- |
-| Exact pending request still current | Grant the identified request | One `approval-granted` |
-| Same request already granted | Return current state; use existing continuation/revalidation | None for duplicate grant |
-| Same bound request already advanced/completed | Return the compatible already-approved result | None |
-| Another request replaced it or outcome/binding differs | Controlled conflict, proposed `approval-state-changed`, `ILLEGAL_TRANSITION` | None |
-| Identified request becomes stale | Invalidate only that request if still eligible; return stale-approval behavior | One invalidation; retry adds none |
-| Identical approval request already pending | Return the current request | None for duplicate request |
-| Active visit changed before a request commit | Controlled conflict; do not attach old evidence to a new visit | None |
+| Expected visit still active, no conflicting pending/granted record | Store new request/evidence; existing `approval is required` response (7) | +1 / +1 `approval-requested` |
+| Identical creation binding already pending | Return winning pending record, `approval is already pending` (7) | 0 / 0 |
+| Conflicting creation binding, or active visit changed | Conflict below; no old evidence attached to current visit | 0 / 0 |
+| Exact observed request pending on the current awaiting-approval visit | Grant identified record, then continue from returned state | +1 / +1 `approval-granted`, plus continuation |
+| Exact request already granted, still awaiting advancement | Reuse grant; revalidate/continue saved outcome | 0 / 0 for grant, plus continuation |
+| Exact granted request's visit completed with its saved outcome and configured target; run may be terminal, paused or on a successor | Return current state with existing `approval was already recorded` response family; never advance the successor | 0 / 0 |
+| Request replaced, absent, ambiguous, differently bound, or completed with a conflicting outcome/target | Conflict below; preserve winner | 0 / 0 |
+| Integrity observation finds stale artifact/pipeline, same pending or granted request still eligible on current awaiting-approval visit | Invalidate exactly it; existing `stale-approval` (7) with ordered mismatches (`artifact`, then `pipeline`) | +1 / +1 `approval-invalidated` |
+| Same in-flight stale decision arrives after that exact request was already invalidated, with no replacement/current-visit change | Return `stale-approval` again | 0 / 0 |
+| Stale decision arrives after replacement or visit advancement | Conflict; do not invalidate replacement or reopen completed visit | 0 / 0 |
 
-Match the existing run/visit/reason/requested-at/outcome/pipeline/artifact binding;
-do not introduce a persisted request ID in this stage. If that binding is
-ambiguous, reject with a controlled conflict rather than guessing. Do not select
-only by phase name or newest pending record across the run.
+Conflict envelope: existing `EngineError` / `ILLEGAL_TRANSITION` (5), diagnostic
+`approval-state-changed`, message **approval state changed before the command
+could be applied**, details `run_id`, `phase` (observed phase ID), and
+`visit_number` (observed ordinal), alongside `error_code`. It must not expose a
+traceback or create an audit event. A fresh sequential command finding a different
+pending request retains its existing `illegal-transition` diagnostic. A fresh
+`approve` after invalidation still has no pending request and retains the existing
+illegal-transition behavior; the duplicate-stale row is for an in-flight decision
+already bound to that request.
+
+Continuation preserves separate durable operations: successful validation adds
++1 / +1 `visit-transitioned` (or `loop-limit-exceeded` when applicable); each
+expected failed validation adds +1 / +1 `validation-failed` and leaves the grant
+intact. Interruption before evidence recording adds neither. An exact transition
+retry after a competing completion adds 0 / 0. Duplicate continuations can each
+run validation commands; this stage prevents duplicate grants/transitions, not
+all duplicate command execution or command-log interleavings.
+
+Concrete terminal overlap trace using `OverlappingAttemptTests.prepare_approval`:
+revisions/events 1–6 are `run-created`, `visit-prepared`, `visit-activated`,
+`visit-transitioned`, `visit-activated`, `approval-requested`. The winning approve
+adds revision/event 7 `approval-granted` and 8 `visit-transitioned`. The losing
+before-grant command currently asserts without changing either file; Stage 13
+must instead return the already-recorded response with files still at 8/8.
+If the winner stops immediately after grant, files are at 7/7; the loser adds
+only transition 8/8, or failure 8/8 if revalidation fails. Each further failed
+retry adds one failure event and never another grant. From an active state, two
+identical request attempts add only one request event; conflicting attempts add
+one winner request event and zero loser events.
+
+For any new approval commit interrupted after manifest replacement but before
+append, the manifest has advanced once and the log is one event short. Load
+appends the existing `recovery` event, without another revision or synthesizing
+the missing approval event type; subsequent loads/retries add no duplicate
+recovery. The decision operation uses the existing persistence protocol.
 
 ## Implementation sequence
 

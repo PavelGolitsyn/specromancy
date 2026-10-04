@@ -16,6 +16,30 @@ def manifest_at(state: str = "active") -> dict:
 
 
 class RecordValidationTests(unittest.TestCase):
+    def test_status_shape_baseline_separates_controlled_errors_from_crashes(self) -> None:
+        # Stage 14 replaces only the list/object TypeError characterization.
+        # No status value in this table is accepted version-1 data.
+        for path, message in ((("status",), "manifest status is invalid"),
+                              (("visits", 0, "status"), "visit identity or status is invalid")):
+            for invalid in (None, False, True, 0, 1, 1.5, "unknown", [], {}):
+                with self.subTest(path=path, invalid=invalid):
+                    value = manifest_at()
+                    target = value
+                    for key in path[:-1]:
+                        target = target[key]
+                    target[path[-1]] = invalid
+                    original = copy.deepcopy(value)
+                    if isinstance(invalid, (list, dict)):
+                        with self.assertRaises(TypeError):
+                            run_validation.validate_manifest(value, RUN_ID)
+                    else:
+                        with self.assertRaises(run_store.RunCorruptionError) as raised:
+                            run_validation.validate_manifest(value, RUN_ID)
+                        self.assertEqual(str(raised.exception), message)
+                        self.assertEqual(raised.exception.details,
+                                         {"error_code": "corrupt-run", "run_id": RUN_ID})
+                    self.assertEqual(value, original)
+
     def test_baseline_records_validate_without_mutation(self) -> None:
         for state, files in read_record("states.json").items():
             with self.subTest(state=state):

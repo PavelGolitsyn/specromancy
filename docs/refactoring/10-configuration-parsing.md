@@ -74,3 +74,12 @@ Then run the shared full-suite, adapter-check, and diff-check gates in the index
 On an unexplained diagnostic/hash difference, stop and compare evaluation order
 before changing fixtures. Each extraction can be reversed independently; no run
 migration or adapter regeneration is part of rollback.
+
+## Stage 09 decisions to preserve
+
+Use the [inventory and test map](09-follow-on-baseline.md#import-and-injection-inventory).
+Retain every existing `_Loader` method and facade helper import; no direct
+private-loader monkeypatch callers were found, but removal is not this stage's
+scope. The new multiple-invalid-fields test fixes first-diagnostic ordering across
+field, phase, resource, validator, command and transition boundaries, including
+complete error details. Existing root/schema/hash tests remain the oracle.

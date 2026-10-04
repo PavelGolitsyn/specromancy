@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from specromancy.config import load_pipeline
 from specromancy.engine import Engine, EngineError
+from specromancy.exit_codes import ExitCode
 from specromancy.run_store import RunStore
 from tests.features.contract.compatibility_support import (
     RUN_ID, CompatibilityFixture, read_record,
@@ -16,6 +17,50 @@ from tests.features.contract.test_safety import SafetyFixture, phase
 
 
 class EngineOrchestrationContractTests(unittest.TestCase):
+    def test_approval_gate_precedence_with_multiple_failures(self) -> None:
+        states = read_record("states.json")
+        fixture = CompatibilityFixture(pause=True)
+        self.addCleanup(fixture.close)
+        fixture.restore(states["awaiting-approval"])
+        before = fixture.store.load(RUN_ID)
+        visit = before["visits"][0]
+        output = fixture.store.run_directory(RUN_ID) / visit["output"]["path"]
+        output.unlink()
+        # Reason and outcome selection precede validation; validation precedes
+        # even the duplicate-pending decision and records its failure once.
+        for reason, outcome, diagnostic in (
+            ("undeclared", "undeclared", "undeclared-approval-reason"),
+            (before["approvals"][0]["reason"], "undeclared", "undeclared-outcome"),
+        ):
+            with self.subTest(diagnostic=diagnostic):
+                snapshot = fixture.snapshot()
+                with self.assertRaises(EngineError) as raised:
+                    fixture.engine.request_approval(RUN_ID, reason=reason, outcome=outcome)
+                self.assertEqual(raised.exception.diagnostic_code, diagnostic)
+                self.assertEqual(fixture.snapshot(), snapshot)
+        with self.assertRaises(EngineError):
+            fixture.engine.request_approval(RUN_ID, reason=before["approvals"][0]["reason"],
+                                            outcome=before["approvals"][0]["outcome"])
+        after = fixture.store.load(RUN_ID)
+        self.assertEqual(after["revision"], before["revision"] + 1)
+        self.assertEqual(after["approvals"], before["approvals"])
+        self.assertEqual(fixture.store.read_events(RUN_ID)[-1]["type"], "validation-failed")
+
+        # approve must audit artifact/pipeline staleness before skill provenance
+        # rejection, even when all three fail simultaneously.
+        fixture.path.write_text(fixture.path.read_text().replace("Seal the result.", "Seal carefully."))
+        pipeline = load_pipeline(fixture.path, fixture.root)
+        (fixture.root / visit["skill"]["path"]).unlink()
+        with self.assertRaises(EngineError) as raised:
+            Engine(pipeline, fixture.new_store()).approve(RUN_ID, "compose")
+        self.assertEqual(raised.exception.diagnostic_code, "stale-approval")
+        self.assertEqual(raised.exception.code, ExitCode.APPROVAL_REQUIRED)
+        self.assertEqual(raised.exception.details["mismatches"], ["artifact", "pipeline"])
+        final = fixture.store.load(RUN_ID)
+        self.assertEqual(final["revision"], after["revision"] + 1)
+        self.assertEqual(final["approvals"][0]["status"], "stale")
+        self.assertEqual(fixture.store.read_events(RUN_ID)[-1]["type"], "approval-invalidated")
+
     def test_blocked_and_terminal_repeats_do_not_change_persisted_state(self) -> None:
         states = read_record("states.json")
         for boundary in ("blocked", "completed"):

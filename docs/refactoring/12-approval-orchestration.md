@@ -72,3 +72,15 @@ persisted evidence rather than assert that the new service was invoked.
 
 An ordering regression blocks Stage 13. Reverse the smallest extraction or fix
 the collaborator boundary; do not compensate by changing approval data or tests.
+
+## Stage 09 decisions to preserve
+
+Follow the [recorded gate order](09-follow-on-baseline.md#approval-order-and-durable-boundary)
+and [seam inventory](09-follow-on-baseline.md#import-and-injection-inventory).
+Keep public signatures and private delegates, instance `_perform_validation`
+interception, store fault injection, and late lookup of `engine.utc_now` even
+when patched after Engine construction. Store timestamps are a different clock.
+The new gate-precedence test covers competing request failures and stale-binding
+invalidation before provenance rejection. Existing compatibility captures already
+exercise the interrupted grant/advance boundary and its saved outcome; reuse them.
+Stage 13's decided concurrency table is not authorization to change behavior in 12.

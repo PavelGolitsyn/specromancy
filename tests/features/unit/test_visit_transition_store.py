@@ -4,17 +4,111 @@ from __future__ import annotations
 import json
 import unittest
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import patch
 
+from specromancy.artifacts import ArtifactError
 from specromancy.config import load_pipeline
 from specromancy.engine import Engine
 from specromancy.hashing import sha256_file, sha256_json
+from specromancy.locking import LockHeldError
 from specromancy.run_store import RunCorruptionError, RunStore, RunStoreError
 from tests.features.unit.test_engine import EngineFixture
 from tests.features.unit.test_run_store import PIPELINE, RUN_ID, StoreFixture
 
 
 class VisitStoreBoundaryTests(unittest.TestCase):
+    def test_output_collision_precedes_resource_reads_and_preserves_files(self):
+        for reserved in (False, True):
+            with self.subTest(reserved=reserved):
+                fixture = StoreFixture()
+                self.addCleanup(fixture.close)
+                fixture.pipeline_path.write_text(PIPELINE.replace(
+                    'artifacts/{visit:03}-{phase}.md', 'artifacts/result.md',
+                ))
+                pipeline = load_pipeline(fixture.pipeline_path, fixture.root)
+                store = RunStore(fixture.root)
+                store.create(pipeline, "collision", run_id=RUN_ID)
+                directory = store.run_directory(RUN_ID)
+                output = directory / "artifacts/result.md"
+                if reserved:
+                    store.start_visit(RUN_ID, pipeline, "compose")
+                    store.write_visit_output(RUN_ID, 1, "reserved output")
+                    store.complete_visit(RUN_ID, 1)
+                    output.unlink()  # The manifest reservation alone must suffice.
+                else:
+                    output.parent.mkdir(parents=True, exist_ok=True)
+                    output.write_text("pre-existing output")
+                pipeline.phase("compose").skill_path.unlink()
+                before = {p.relative_to(directory): p.read_bytes()
+                          for p in directory.rglob("*") if p.is_file()}
+                with self.assertRaises(ArtifactError) as raised:
+                    store.prepare_visit(RUN_ID, pipeline, "compose")
+                self.assertEqual(raised.exception.diagnostic_code, "artifact-path-collision")
+                self.assertEqual({p.relative_to(directory): p.read_bytes()
+                                  for p in directory.rglob("*") if p.is_file()}, before)
+
+    def test_preparation_reads_resources_under_lock_before_active_timestamp(self):
+        for active in (False, True):
+            with self.subTest(active=active):
+                fixture = StoreFixture()
+                self.addCleanup(fixture.close)
+                template = fixture.root / "template.md"
+                template.write_text("template at preparation")
+                fixture.pipeline_path.write_text(PIPELINE.replace(
+                    'mutation = "read-only"', 'output_template = "template.md"\nmutation = "read-only"',
+                ))
+                pipeline = load_pipeline(fixture.pipeline_path, fixture.root)
+                skill = pipeline.phase("compose").skill_path
+                original_skill_hash = sha256_file(skill)
+                now = datetime(2026, 9, 25, 12, tzinfo=timezone.utc)
+                observed_at = datetime(2026, 9, 25, 13, tzinfo=timezone.utc)
+                store = RunStore(fixture.root, clock=lambda: now)
+                store.create(pipeline, "capture", run_id=RUN_ID)
+                other = RunStore(fixture.root)
+                original_open = Path.open
+
+                def observe(path, *args, **kwargs):
+                    nonlocal now
+                    if path == template.resolve() and args == ("rb",):
+                        with self.assertRaises(LockHeldError):
+                            other.load(RUN_ID)
+                        # A filesystem edit is not prevented by the run lock.
+                        # Skill capture precedes template capture; start follows it.
+                        skill.write_text("skill changed during template capture")
+                        now = observed_at
+                    return original_open(path, *args, **kwargs)
+
+                with patch.object(Path, "open", observe):
+                    if active:
+                        visit = store.start_visit(RUN_ID, pipeline, "compose", mutation_baseline={"marker": 1})
+                    else:
+                        visit = store.prepare_visit(RUN_ID, pipeline, "compose")
+                self.assertEqual(visit["skill"]["sha256"], original_skill_hash)
+                self.assertNotEqual(visit["skill"]["sha256"], sha256_file(skill))
+                self.assertEqual(visit["template"]["sha256"], sha256_file(template))
+                self.assertEqual(visit["started_at"], "2026-09-25T13:00:00.000000Z" if active else None)
+                self.assertEqual(visit["mutation_baseline"], {"marker": 1} if active else None)
+                self.assertEqual(store.load(RUN_ID)["visits"], [visit])
+
+    def test_successor_resource_failure_does_not_seal_or_commit(self):
+        fixture = EngineFixture()
+        self.addCleanup(fixture.close)
+        run_id = fixture.engine.initialize("resource failure")["action"]["run_id"]
+        fixture.engine.start_phase(run_id, "survey")
+        fixture.output(run_id)
+        directory = fixture.store.run_directory(run_id)
+        before = tuple((directory / name).read_bytes() for name in ("run.json", "events.jsonl"))
+        fixture.pipeline.phase("publish").skill_path.unlink()
+        with self.assertRaises(FileNotFoundError):
+            fixture.store.transition_visit(run_id, fixture.pipeline, 1,
+                                           outcome="continue", transition_target="publish")
+        self.assertEqual(before, tuple((directory / name).read_bytes()
+                                      for name in ("run.json", "events.jsonl")))
+        visit = fixture.store.load(run_id)["visits"][0]
+        self.assertIsNone(visit["output"]["sha256"])
+        self.assertIsNone(visit["completed_at"])
+
     def test_exact_loop_limits_commit_block_without_sealing_or_successor(self):
         for kind in ("phase", "transition"):
             with self.subTest(kind=kind):
