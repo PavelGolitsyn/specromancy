@@ -38,7 +38,8 @@ assert not unexpected, unexpected
 """
         for module in (
             "config_models", "config_errors", "config_serialization",
-            "schema_validation", "config_loader", "validation",
+            "schema_validation", "config_fields", "config_phase_parser",
+            "config_loader", "validation",
             "run_records", "run_validation", "run_identity", "run_errors",
             "run_persistence", "visit_transitions",
             "engine_errors", "provenance", "validation_service", "responses",
@@ -51,6 +52,10 @@ assert not unexpected, unexpected
                 forbidden.append("config_loader")
             if module not in {"validation", "validation_service"}:
                 forbidden.append("validation")
+            if module in {"config_fields", "config_phase_parser"}:
+                forbidden.extend(("run_store", "run_persistence", "graph", "config_serialization"))
+            if module == "config_fields":
+                forbidden.extend(("config_phase_parser", "config_models", "schema_validation"))
             if module in {"engine_errors", "provenance", "validation_service", "responses", "approvals"}:
                 forbidden.append("run_store")
             if module.startswith("run_") or module == "visit_transitions":

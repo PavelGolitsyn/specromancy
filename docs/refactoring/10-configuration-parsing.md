@@ -1,6 +1,6 @@
 # Stage 10 — Separate field parsing from pipeline assembly
 
-Status: planned. Prerequisites: Stage 09.
+Status: complete on 2026-10-04. Prerequisites: Stage 09 complete.
 Category: behavior-preserving refactoring. Risk: diagnostics and configuration hashes.
 
 ## Objective and evidence
@@ -66,10 +66,10 @@ Then run the shared full-suite, adapter-check, and diff-check gates in the index
 
 ## Exit criteria and rollback
 
-- [ ] Pipeline assembly is separate from field and phase parsing.
-- [ ] Existing imports, diagnostics, hashes, and accepted configurations match.
-- [ ] No schema version, canonical resource, or generated adapter changed.
-- [ ] All focused and shared verification gates pass.
+- [x] Pipeline assembly is separate from field and phase parsing.
+- [x] Existing imports, diagnostics, hashes, and accepted configurations match.
+- [x] No schema version, canonical resource, or generated adapter changed.
+- [x] All focused and shared verification gates pass.
 
 On an unexplained diagnostic/hash difference, stop and compare evaluation order
 before changing fixtures. Each extraction can be reversed independently; no run
@@ -83,3 +83,50 @@ private-loader monkeypatch callers were found, but removal is not this stage's
 scope. The new multiple-invalid-fields test fixes first-diagnostic ordering across
 field, phase, resource, validator, command and transition boundaries, including
 complete error details. Existing root/schema/hash tests remain the oracle.
+
+## Execution record
+
+Starting revision: `a37559a044ff7ea0b712dd7ab459f28dc593c7b1`; clean checkout.
+
+- Extracted diagnostic construction, scalar/list/unknown-key checks, and resource
+  resolution into `config_fields.FieldContext`. `_Loader` inherits those methods
+  with unchanged signatures and sentinel defaults.
+- Extracted phase, validator, command, transition, input, and output-pattern
+  parsing into `config_phase_parser`, using explicit `FieldContext` arguments.
+  `_Loader` retains every phase-parser method as a delegate. Existing constants
+  and helper imports remain available through the loader and `config` facade.
+- Kept TOML/root loading, pipeline assembly, graph validation, and canonical
+  serialization orchestration in the loader. Schema reads still happen in
+  validator parsing through the existing schema-subset loader.
+- Extended isolated-import checks for both new modules, facade identity checks,
+  and direct use of the retained loader parser methods. Updated the architecture
+  ownership map. No compatibility capture or canonical resource was changed.
+
+An AST comparison against the starting revision confirmed all original loader
+method and helper bodies match after normalizing the explicit context arguments
+and parser calls. This supplements the behavioral checks without creating another
+compatibility fixture.
+
+### Verification
+
+Executed on Python 3.14.4. This shell has no `python` executable, so the documented
+`python3` equivalent was used; Python 3.11 was not rerun in this stage.
+
+| Command / checkpoint | Result |
+| --- | --- |
+| Focused command below, before extraction | 59 passed in 1.446s |
+| Same focused command, after field/resource extraction | 59 passed in 1.411s |
+| Same focused command, after phase extraction | 59 passed in 1.494s |
+| Same focused command, with final boundary/delegate coverage | 60 passed in 1.468s |
+| `python3 -m unittest discover` | 230 passed in 26.086s, including source-export coverage |
+| `bin/specromancy adapters generate --check` | Passed: generated adapters are up to date |
+| `git diff --check` | Passed |
+
+Focused command:
+
+```sh
+python3 -m unittest tests.features.unit.test_config tests.features.unit.test_registry tests.features.unit.test_graph tests.features.contract.test_compatibility tests.features.contract.test_architecture tests.features.contract.test_replacement_pipeline
+```
+
+No scope deviations or behavior changes. Existing limitations and later-stage
+correctness work remain as recorded in Stage 09; stages 11–15 were not executed.

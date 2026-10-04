@@ -84,18 +84,32 @@ diagnostics and the omitted-value sentinel live in `config_errors`.
 
 ```text
 config facade -> config_loader -> config_models / config_errors
+                              -> config_fields -> config_errors
+                              -> config_phase_parser -> config_fields / config_models
+                                                     -> schema_validation
                               -> graph
                               -> config_serialization -> config_models
-                              -> schema_validation
 
 validation -> config_models / schema_validation
 runtime consumers -> config_models
 registry -> config_loader / config_models / config_errors
 ```
 
-The loader owns TOML parsing, field rejection order, repository discovery, and
-resource containment. Graph analysis remains in `graph`, with diagnostic
-callbacks supplied by the loader. Models, diagnostics, canonical serialization,
+The loader owns TOML/root loading, repository discovery, pipeline assembly, and
+graph validation orchestration. `config_fields.FieldContext` carries the source
+path and repository root, emits diagnostics, checks scalar/list values and unknown
+keys, and resolves existing resource paths with repository containment checks.
+Shared resources may use parent traversal within the repository; registry path
+rules remain separate. `config_phase_parser` consumes that context explicitly for
+phase, validator, command, transition, input, and output-pattern parsing. Validator
+parsing reads schema files through `schema_validation` in the existing check order.
+
+`_Loader` retains its field methods through `FieldContext` inheritance and its
+phase-parser methods through delegates. Existing helpers/constants remain
+re-exported through the loader and public facade. Field parsing does not import
+phase parsing; neither parsing module imports the loader, facade, CLI, engine,
+or run storage. Graph analysis remains in `graph`, with diagnostic callbacks
+supplied by the loader. Models, diagnostics, canonical serialization,
 and schema validation do not import the loader or public facade. Artifact
 validation owns artifact reads, Markdown/file checks, and `ValidationFailure`;
 it delegates JSON schema algorithms to `schema_validation` and re-exports the
