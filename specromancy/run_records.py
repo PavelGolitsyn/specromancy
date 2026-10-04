@@ -14,6 +14,9 @@ from __future__ import annotations
 import re
 from typing import Any, TypedDict
 
+from .exit_codes import ExitCode
+from .run_errors import RunStoreError
+
 
 RUN_SCHEMA_VERSION = 1
 EVENT_SCHEMA_VERSION = 1
@@ -141,4 +144,16 @@ def latest_approval(
             and approval.get("status") == status
         ),
         None,
+    )
+
+
+def visit_by_number(manifest: RunRecord, visit_number: int) -> VisitRecord:
+    for visit in manifest["visits"]:
+        if visit["ordinal"] == visit_number:
+            return visit
+    raise RunStoreError(
+        f"visit not found: {visit_number}",
+        diagnostic_code="visit-not-found",
+        details={"visit_number": visit_number},
+        code=ExitCode.NOT_FOUND,
     )

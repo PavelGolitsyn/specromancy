@@ -27,7 +27,7 @@ from .hashing import (
 )
 from .locking import RunLock
 from .run_persistence import RunPersistence
-from . import run_validation
+from . import run_validation, visit_transitions
 from .run_errors import RunCorruptionError, RunNotFoundError, RunStoreError
 from .run_identity import (
     RUN_ID_PATTERN, format_timestamp, generate_run_id, is_valid_run_id,
@@ -35,7 +35,7 @@ from .run_identity import (
 )
 from .run_records import (
     EVENT_SCHEMA_VERSION, EVENT_TYPE_PATTERN, RUN_SCHEMA_VERSION,
-    RUN_STATUSES, VISIT_STATUSES, EventRecord, RunRecord, VisitRecord,
+    RUN_STATUSES, VISIT_STATUSES, EventRecord, RunRecord, VisitRecord, visit_by_number,
 )
 
 
@@ -212,19 +212,8 @@ class RunStore:
                 mutation_baseline=mutation_baseline,
                 deviations=deviations,
             )
-            ordinal = visit["ordinal"]
-            updated = copy.deepcopy(manifest)
-            self._persistence.advance_revision(updated, manifest["revision"])
-            updated["status"] = "active"
-            updated["current_visit"] = ordinal
-            updated["visits"].append(visit)
-            self._persistence.commit_locked(
-                directory,
-                updated,
-                events,
-                "visit-started",
-                ordinal,
-                {"phase_id": phase_id, "attempt": visit["attempt"]},
+            self._apply_decision_locked(
+                directory, manifest, events, visit_transitions.append_visit(manifest, visit)
             )
             return copy.deepcopy(visit)
 
@@ -252,18 +241,8 @@ class RunStore:
                 mutation_baseline=None,
                 deviations=deviations,
             )
-            updated = copy.deepcopy(manifest)
-            self._persistence.advance_revision(updated, manifest["revision"])
-            updated["status"] = "awaiting-agent"
-            updated["current_visit"] = visit["ordinal"]
-            updated["visits"].append(visit)
-            self._persistence.commit_locked(
-                directory,
-                updated,
-                events,
-                "visit-prepared",
-                visit["ordinal"],
-                {"phase_id": phase_id, "attempt": visit["attempt"]},
+            self._apply_decision_locked(
+                directory, manifest, events, visit_transitions.append_visit(manifest, visit)
             )
             return copy.deepcopy(visit)
 
@@ -280,43 +259,13 @@ class RunStore:
         directory = self.run_directory(run_id)
         with self._persistence.locked(directory, run_id) as (manifest, events):
             self._require_pipeline(manifest, pipeline)
-            if manifest["status"] == "paused":
-                raise RunStoreError(
-                    "paused run must be resumed before its next visit can start",
-                    diagnostic_code="run-paused",
-                    details={"run_id": run_id, "visit_number": visit_number},
-                    code=ExitCode.RUN_PAUSED,
-                )
-            existing = self._visit(manifest, visit_number)
-            if existing["status"] == "active":
-                return copy.deepcopy(existing)
-            if existing["status"] != "pending":
-                raise RunStoreError(
-                    f"visit {visit_number} cannot be activated from {existing['status']}",
-                    diagnostic_code="illegal-visit-status",
-                    details={
-                        "visit_number": visit_number,
-                        "status": existing["status"],
-                        "expected": "pending",
-                    },
-                    code=ExitCode.ILLEGAL_TRANSITION,
-                )
-            updated = copy.deepcopy(manifest)
-            visit = self._visit(updated, visit_number)
-            visit["status"] = "active"
-            visit["mutation_baseline"] = mutation_baseline
-            visit["started_at"] = self._timestamp()
-            self._persistence.advance_revision(updated, manifest["revision"])
-            updated["status"] = "active"
-            self._persistence.commit_locked(
-                directory,
-                updated,
-                events,
-                "visit-activated",
-                visit_number,
-                {"phase_id": visit["phase_id"]},
+            needed = visit_transitions.activation_needed(manifest, visit_number)
+            decision = visit_transitions.activate_visit(
+                manifest, visit_number, mutation_baseline=mutation_baseline,
+                started_at=self._timestamp() if needed else None,
             )
-            return copy.deepcopy(visit)
+            updated = self._apply_decision_locked(directory, manifest, events, decision)
+            return copy.deepcopy(self._visit(updated, visit_number))
 
     def write_visit_output(
         self, run_id: str, visit_number: int, content: str | bytes
@@ -388,41 +337,21 @@ class RunStore:
 
         directory = self.run_directory(run_id)
         with self._persistence.locked(directory, run_id) as (manifest, events):
+            visit_transitions.require_incomplete(manifest, visit_number)
             existing = self._visit(manifest, visit_number)
-            if existing["status"] == "completed":
-                raise RunStoreError(
-                    f"visit {visit_number} is already completed",
-                    diagnostic_code="visit-already-completed",
-                    details={"visit_number": visit_number},
-                    code=ExitCode.ILLEGAL_TRANSITION,
-                )
             output = artifact_record(directory, existing["output"]["path"])
-            updated = copy.deepcopy(manifest)
-            visit = self._visit(updated, visit_number)
-            visit["status"] = "completed"
-            visit["output"]["sha256"] = output["sha256"]
-            visit["mutation_result"] = mutation_result
-            visit["validation_checks"] = list(validation_checks or [])
-            visit["command_results"] = list(command_results or [])
-            visit["chosen_outcome"] = outcome
-            visit["transition_target"] = transition_target
-            visit["completed_at"] = self._timestamp()
-            if isinstance(mutation_result, dict) and isinstance(
-                mutation_result.get("head"), dict
-            ):
-                updated["git"]["head"] = mutation_result["head"]
-            if deviations is not None:
-                visit["deviations"] = list(deviations)
-            self._persistence.advance_revision(updated, manifest["revision"])
-            self._persistence.commit_locked(
-                directory,
-                updated,
-                events,
-                "visit-completed",
-                visit_number,
-                {"phase_id": visit["phase_id"], "outcome": outcome},
+            sealed = visit_transitions.seal_visit(
+                manifest, visit_number, output_sha256=output["sha256"],
+                outcome=outcome, transition_target=transition_target,
+                completed_at=self._timestamp(), mutation_result=mutation_result,
+                validation_checks=validation_checks, command_results=command_results,
+                deviations=deviations,
             )
-            return copy.deepcopy(visit)
+            updated = self._apply_decision_locked(
+                directory, manifest, events,
+                visit_transitions.completion_decision(sealed, visit_number),
+            )
+            return copy.deepcopy(self._visit(updated, visit_number))
 
     def transition_visit(
         self,
@@ -442,112 +371,49 @@ class RunStore:
         directory = self.run_directory(run_id)
         with self._persistence.locked(directory, run_id) as (manifest, events):
             self._require_pipeline(manifest, pipeline)
+            if not visit_transitions.transition_needed(
+                manifest, visit_number, outcome, transition_target
+            ):
+                return self._apply_decision_locked(
+                    directory, manifest, events,
+                    visit_transitions.Decision(copy.deepcopy(manifest)),
+                )
             existing = self._visit(manifest, visit_number)
-            if existing["status"] == "completed":
-                if (
-                    existing["chosen_outcome"] == outcome
-                    and existing["transition_target"] == transition_target
-                ):
-                    return copy.deepcopy(manifest)
-                raise RunStoreError(
-                    f"visit {visit_number} already completed with another transition",
-                    diagnostic_code="visit-already-completed",
-                    details={"visit_number": visit_number},
-                    code=ExitCode.ILLEGAL_TRANSITION,
-                )
-            if existing["status"] not in {"active", "awaiting-approval"}:
-                raise RunStoreError(
-                    f"visit {visit_number} cannot complete from {existing['status']}",
-                    diagnostic_code="illegal-visit-status",
-                    details={
-                        "visit_number": visit_number,
-                        "status": existing["status"],
-                    },
-                    code=ExitCode.ILLEGAL_TRANSITION,
-                )
             output = artifact_record(directory, existing["output"]["path"])
-            updated = copy.deepcopy(manifest)
-            visit = self._visit(updated, visit_number)
             transition = next(
                 item
-                for item in pipeline.phase(visit["phase_id"]).transitions
+                for item in pipeline.phase(existing["phase_id"]).transitions
                 if item.outcome == outcome
             )
             limit_block = self._transition_limit_block(
-                manifest, pipeline, visit, outcome, transition_target
+                manifest, pipeline, existing, outcome, transition_target
             )
             if limit_block is not None:
-                visit["status"] = "blocked"
-                visit["mutation_result"] = mutation_result
-                visit["validation_checks"] = list(validation_checks or [])
-                visit["command_results"] = list(command_results or [])
-                updated["status"] = "blocked"
-                updated["block_reason"] = limit_block
-                if isinstance(mutation_result, dict) and isinstance(
-                    mutation_result.get("head"), dict
-                ):
-                    updated["git"]["head"] = mutation_result["head"]
-                self._persistence.advance_revision(updated, manifest["revision"])
-                self._persistence.commit_locked(
-                    directory,
-                    updated,
-                    events,
-                    "loop-limit-exceeded",
-                    visit_number,
-                    limit_block,
-                )
-                return copy.deepcopy(updated)
-            visit["status"] = "completed"
-            visit["output"]["sha256"] = output["sha256"]
-            visit["mutation_result"] = mutation_result
-            visit["validation_checks"] = list(validation_checks or [])
-            visit["command_results"] = list(command_results or [])
-            visit["chosen_outcome"] = outcome
-            visit["transition_target"] = transition_target
-            visit["completed_at"] = self._timestamp()
-            if isinstance(mutation_result, dict) and isinstance(
-                mutation_result.get("head"), dict
-            ):
-                updated["git"]["head"] = mutation_result["head"]
-
-            next_visit = None
-            if transition_target is None:
-                updated["status"] = "completed"
-                updated["terminal_result"] = (
-                    terminal_result
-                    if terminal_result is not None
-                    else {"outcome": outcome, "visit_number": visit_number}
+                decision = visit_transitions.blocked_transition(
+                    manifest, visit_number, limit_block,
+                    mutation_result=mutation_result, validation_checks=validation_checks,
+                    command_results=command_results,
                 )
             else:
-                next_visit = self._new_visit(
-                    directory,
-                    updated,
-                    pipeline,
-                    transition_target,
-                    status="pending",
-                    mutation_baseline=None,
+                sealed = visit_transitions.seal_visit(
+                    manifest, visit_number, output_sha256=output["sha256"],
+                    outcome=outcome, transition_target=transition_target,
+                    completed_at=self._timestamp(), mutation_result=mutation_result,
+                    validation_checks=validation_checks, command_results=command_results,
                 )
-                updated["visits"].append(next_visit)
-                updated["current_visit"] = next_visit["ordinal"]
-                updated["status"] = "paused" if transition.pause else "awaiting-agent"
-            self._persistence.advance_revision(updated, manifest["revision"])
-            self._persistence.commit_locked(
-                directory,
-                updated,
-                events,
-                "visit-transitioned",
-                visit_number,
-                {
-                    "phase_id": visit["phase_id"],
-                    "outcome": outcome,
-                    "target": transition_target,
-                    "paused": transition.pause,
-                    "next_visit": (
-                        next_visit["ordinal"] if next_visit is not None else None
-                    ),
-                },
-            )
-            return copy.deepcopy(updated)
+                # Resolve latest/visit inputs against the sealed proposal while
+                # retaining the lock. Completion and successor commit only once.
+                next_visit = None
+                if transition_target is not None:
+                    next_visit = self._new_visit(
+                        directory, sealed, pipeline, transition_target,
+                        status="pending", mutation_baseline=None,
+                    )
+                decision = visit_transitions.finish_transition(
+                    sealed, visit_number, next_visit=next_visit,
+                    pause=transition.pause, terminal_result=terminal_result,
+                )
+            return self._apply_decision_locked(directory, manifest, events, decision)
 
     def resume_paused(self, run_id: str, pipeline: PipelineConfig) -> RunRecord:
         """Release a durable checkpoint without starting its pending visit."""
@@ -555,30 +421,24 @@ class RunStore:
         directory = self.run_directory(run_id)
         with self._persistence.locked(directory, run_id) as (manifest, events):
             self._require_pipeline(manifest, pipeline)
-            if manifest["status"] != "paused":
-                return copy.deepcopy(manifest)
-            visit_number = manifest["current_visit"]
-            if visit_number is None:
-                raise RunCorruptionError(
-                    "paused run has no current visit", run_id=run_id
-                )
-            current = self._visit(manifest, visit_number)
-            if current["status"] != "pending":
-                raise RunCorruptionError(
-                    "paused run does not point to a pending visit", run_id=run_id
-                )
-            updated = copy.deepcopy(manifest)
-            updated["status"] = "awaiting-agent"
-            self._persistence.advance_revision(updated, manifest["revision"])
-            self._persistence.commit_locked(
-                directory,
-                updated,
-                events,
-                "run-resumed",
-                visit_number,
-                {"phase_id": current["phase_id"]},
+            return self._apply_decision_locked(
+                directory, manifest, events, visit_transitions.resume_paused(manifest)
             )
-            return copy.deepcopy(updated)
+
+    def _apply_decision_locked(
+        self, directory: Path, previous: RunRecord, events: list[EventRecord],
+        decision: visit_transitions.Decision,
+    ) -> RunRecord:
+        """Stamp and commit a proposal under the caller's existing run lock."""
+
+        updated = decision.manifest
+        if decision.event_type is not None:
+            self._persistence.advance_revision(updated, previous["revision"])
+            self._persistence.commit_locked(
+                directory, updated, events, decision.event_type,
+                decision.visit_number, decision.payload,
+            )
+        return copy.deepcopy(updated)
 
     def _transition_limit_block(
         self,
@@ -588,51 +448,10 @@ class RunStore:
         outcome: str,
         transition_target: str | None,
     ) -> dict[str, Any] | None:
-        """Return a persisted block record before a disallowed loop traversal."""
-
-        phase = pipeline.phase(visit["phase_id"])
-        transition = next(
-            item for item in phase.transitions if item.outcome == outcome
+        return visit_transitions.transition_limit_block(
+            manifest, pipeline, visit, outcome, transition_target,
+            timestamp=self._timestamp(),
         )
-        timestamp = self._timestamp()
-        if transition.max_traversals is not None:
-            traversals = sum(
-                item["phase_id"] == phase.id
-                and item.get("chosen_outcome") == outcome
-                for item in manifest["visits"]
-            )
-            if traversals >= transition.max_traversals:
-                return {
-                    "reason": "transition-traversal-limit",
-                    "phase_id": phase.id,
-                    "visit_number": visit["ordinal"],
-                    "outcome": outcome,
-                    "target": transition_target,
-                    "limit": transition.max_traversals,
-                    "recorded_at": timestamp,
-                    "required_action": "new-run",
-                    "remediation": "start a new run; this pipeline declares no counter-reset approval",
-                }
-        if transition_target is not None:
-            target_phase = pipeline.phase(transition_target)
-            if target_phase.max_visits is not None:
-                visits = sum(
-                    item["phase_id"] == transition_target
-                    for item in manifest["visits"]
-                )
-                if visits >= target_phase.max_visits:
-                    return {
-                        "reason": "phase-visit-limit",
-                        "phase_id": transition_target,
-                        "source_phase": phase.id,
-                        "visit_number": visit["ordinal"],
-                        "outcome": outcome,
-                        "limit": target_phase.max_visits,
-                        "recorded_at": timestamp,
-                        "required_action": "new-run",
-                        "remediation": "start a new run; this pipeline declares no counter-reset approval",
-                    }
-        return None
 
     def mutate(
         self,
@@ -730,26 +549,13 @@ class RunStore:
                 "path": relative_path(phase.output_template_path, self.repository_root),
                 "sha256": sha256_file(phase.output_template_path),
             }
-        return {
-            "phase_id": phase_id,
-            "ordinal": ordinal,
-            "attempt": attempt,
-            "status": status,
-            "inputs": inputs,
-            "output": {"path": output_path, "sha256": None},
-            "mutation_policy": phase.mutation,
-            "mutation_baseline": mutation_baseline,
-            "mutation_result": None,
-            "validation_checks": [],
-            "command_results": [],
-            "chosen_outcome": None,
-            "transition_target": None,
-            "skill": skill,
-            "template": template,
-            "started_at": self._timestamp() if status == "active" else None,
-            "completed_at": None,
-            "deviations": list(deviations or []),
-        }
+        return visit_transitions.new_visit(
+            phase_id=phase_id, ordinal=ordinal, attempt=attempt, status=status,
+            inputs=inputs, output_path=output_path, mutation_policy=phase.mutation,
+            mutation_baseline=mutation_baseline, skill=skill, template=template,
+            started_at=self._timestamp() if status == "active" else None,
+            deviations=deviations,
+        )
 
     def _prepare_runs_root(self) -> None:
         self.runs_root.mkdir(parents=True, exist_ok=True)
@@ -794,17 +600,7 @@ class RunStore:
                 code=ExitCode.INVALID_PIPELINE,
             )
 
-    @staticmethod
-    def _visit(manifest: RunRecord, visit_number: int) -> VisitRecord:
-        for visit in manifest["visits"]:
-            if visit["ordinal"] == visit_number:
-                return visit
-        raise RunStoreError(
-            f"visit not found: {visit_number}",
-            diagnostic_code="visit-not-found",
-            details={"visit_number": visit_number},
-            code=ExitCode.NOT_FOUND,
-        )
+    _visit = staticmethod(visit_by_number)
 
     def _validate_manifest(self, value: dict[str, Any], run_id: str) -> None:
         run_validation.validate_manifest(value, run_id)

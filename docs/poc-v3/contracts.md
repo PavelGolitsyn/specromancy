@@ -132,12 +132,26 @@ event sequence, or any other manifest/event disagreement is corrupt state and
 is not repaired heuristically.
 
 The internal `run_persistence` component owns serialization, reconciliation,
-and commits. `RunStore` retains repository/run path ownership checks, artifact
-verification, and visit decisions. One lock spans manifest/event loading, the
+and commits. `RunStore` retains repository/run path ownership checks and artifact
+verification, and collects evidence for the pure internal `visit_transitions`
+decisions. Those decisions return copied state and event payloads (or an explicit
+no-op); they do not read files or clocks, assign revisions, or acquire locks.
+One lock spans manifest/event loading, the
 change, validation, replacement, and append; internal commit helpers do not
 reacquire it. Idempotent activation, transition, and resume returns do not add
 a revision or event. The general `mutate` API always commits, even if its callback
 leaves the record unchanged.
+
+Visit preparation resolves symbolic inputs and hashes skill/template provenance
+immediately, including for a pending successor at a paused edge. Activation
+records the start timestamp and mutation baseline without refreshing those
+records. A graph transition seals the current output and prepares its successor
+in one commit; a reached limit records a blocked visit without sealing its output
+or creating a successor. Resume releases a paused checkpoint while leaving the
+successor pending. The low-level `start_visit` and `complete_visit` methods retain
+their separate semantics: start appends an active visit, and completion seals a
+visit without advancing the run. Completion rejects an already completed visit;
+transition accepts an exact outcome/target retry without another commit.
 
 `load(recover=False)` checks consistency without appending recovery events.
 `load(verify_artifacts=False)` skips artifact verification independently and

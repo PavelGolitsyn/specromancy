@@ -40,14 +40,14 @@ assert not unexpected, unexpected
             "config_models", "config_errors", "config_serialization",
             "schema_validation", "config_loader", "validation",
             "run_records", "run_validation", "run_identity", "run_errors",
-            "run_persistence",
+            "run_persistence", "visit_transitions",
         ):
             forbidden = ["config", "cli", "engine", "registry"]
             if module != "config_loader":
                 forbidden.append("config_loader")
             if module != "validation":
                 forbidden.append("validation")
-            if module.startswith("run_"):
+            if module.startswith("run_") or module == "visit_transitions":
                 forbidden.extend(("run_store", "actions", "status", "artifacts"))
             with self.subTest(module=module):
                 result = subprocess.run(
