@@ -132,6 +132,33 @@ class RunStoreTests(unittest.TestCase):
         self.assertEqual(events[0]["manifest_hash"], sha256_json(manifest))
         self.assertFalse((directory / ".lock").exists())
 
+    def test_returned_records_and_mutator_captures_are_detached(self) -> None:
+        created = self.create()
+        created["request"]["path"] = "changed"
+        self.assertNotEqual(self.store.load(RUN_ID)["request"]["path"], "changed")
+        visit = self.store.prepare_visit(RUN_ID, self.fixture.pipeline, "compose")
+        visit["output"]["path"] = "changed"
+        active = self.store.activate_visit(RUN_ID, self.fixture.pipeline, 1)
+        active["inputs"][0]["sha256"] = "changed"
+        self.assertNotEqual(self.store.load(RUN_ID)["visits"][0]["inputs"][0]["sha256"], "changed")
+
+        captured = []
+        def change(value):
+            captured.append(value)
+            value["block_reason"] = {"nested": ["original"]}
+        updated = self.store.mutate(RUN_ID, "test-mutation", change)
+        captured[0]["block_reason"]["nested"].append("captured")
+        self.assertEqual(updated["block_reason"], {"nested": ["original"]})
+        updated["block_reason"]["nested"].append("returned")
+        loaded = self.store.load(RUN_ID)
+        self.assertEqual(loaded["block_reason"], {"nested": ["original"]})
+        loaded["visits"][0]["output"]["path"] = "changed"
+        self.assertNotEqual(self.store.load(RUN_ID)["visits"][0]["output"]["path"], "changed")
+
+        events = self.store.read_events(RUN_ID)
+        events[0]["payload"]["pipeline_id"] = "changed"
+        self.assertEqual(self.store.read_events(RUN_ID)[0]["payload"]["pipeline_id"], "fixture")
+
     def test_two_writers_cannot_lock_one_run(self) -> None:
         self.create()
         with self.store.lock(RUN_ID):

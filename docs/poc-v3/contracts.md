@@ -54,6 +54,15 @@ are never owned or removed by the generator. `--check` performs no writes and ex
 `ADAPTER_DRIFT` when the manifest or managed tree differs from the expected
 rendering.
 
+The Python `cli.adapter_command_metadata` facade shares explicit descriptions
+with parser construction and returns the same sorted command metadata without
+inspecting argparse internals. `adapters.render_adapters(root, registry, metadata)`
+retains its render-only contract. `adapters.generate_adapters` still accepts
+explicit metadata; when omitted, metadata is derived from that invocation's
+validated graphs. Generation reuses captured source text and bytes for rendering
+and source hashes, without a cross-invocation cache. Adapter constants and
+`AdapterError` remain available from `specromancy.adapters`.
+
 ## Pipeline registry and selection
 
 `workflow/pipelines.toml` is mandatory for workflow and adapter commands:
@@ -110,11 +119,23 @@ record shared launch-skill `discovery_paths`; native `.agents` outputs have a
 single ownership record under the Codex target. The manifest omits its own hash to
 avoid self-reference and contains no timestamps or absolute paths.
 
+Generation preflights ownership conflicts before writing, rechecks stale owned
+file hashes before removal, replaces each output atomically, and writes the
+manifest last. This is not a transaction across all generated files. Check mode
+compares expected bytes directly and creates no temporary output files.
+
 ## Run persistence
 
 Run IDs use a UTC timestamp and eight lowercase hexadecimal characters, for
 example `20260922T142501Z-a1b2c3d4`. Only IDs matching that form may be used to
 address `.specromancy/runs/`.
+
+The `specromancy.run_store` imports and compatibility aliases remain available,
+including the same exception classes re-exported from `run_errors`. Run and
+event schema versions remain 1. `RunStore` returns ordinary, defensively copied
+dictionaries; record annotations neither construct defaults nor validate
+external data. Generation accepts injected clocks and zero-argument or sized
+random sources, and timestamp formatting remains UTC with microseconds and `Z`.
 
 `run.json` is the validated current snapshot. Each mutation increments its
 `revision`, atomically replaces the file, and appends an `events.jsonl` record
@@ -124,13 +145,48 @@ after replacement but before the event append, the next load appends a
 event sequence, or any other manifest/event disagreement is corrupt state and
 is not repaired heuristically.
 
+The internal `run_persistence` component owns serialization, reconciliation,
+and commits. `RunStore` retains repository/run path ownership checks and artifact
+verification, and collects evidence for the pure internal `visit_transitions`
+decisions. Those decisions return copied state and event payloads (or an explicit
+no-op); they do not read files or clocks, assign revisions, or acquire locks.
+One lock spans manifest/event loading, the
+change, validation, replacement, and append; internal commit helpers do not
+reacquire it. Idempotent activation, transition, and resume returns do not add
+a revision or event. The general `mutate` API always commits, even if its callback
+leaves the record unchanged.
+
+Visit preparation resolves symbolic inputs and hashes skill/template provenance
+immediately, including for a pending successor at a paused edge. Activation
+records the start timestamp and mutation baseline without refreshing those
+records. A graph transition seals the current output and prepares its successor
+in one commit; a reached limit records a blocked visit without sealing its output
+or creating a successor. Resume releases a paused checkpoint while leaving the
+successor pending. The low-level `start_visit` and `complete_visit` methods retain
+their separate semantics: start appends an active visit, and completion seals a
+visit without advancing the run. Completion rejects an already completed visit;
+transition accepts an exact outcome/target retry without another commit.
+
+`load(recover=False)` checks consistency without appending recovery events.
+`load(verify_artifacts=False)` skips artifact verification independently and
+still permits recovery by default. Normal loads, including those invoked by
+`status`, may append the allowed recovery event; recovery precedes artifact
+verification, so an artifact error may be reported after that append.
+
+Creation first makes the run directory and request artifact, then commits
+revision 1. Engine initialization prepares its first visit in a separate commit.
+Interruption can therefore leave a directory/request without a manifest or a
+created run without a visit. These operations are not one transaction, and the
+store does not automatically clean up partially initialized runs.
+
 Each run uses an exclusive `.lock` file containing the owner PID and acquisition
 time. Locks are never expired based on age alone. After verifying that its owner
 is no longer running, a stale lock must be removed manually.
 
 Artifact paths in manifests are normalized relative paths. Symbolic inputs are
-resolved once, when a visit starts, to literal paths and SHA-256 hashes. Request
-artifacts and completed visit outputs are immutable; hash drift is a corrupt
+resolved once, when a visit is prepared (or created active by `start_visit`), to
+literal paths and SHA-256 hashes. Activating a pending visit does not resolve
+them again. Request artifacts and completed visit outputs are immutable; hash drift is a corrupt
 state diagnostic rather than an instruction to rewrite either the file or its
 record.
 
@@ -187,8 +243,24 @@ shell strings. Full stdout and stderr remain in ignored run storage; manifests
 contain byte-limited summaries with values from secret-like environment
 variables redacted. The environment itself is never persisted.
 
+Validation checks the output artifact first, runs commands sequentially, and
+then checks the repository mutation policy. A required command failure stops
+the command sequence; an optional failure does not. Mutation enforcement still
+runs after command execution and its failure takes precedence over a required
+command failure. An expected validation failure records one attempt with the
+available artifact, command, and mutation evidence before returning its error;
+the visit remains retriable.
+
 Approval records bind the run, phase, visit, reason, output hash, pipeline hash,
 outcome, actor, decision, and timestamps. Artifact or pipeline drift marks the
 record stale and leaves the visit awaiting a fresh approval. Phase-visit and
 transition-edge limits are checked atomically before a successor visit is
 created; exceeding a limit blocks the run without resetting its counters.
+
+Approval grant and advancement are separate durable operations. After an
+interruption following grant, `approve` can resume advancement and revalidation;
+failed revalidation retains the approval record and its audit history. Pending
+or granted approval drift is recorded as stale before `approve` returns the
+stale-approval error. Ordinary commands reject pipeline or prepared resource
+drift; `status` instead reports warnings and remains readable when artifact
+hashes drift.

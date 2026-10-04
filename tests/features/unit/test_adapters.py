@@ -6,15 +6,18 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from specromancy import adapter_ownership, adapter_sources
 from specromancy.adapters import (
     MANIFEST_PATH,
     AdapterError,
     generate_adapters,
+    render_adapters,
 )
 from specromancy.cli import adapter_command_metadata, main
 from specromancy.config import load_pipeline
-from specromancy.registry import load_registry
+from specromancy.registry import PipelineRegistry, load_registry
 from specromancy.exit_codes import ExitCode
 from specromancy.hashing import sha256_bytes
 
@@ -123,6 +126,71 @@ class AdapterGenerationTests(unittest.TestCase):
         self.fixture.generate()
         self.assertEqual(self.fixture.snapshot(), first)
         self.fixture.generate(check=True)
+
+    def test_cli_captures_graphs_and_canonical_text_once_per_invocation(self) -> None:
+        original_load = PipelineRegistry.load_all
+        original_text = adapter_sources._normalized_text
+        for _ in range(2):
+            with (
+                patch.object(PipelineRegistry, "load_all", autospec=True, side_effect=original_load) as graphs,
+                patch.object(adapter_sources, "_normalized_text", wraps=original_text) as texts,
+            ):
+                output, errors = io.StringIO(), io.StringIO()
+                code = main(
+                    ["--root", str(self.fixture.root), "--json", "adapters", "generate"],
+                    stdout=output, stderr=errors,
+                )
+                self.assertEqual(code, ExitCode.SUCCESS, errors.getvalue())
+                self.assertEqual(graphs.call_count, 1)
+                self.assertEqual(
+                    [call.args[1] for call in texts.call_args_list],
+                    ["AGENTS.md", ".agents/skills/compose/SKILL.md", ".agents/skills/pipeline/SKILL.md"],
+                )
+
+    def test_check_creates_no_temporary_files_and_preserves_tree_metadata(self) -> None:
+        self.fixture.generate()
+
+        def snapshot():
+            return {
+                path.relative_to(self.fixture.root).as_posix():
+                    (path.read_bytes(), path.stat().st_mtime_ns)
+                for path in self.fixture.root.rglob("*") if path.is_file()
+            }
+
+        before = snapshot()
+        with patch.object(adapter_ownership.tempfile, "mkstemp", side_effect=AssertionError("write")):
+            self.fixture.generate(check=True)
+        self.assertEqual(snapshot(), before)
+
+    def test_stale_file_changed_after_preflight_is_not_deleted(self) -> None:
+        extra = self.fixture.write_skill("extra")
+        self.fixture.generate()
+        extra.unlink()
+        stale = self.fixture.root / ".claude/skills/extra/SKILL.md"
+        manifest = (self.fixture.root / MANIFEST_PATH).read_bytes()
+        (self.fixture.root / "AGENTS.md").write_text("New instructions\n")
+        original_write = adapter_ownership._atomic_write
+
+        def overlapping_write(root, relative, content):
+            stale.write_text("Concurrent edit\n")
+            original_write(root, relative, content)
+
+        with patch.object(adapter_ownership, "_atomic_write", side_effect=overlapping_write):
+            with self.assertRaises(AdapterError) as caught:
+                self.fixture.generate()
+        self.assertEqual(caught.exception.message, "stale generated adapter changed during generation")
+        self.assertEqual(stale.read_text(), "Concurrent edit\n")
+        self.assertEqual((self.fixture.root / MANIFEST_PATH).read_bytes(), manifest)
+
+    def test_public_render_facade_preserves_source_diagnostics(self) -> None:
+        registry = load_registry(self.fixture.root)
+        metadata = adapter_command_metadata(["compose"])
+        path = self.fixture.root / ".agents/skills/pipeline/SKILL.md"
+        path.unlink()
+        with self.assertRaises(AdapterError) as caught:
+            render_adapters(self.fixture.root, registry, metadata)
+        self.assertEqual(caught.exception.message, "canonical pipeline orchestrator skill is missing")
+        self.assertEqual(caught.exception.details, {"path": ".agents/skills/pipeline/SKILL.md"})
 
     def test_check_detects_changes_without_writing_generated_output(self) -> None:
         cases = ("modified", "missing", "unexpected", "canonical")

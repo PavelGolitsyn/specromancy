@@ -30,11 +30,13 @@ bin/specromancy validate RUN_ID PHASE
 
 - `init DESCRIPTION --pipeline ID` creates a run, immutable request artifact, and pending
   first visit. `--description-file PATH` reads the request from UTF-8 input.
-- `status RUN_ID` is read-only. It reports current persisted state, warnings,
-  and the next command.
+- `status RUN_ID` reports current persisted state, warnings, and the next command
+  without advancing the workflow. Loading may append a recovery event for an
+  interrupted manifest commit, as described in the persistence contract.
 - `resume RUN_ID` reconstructs the next boundary from disk. For a paused run it
   atomically releases the checkpoint and returns the pending successor action;
-  otherwise it is read-only and idempotent. It does not depend on the process
+  otherwise it returns the current boundary without a new transition. Loading
+  may recover the same permitted audit gap. It does not depend on the process
   or conversation that created the run.
 - `phase RUN_ID PHASE` starts or resumes only the recorded current phase and
   emits its action packet. Each configured phase also has a dynamic alias, such

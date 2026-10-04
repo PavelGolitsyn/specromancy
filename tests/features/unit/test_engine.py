@@ -286,6 +286,36 @@ class EngineTests(unittest.TestCase):
             )
         )
 
+    def test_successor_inputs_and_completion_commit_in_one_revision(self) -> None:
+        engine, store = self.fixture.engine, self.fixture.store
+        run_id = engine.initialize("Resolve successor inputs atomically")["action"]["run_id"]
+        engine.start_phase(run_id, "survey")
+        self.fixture.output(run_id, "evidence\n")
+        before = store.load(run_id)
+        events_before = store.read_events(run_id)
+
+        def fail(point: str) -> None:
+            if point == "before-manifest-replace":
+                raise RuntimeError("successor interrupted")
+
+        interrupted = Engine(self.fixture.pipeline, RunStore(self.fixture.root, fault_injector=fail))
+        with self.assertRaisesRegex(RuntimeError, "successor interrupted"):
+            interrupted.validate(run_id, "survey")
+        self.assertEqual(store.load(run_id), before)
+        self.assertEqual(store.read_events(run_id), events_before)
+
+        successor = engine.validate(run_id, "survey")["action"]
+        after = store.load(run_id)
+        self.assertEqual(after["revision"], before["revision"] + 1)
+        self.assertEqual([visit["status"] for visit in after["visits"]], ["completed", "pending"])
+        self.assertEqual(len(store.read_events(run_id)), len(events_before) + 1)
+        self.assertEqual(store.read_events(run_id)[-1]["type"], "visit-transitioned")
+        expected = {"reference": "latest:survey", **after["visits"][0]["output"]}
+        self.assertEqual(after["visits"][1]["inputs"][1], expected)
+        activated = engine.start_phase(run_id, "publish")["action"]
+        self.assertEqual(activated["inputs"], successor["inputs"])
+        self.assertEqual(engine.start_phase(run_id, "publish")["action"], activated)
+
     def test_approval_binds_hash_and_advances_once(self) -> None:
         initialized = self.fixture.engine.initialize("Need approval")
         run_id = initialized["action"]["run_id"]

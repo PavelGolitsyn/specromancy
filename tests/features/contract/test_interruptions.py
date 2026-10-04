@@ -69,6 +69,42 @@ class InterruptionFixture:
 
 
 class InterruptionContractTests(unittest.TestCase):
+    def test_initialization_commits_creation_before_preparing_a_visit(self) -> None:
+        for point, occurrence in (("after-event-append", 1), ("before-manifest-replace", 2)):
+            with self.subTest(point=point, occurrence=occurrence):
+                fixture = InterruptionFixture()
+                try:
+                    reached = 0
+
+                    def fail(candidate: str) -> None:
+                        nonlocal reached
+                        if candidate == point:
+                            reached += 1
+                            if reached == occurrence:
+                                raise RuntimeError("initialization interrupted")
+
+                    fixture.store._fault_injector = fail
+                    with self.assertRaisesRegex(RuntimeError, "initialization interrupted"):
+                        fixture.initialize()
+                    directory, = fixture.store.runs_root.iterdir()
+                    files = {
+                        path.relative_to(directory): path.read_bytes()
+                        for path in directory.rglob("*") if path.is_file()
+                    }
+                    restarted = RunStore(fixture.root)
+                    manifest = restarted.load(directory.name)
+                    self.assertEqual(manifest["revision"], 1)
+                    self.assertEqual(manifest["visits"], [])
+                    self.assertIsNone(manifest["current_visit"])
+                    events = restarted.read_events(directory.name)
+                    self.assertEqual([event["type"] for event in events], ["run-created"])
+                    self.assertEqual({
+                        path.relative_to(directory): path.read_bytes()
+                        for path in directory.rglob("*") if path.is_file()
+                    }, files)
+                finally:
+                    fixture.close()
+
     def test_new_process_resumes_from_disk_only(self) -> None:
         repo = CliRepository()
         try:

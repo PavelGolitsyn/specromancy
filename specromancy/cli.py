@@ -12,12 +12,13 @@ from typing import Any, TextIO
 
 from .contracts import RESERVED_COMMANDS
 from .actions import render_action_packet
-from .config import PipelineConfig, load_pipeline
+from .cli_commands import adapter_command_metadata, command_definitions
+from .config_models import PipelineConfig
 from .engine import Engine
 from .errors import SpecromancyError, UsageError
 from .exit_codes import EXIT_CODE_DESCRIPTIONS, ExitCode
-from .registry import PipelineRegistry, load_registry
-from .run_store import RunStore
+from .pipeline_selection import selected_pipeline as _selected_pipeline
+from .registry import load_registry
 from .status import render_status
 
 ACTIONABLE_CODES = frozenset(
@@ -139,82 +140,15 @@ def build_parser(dynamic_phases: Iterable[str] = ()) -> CommandParser:
     _add_common_options(parser)
     subparsers = parser.add_subparsers(dest="command", metavar="COMMAND")
 
-    _add_command(
-        subparsers,
-        "init",
-        "create a run for DESCRIPTION",
-        [
-            (("description",), {"metavar": "DESCRIPTION", "nargs": "?"}),
-            (
-                ("--description-file",),
-                {"metavar": "PATH", "help": "read DESCRIPTION from a UTF-8 file"},
-            ),
-        ],
-    )
-    _add_command(
-        subparsers,
-        "phase",
-        "emit the action packet for PHASE",
-        [
-            (("run_id",), {"metavar": "RUN_ID"}),
-            (("phase",), {"metavar": "PHASE"}),
-        ],
-    )
-    _add_command(
-        subparsers,
-        "validate",
-        "validate a run's current or named phase",
-        [
-            (("run_id",), {"metavar": "RUN_ID"}),
-            (("phase",), {"metavar": "PHASE", "nargs": "?"}),
-            (("--outcome",), {"metavar": "OUTCOME"}),
-        ],
-    )
-    _add_command(
-        subparsers,
-        "approve",
-        "approve a phase artifact",
-        [
-            (("run_id",), {"metavar": "RUN_ID"}),
-            (("phase",), {"metavar": "PHASE"}),
-        ],
-    )
-    _add_command(
-        subparsers,
-        "request-approval",
-        "request approval for the current visit",
-        [
-            (("run_id",), {"metavar": "RUN_ID"}),
-            (("--reason",), {"metavar": "CODE"}),
-            (("--details",), {"metavar": "TEXT"}),
-            (("--outcome",), {"metavar": "OUTCOME"}),
-        ],
-    )
-    _add_command(
-        subparsers,
-        "block",
-        "mark a run blocked",
-        [
-            (("run_id",), {"metavar": "RUN_ID"}),
-            (("--reason",), {"metavar": "CODE"}),
-            (("--details",), {"metavar": "TEXT"}),
-        ],
-    )
-    for name, help_text in (
-        ("status", "show run status"),
-        ("resume", "resume a run"),
-        ("run", "advance a run"),
-    ):
-        _add_command(
-            subparsers,
-            name,
-            help_text,
-            [(("run_id",), {"metavar": "RUN_ID"})],
+    for definition in command_definitions(dynamic_phases):
+        command = _add_command(
+            subparsers, definition.name, definition.description, definition.arguments
         )
+        if definition.name not in RESERVED_COMMANDS:
+            command.set_defaults(command="dynamic-phase", phase=definition.name)
+        elif definition.name == "adapters":
+            adapters = command
 
-    adapters = _add_command(
-        subparsers, "adapters", "manage generated harness adapters", []
-    )
     adapter_commands = adapters.add_subparsers(
         dest="adapter_command", metavar="COMMAND"
     )
@@ -228,17 +162,6 @@ def build_parser(dynamic_phases: Iterable[str] = ()) -> CommandParser:
         help="report adapter drift without writing files",
     )
     generate.set_defaults(command="adapters", adapter_command="generate")
-
-    for phase in dynamic_phases:
-        if phase in RESERVED_COMMANDS:
-            continue
-        alias = _add_command(
-            subparsers,
-            phase,
-            f"emit the action packet for the {phase} phase",
-            [(("run_id",), {"metavar": "RUN_ID"})],
-        )
-        alias.set_defaults(command="dynamic-phase", phase=phase)
 
     return parser
 
@@ -321,24 +244,6 @@ def _dispatch(
     raise UsageError(f"unsupported command: {arguments.command}")
 
 
-def adapter_command_metadata(dynamic_phases: Iterable[str] = ()) -> dict[str, Any]:
-    """Return stable command names and help text used as adapter input."""
-
-    parser = build_parser(dynamic_phases)
-    commands: list[dict[str, str]] = []
-    for action in parser._actions:
-        if not isinstance(action, argparse._SubParsersAction):
-            continue
-        for name, command_parser in sorted(action.choices.items()):
-            commands.append(
-                {
-                    "name": name,
-                    "help": command_parser.description or "",
-                }
-            )
-    return {"commands": commands}
-
-
 def _initial_arguments(raw_args: Sequence[str]) -> argparse.Namespace:
     """Parse stable commands and provisionally parse a run-specific alias."""
 
@@ -352,22 +257,6 @@ def _initial_arguments(raw_args: Sequence[str]) -> argparse.Namespace:
             return build_parser().parse_args(raw_args)
         return build_parser([command.command]).parse_args(raw_args)
     return build_parser().parse_args(raw_args)
-
-
-def _selected_pipeline(
-    arguments: argparse.Namespace, root: Path, registry: PipelineRegistry
-) -> PipelineConfig:
-    selector = getattr(arguments, "pipeline", None)
-    if arguments.command == "init":
-        if selector is None:
-            raise UsageError("init requires --pipeline ID; there is no default pipeline")
-        return registry.load(selector)
-
-    saved = RunStore(root).load(arguments.run_id, verify_artifacts=False)["pipeline"]
-    path = root / saved["path"]
-    if selector is not None and selector != saved["id"]:
-        raise UsageError("--pipeline must match the run's recorded pipeline ID")
-    return load_pipeline(path, root)
 
 
 def main(
@@ -419,12 +308,9 @@ def main(
                 raise UsageError("adapters generate processes all registered pipelines; omit --pipeline")
             from .adapters import generate_adapters
 
-            pipelines = registry.load_all()
-            phases = sorted({phase for pipeline in pipelines for phase in pipeline.phase_ids})
             payload = generate_adapters(
                 root,
                 registry,
-                adapter_command_metadata(phases),
                 check=arguments.check,
             )
         else:

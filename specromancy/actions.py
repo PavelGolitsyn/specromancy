@@ -7,7 +7,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .config import PipelineConfig
+from .config_models import PipelineConfig
+from .run_records import RunRecord, SealedArtifactRecord, VisitRecord
 
 
 ACTION_PACKET_SCHEMA_VERSION = 1
@@ -15,8 +16,8 @@ ACTION_PACKET_SCHEMA_VERSION = 1
 
 def build_action_packet(
     pipeline: PipelineConfig,
-    manifest: dict[str, Any],
-    visit: dict[str, Any],
+    manifest: RunRecord,
+    visit: VisitRecord,
 ) -> dict[str, Any]:
     """Return a fully resolved, versioned packet for one visit."""
 
@@ -116,5 +117,5 @@ def render_action_packet(packet: dict[str, Any]) -> str:
     )
 
 
-def _repository_record(root: Path, record: dict[str, Any]) -> dict[str, Any]:
+def _repository_record(root: Path, record: SealedArtifactRecord) -> dict[str, Any]:
     return {**record, "absolute_path": str(root / record["path"])}
