@@ -43,6 +43,8 @@ assert not unexpected, unexpected
             "run_persistence", "visit_transitions",
             "engine_errors", "provenance", "validation_service", "responses",
             "approvals",
+            "cli_commands", "adapter_contracts", "adapter_sources",
+            "adapter_rendering", "adapter_ownership",
         ):
             forbidden = ["config", "cli", "engine", "registry"]
             if module != "config_loader":
@@ -53,6 +55,10 @@ assert not unexpected, unexpected
                 forbidden.append("run_store")
             if module.startswith("run_") or module == "visit_transitions":
                 forbidden.extend(("run_store", "actions", "status", "artifacts"))
+            if module.startswith("adapter_") or module == "cli_commands":
+                forbidden.extend(("adapters", "run_store"))
+            if module in {"adapter_rendering", "adapter_ownership"}:
+                forbidden.append("adapter_sources")
             with self.subTest(module=module):
                 result = subprocess.run(
                     [sys.executable, "-c", script, str(ROOT / "specromancy"), module,

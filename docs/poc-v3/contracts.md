@@ -54,6 +54,15 @@ are never owned or removed by the generator. `--check` performs no writes and ex
 `ADAPTER_DRIFT` when the manifest or managed tree differs from the expected
 rendering.
 
+The Python `cli.adapter_command_metadata` facade shares explicit descriptions
+with parser construction and returns the same sorted command metadata without
+inspecting argparse internals. `adapters.render_adapters(root, registry, metadata)`
+retains its render-only contract. `adapters.generate_adapters` still accepts
+explicit metadata; when omitted, metadata is derived from that invocation's
+validated graphs. Generation reuses captured source text and bytes for rendering
+and source hashes, without a cross-invocation cache. Adapter constants and
+`AdapterError` remain available from `specromancy.adapters`.
+
 ## Pipeline registry and selection
 
 `workflow/pipelines.toml` is mandatory for workflow and adapter commands:
@@ -109,6 +118,11 @@ native mode for every supported harness. Native Codex and Hermes targets
 record shared launch-skill `discovery_paths`; native `.agents` outputs have a
 single ownership record under the Codex target. The manifest omits its own hash to
 avoid self-reference and contains no timestamps or absolute paths.
+
+Generation preflights ownership conflicts before writing, rechecks stale owned
+file hashes before removal, replaces each output atomically, and writes the
+manifest last. This is not a transaction across all generated files. Check mode
+compares expected bytes directly and creates no temporary output files.
 
 ## Run persistence
 

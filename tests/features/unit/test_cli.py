@@ -5,8 +5,13 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from specromancy.cli import RESERVED_COMMANDS, build_parser, discover_repository_root, main
+from specromancy.cli import (
+    RESERVED_COMMANDS, adapter_command_metadata, build_parser,
+    discover_repository_root, main,
+)
+from specromancy.cli_commands import COMMANDS
 from specromancy.exit_codes import ExitCode
 
 
@@ -42,6 +47,18 @@ class RootDiscoveryTests(unittest.TestCase):
 
 
 class ParserTests(unittest.TestCase):
+    def test_metadata_uses_definitions_without_constructing_a_parser(self) -> None:
+        self.assertEqual({command.name for command in COMMANDS}, RESERVED_COMMANDS)
+        with patch("specromancy.cli.CommandParser", side_effect=AssertionError("parser access")):
+            metadata = adapter_command_metadata(["survey", "status"])["commands"]
+        names = [item["name"] for item in metadata]
+        self.assertEqual(names, sorted(RESERVED_COMMANDS | {"survey"}))
+        self.assertEqual(
+            next(item["help"] for item in metadata if item["name"] == "status"),
+            "show run status",
+        )
+        self.assertNotIn("survey", {item["name"] for item in adapter_command_metadata()["commands"]})
+
     def test_builtins_are_reserved_before_dynamic_aliases(self) -> None:
         parser = build_parser(["status", "survey"])
         status = parser.parse_args(["status", "run-1"])

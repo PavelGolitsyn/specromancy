@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import json
 import unittest
+from unittest.mock import patch
 
-from specromancy.adapters import AdapterError, generate_adapters
+from specromancy.adapters import AdapterError, generate_adapters, render_adapters
+from specromancy.adapter_rendering import expected_manifest, render_sources
+from specromancy.adapter_sources import capture_sources
 from specromancy.cli import adapter_command_metadata
 from specromancy.registry import load_registry
 from tests.features.support import MultiPipelineFixture
@@ -48,6 +51,42 @@ class MultiPipelineAdapterTests(unittest.TestCase):
         self.fixture.register("beta", "alpha")
         self.generate()
         self.assertEqual(self.snapshot(), first)
+        self.generate(check=True)
+
+    def test_render_and_hash_share_captured_bytes_after_sources_change(self) -> None:
+        registry = load_registry(self.root)
+        sources = capture_sources(self.root, registry, None)
+        rendered = render_sources(sources)
+        manifest = expected_manifest(sources, rendered)
+        for relative in (
+            "AGENTS.md", ".agents/skills/compose/SKILL.md",
+            "workflow/templates/shared.md", "workflow/pipelines/beta.toml",
+        ):
+            path = self.root / relative
+            path.write_bytes(path.read_bytes() + b"\n# A later source edit\n")
+        self.assertEqual(render_sources(sources), rendered)
+        self.assertEqual(expected_manifest(sources, rendered), manifest)
+        fresh = capture_sources(self.root, registry, None)
+        self.assertNotEqual(expected_manifest(fresh, render_sources(fresh)), manifest)
+
+    def test_public_render_does_not_read_manifest_dependency_bytes(self) -> None:
+        registry = load_registry(self.root)
+        metadata = adapter_command_metadata(["compose", "inspect"])
+        expected = render_adapters(self.root, registry, metadata)
+        with patch("pathlib.Path.read_bytes", side_effect=AssertionError("manifest input read")):
+            self.assertEqual(render_adapters(self.root, registry, metadata), expected)
+
+    def test_renamed_registration_replaces_only_its_owned_launch_skills(self) -> None:
+        self.generate()
+        self.fixture.add_pipeline("renamed", "inspect")
+        self.fixture.register("alpha", "renamed")
+        result = self.generate()
+        self.assertEqual(set(result["adapters"]["removed"]), {
+            f"{directory}/specromancy-beta/SKILL.md"
+            for directory in (".agents/skills", ".claude/skills")
+        })
+        for directory in (".agents/skills", ".claude/skills"):
+            self.assertTrue((self.root / directory / "specromancy-renamed/SKILL.md").is_file())
         self.generate(check=True)
 
     def test_registration_add_and_remove_updates_only_owned_launch_skills(self) -> None:
