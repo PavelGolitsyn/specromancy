@@ -43,14 +43,14 @@ assert not unexpected, unexpected
             "run_records", "run_validation", "run_identity", "run_errors",
             "run_persistence", "visit_transitions", "visit_preparation",
             "engine_errors", "provenance", "validation_service", "responses",
-            "approvals",
+            "approvals", "command_decisions", "approval_service",
             "cli_commands", "adapter_contracts", "adapter_sources",
             "adapter_rendering", "adapter_ownership",
         ):
             forbidden = ["config", "cli", "engine", "registry"]
             if module != "config_loader":
                 forbidden.append("config_loader")
-            if module not in {"validation", "validation_service"}:
+            if module not in {"validation", "validation_service", "approval_service"}:
                 forbidden.append("validation")
             if module in {"config_fields", "config_phase_parser"}:
                 forbidden.extend(("run_store", "run_persistence", "graph", "config_serialization"))
@@ -58,6 +58,10 @@ assert not unexpected, unexpected
                 forbidden.extend(("config_phase_parser", "config_models", "schema_validation"))
             if module in {"engine_errors", "provenance", "validation_service", "responses", "approvals"}:
                 forbidden.append("run_store")
+            if module in {"approvals", "command_decisions"}:
+                forbidden.extend(("run_store", "run_persistence", "run_identity",
+                                  "approval_service", "validation_service",
+                                  "responses", "provenance", "commands"))
             if module.startswith("run_") or module == "visit_transitions":
                 forbidden.extend(("run_store", "actions", "status", "artifacts"))
             if module == "visit_preparation":

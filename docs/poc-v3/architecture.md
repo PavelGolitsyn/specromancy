@@ -44,7 +44,10 @@ cli -> cli_commands
     -> Engine -> responses -> actions / status
               -> provenance
               -> validation_service -> validation / commands / git
-              -> approvals
+              -> command_decisions
+              -> approval_service -> approvals / command_decisions
+                                  -> provenance / responses / RunStore
+                                  -> supplied validation / timestamp callbacks
               -> RunStore -> visit_transitions
                           -> visit_preparation -> artifacts / hashing
                           -> run_persistence -> locking / run_validation / hashing
@@ -63,12 +66,32 @@ schema-file loader. Persistence does not depend on command responses or harnesse
 `visit_transitions` and approval state functions consume supplied evidence and
 return copied state without filesystem, clock, subprocess, or locking operations.
 
-`Engine` owns command ordering and commits validation failures and approval
-changes through the store. `validation_service` returns artifact, command, and
-mutation evidence, including expected failures; it never commits state.
+`Engine` dispatches ordinary commands, strictly loads request state, and commits
+expected validation failures through the store. `approval_service` owns request,
+grant, invalidation, approved continuation, and idempotent approval responses.
+It receives a pipeline, store, evidence-collection callback, and timestamp callback;
+it never imports or receives an `Engine`. The validation callback retains
+`Engine._perform_validation`, including one failed-attempt commit before an
+expected rejection. Successful evidence is committed with the request or
+transition. Both callbacks resolve their engine seams at the original call sites,
+so later instance hooks and `engine.utc_now` patches remain effective. Store time
+is independent. Existing Engine approval methods remain compatibility delegates.
+
+`command_decisions` shares pure reason/outcome resolution and illegal-transition
+diagnostics without a dependency back into command orchestration.
+`validation_service` returns artifact, command, and mutation evidence, including
+expected failures; it never commits state.
 `provenance` reads prepared resources and returns observations, leaving rejection
 or warning presentation to the command. `responses` builds versioned envelopes
 through `actions` and `status` without loading a run or changing its state.
+
+Approval grants deliberately load persisted state before binding checks, allowing
+artifact/pipeline drift to become a durable invalidation before provenance
+rejection. The grant commits before revalidation and the separate transition;
+failed revalidation retains the grant, and unexpected interruptions do not add a
+failed-attempt event. An identical pending request still validates before its
+response. A request after a saved grant retains its existing two validation passes
+(request selection, then continuation); approve/run continuation performs one.
 
 `cli_commands` supplies explicit descriptions shared by parser construction and
 adapter metadata. `pipeline_selection` implements registered initialization and

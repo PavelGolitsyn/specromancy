@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 import os
 import sys
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from specromancy.config import load_pipeline
@@ -11,12 +13,122 @@ from specromancy.engine import Engine, EngineError
 from specromancy.exit_codes import ExitCode
 from specromancy.run_store import RunStore
 from tests.features.contract.compatibility_support import (
-    RUN_ID, CompatibilityFixture, read_record,
+    NOW, RUN_ID, CompatibilityFixture, read_record,
 )
 from tests.features.contract.test_safety import SafetyFixture, phase
 
 
 class EngineOrchestrationContractTests(unittest.TestCase):
+    def test_approval_command_order_and_interrupted_grant_retries(self) -> None:
+        command = json.dumps([
+            sys.executable, "-c",
+            "import json, os; from pathlib import Path; "
+            "m = json.loads(Path(os.environ['APPROVAL_MANIFEST']).read_text()); "
+            "p = Path(os.environ['APPROVAL_TRACE']); "
+            "entry = [m['status'], [a['status'] for a in m['approvals']]]; "
+            "p.write_text(p.read_text() + json.dumps(entry) + '\\n')",
+        ])
+        configured = phase("publish", extra=f"[[phases.commands]]\nargv = {command}\n")
+        configured = configured.replace(
+            "approval_conditions = []", 'approval_conditions = ["accept"]'
+        )
+        for continuation in ("approve", "run", "request"):
+            with self.subTest(continuation=continuation):
+                fixture = SafetyFixture(configured)
+                self.addCleanup(fixture.close)
+                temporary = tempfile.TemporaryDirectory()
+                self.addCleanup(temporary.cleanup)
+                trace = Path(temporary.name) / "commands.jsonl"
+                trace.write_text("")
+                run_id = fixture.start()
+                fixture.output(run_id)
+                before = fixture.store.load(run_id)
+                directory = fixture.store.run_directory(run_id)
+                with patch.dict(os.environ, {
+                    "APPROVAL_MANIFEST": str(directory / "run.json"),
+                    "APPROVAL_TRACE": str(trace),
+                }):
+                    fixture.engine.request_approval(run_id, reason="accept")
+                    pending = fixture.store.load(run_id)
+                    pending_events = fixture.store.read_events(run_id)
+                    self.assertEqual(pending["revision"], before["revision"] + 1)
+                    repeated = fixture.engine.request_approval(run_id, reason="accept")
+                    self.assertEqual(repeated["message"], "approval is already pending")
+                    with self.assertRaises(EngineError) as wrong_phase:
+                        fixture.engine.approve(run_id, "absent")
+                    self.assertEqual(wrong_phase.exception.diagnostic_code, "illegal-transition")
+                    self.assertEqual(fixture.store.load(run_id), pending)
+                    self.assertEqual(fixture.store.read_events(run_id), pending_events)
+
+                    def interrupt(point: str) -> None:
+                        if point == "after-command-stdout-write":
+                            raise RuntimeError("approval validation interrupted")
+
+                    interrupted = Engine(
+                        fixture.pipeline, fixture.store, command_fault_injector=interrupt
+                    )
+                    with self.assertRaisesRegex(RuntimeError, "approval validation interrupted"):
+                        interrupted.approve(run_id, "publish")
+                    granted = fixture.store.load(run_id)
+                    self.assertEqual(granted["revision"], pending["revision"] + 1)
+                    self.assertEqual(granted["approvals"][0]["status"], "approved")
+                    self.assertEqual(granted["visits"], pending["visits"])
+                    events = fixture.store.read_events(run_id)
+                    self.assertEqual(events[:-1], pending_events)
+                    self.assertEqual(events[-1]["type"], "approval-granted")
+
+                    if continuation == "approve":
+                        result = fixture.engine.approve(run_id, "publish")
+                    elif continuation == "run":
+                        result = fixture.engine.run(run_id)
+                    else:
+                        result = fixture.engine.request_approval(run_id, reason="accept")
+                    self.assertEqual(result["status"]["status"], "completed")
+                    completed = fixture.store.load(run_id)
+                    self.assertEqual(completed["revision"], granted["revision"] + 1)
+                    self.assertEqual(completed["approvals"], granted["approvals"])
+                    repeated = fixture.engine.approve(run_id, "publish")
+                    self.assertEqual(repeated["message"], "approval was already recorded")
+                    self.assertEqual(fixture.store.load(run_id), completed)
+                observed = [json.loads(line) for line in trace.read_text().splitlines()]
+                # Request-after-grant historically validates before selecting the
+                # grant and again on continuation. Other retries validate once.
+                self.assertEqual(observed, [
+                    ["active", []],
+                    ["awaiting-approval", ["pending"]],
+                    *([["awaiting-approval", ["approved"]]] * (
+                        3 if continuation == "request" else 2
+                    )),
+                ])
+
+    def test_validation_hook_replaced_after_grant_is_resolved_at_revalidation(self) -> None:
+        fixture = CompatibilityFixture(pause=True)
+        self.addCleanup(fixture.close)
+        fixture.restore(read_record("states.json")["awaiting-approval"])
+        before = fixture.store.load(RUN_ID)
+        original_mutate = fixture.store.mutate
+
+        def interrupted_validation(*args):
+            raise RuntimeError("new validation hook interrupted")
+
+        def grant_then_replace(*args, **kwargs):
+            result = original_mutate(*args, **kwargs)
+            if args[1] == "approval-granted":
+                fixture.engine._perform_validation = interrupted_validation
+            return result
+
+        decision_time = NOW.replace(hour=13)
+        with patch.object(fixture.store, "mutate", side_effect=grant_then_replace):
+            with patch("specromancy.engine.utc_now", return_value=decision_time):
+                with self.assertRaisesRegex(RuntimeError, "new validation hook interrupted"):
+                    fixture.engine.approve(RUN_ID, "compose")
+        granted = fixture.store.load(RUN_ID)
+        self.assertEqual(granted["revision"], before["revision"] + 1)
+        self.assertEqual(granted["visits"], before["visits"])
+        self.assertEqual(granted["approvals"][0]["status"], "approved")
+        self.assertEqual(granted["approvals"][0]["decided_at"], "2026-10-03T13:00:00.000000Z")
+        self.assertEqual(fixture.store.read_events(RUN_ID)[-1]["type"], "approval-granted")
+
     def test_approval_gate_precedence_with_multiple_failures(self) -> None:
         states = read_record("states.json")
         fixture = CompatibilityFixture(pause=True)
