@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import unittest
+from unittest.mock import patch
 
 import specromancy
 from specromancy import artifacts, config, git, hashing, run_store
@@ -9,7 +10,7 @@ from specromancy import config_errors, config_models, schema_validation, validat
 from specromancy import engine, engine_errors
 from specromancy.engine import Engine
 from tests.features.contract.compatibility_support import (
-    RUN_ID, CompatibilityFixture, capture_canonical, capture_diagnostics,
+    NOW, RUN_ID, CompatibilityFixture, capture_canonical, capture_diagnostics,
     capture_lifecycle, normalize_response, read_record,
 )
 from tests.features.unit.test_adapters import AdapterFixture
@@ -105,7 +106,24 @@ class CompatibilityContractTests(unittest.TestCase):
                     fixture.store.read_events(RUN_ID)
                     self.assertEqual(fixture.snapshot(), expected)
                     engine = Engine(fixture.pipeline, fixture.new_store())
-                    if name == "approved":
+                    if name in {"pending", "active", "recoverable", "recovered"}:
+                        self.assertEqual(
+                            normalize_response(engine.start_phase(RUN_ID, "compose"), fixture.root),
+                            responses["action-active"],
+                        )
+                        continued = states["active"] if name == "pending" else expected
+                        self.assertEqual(fixture.snapshot(), continued)
+                        engine.start_phase(RUN_ID, "compose")
+                        self.assertEqual(fixture.snapshot(), continued)
+                    elif name == "awaiting-approval":
+                        self.assertEqual(normalize_response(engine.run(RUN_ID), fixture.root),
+                                         responses["approval"])
+                        self.assertEqual(fixture.snapshot(), files)
+                        with patch("specromancy.engine.utc_now", return_value=NOW):
+                            result = engine.approve(RUN_ID, "compose")
+                        self.assertEqual(normalize_response(result, fixture.root), responses["paused"])
+                        self.assertEqual(fixture.snapshot(), states["paused"])
+                    elif name == "approved":
                         self.assertEqual(manifest["approvals"][0]["outcome"], "z-next")
                         self.assertEqual(manifest["approvals"][0]["status"], "approved")
                         self.assertEqual(normalize_response(engine.approve(RUN_ID, "compose"), fixture.root),
@@ -114,6 +132,13 @@ class CompatibilityContractTests(unittest.TestCase):
                     elif name == "paused":
                         self.assertEqual(normalize_response(engine.resume(RUN_ID), fixture.root),
                                          responses["resumed"])
+                        engine.start_phase(RUN_ID, "seal")
+                        fixture.store.write_visit_output(RUN_ID, 2, "Sealed.\n")
+                        self.assertEqual(
+                            normalize_response(engine.validate(RUN_ID, "seal"), fixture.root),
+                            responses["terminal"],
+                        )
+                        self.assertEqual(fixture.snapshot(), states["completed"])
                     elif name == "completed":
                         before = fixture.snapshot()
                         self.assertEqual(engine.run(RUN_ID)["status"]["status"], "completed")

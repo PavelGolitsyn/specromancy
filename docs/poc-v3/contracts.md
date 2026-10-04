@@ -184,8 +184,9 @@ time. Locks are never expired based on age alone. After verifying that its owner
 is no longer running, a stale lock must be removed manually.
 
 Artifact paths in manifests are normalized relative paths. Symbolic inputs are
-resolved once, when a visit starts, to literal paths and SHA-256 hashes. Request
-artifacts and completed visit outputs are immutable; hash drift is a corrupt
+resolved once, when a visit is prepared (or created active by `start_visit`), to
+literal paths and SHA-256 hashes. Activating a pending visit does not resolve
+them again. Request artifacts and completed visit outputs are immutable; hash drift is a corrupt
 state diagnostic rather than an instruction to rewrite either the file or its
 record.
 
