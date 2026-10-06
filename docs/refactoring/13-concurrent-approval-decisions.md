@@ -1,6 +1,6 @@
 # Stage 13 — Handle concurrent approval decisions under the run lock
 
-Status: planned. Prerequisite: Stage 12.
+Status: complete. Prerequisite: Stage 12.
 Category: explicit behavior correction, delivered separately from extraction.
 Risk: incorrect approval binding, duplicate events, or stale advancement.
 
@@ -145,3 +145,57 @@ do not expand this stage into a migration.
 
 Rollback reverts the narrow behavior change and retains its documented reproducer;
 it must not undo successful user approvals or rewrite run history.
+
+## Execution record — 2026-10-06
+
+Completed from clean starting revision
+`e043d79260118039afe55483090ca2b989448c6c`.
+
+- Reproduced the before-grant assertion with the original deterministic two-engine
+  test before implementation. Replaced it with the already-recorded response:
+  winner grant/transition end at revision/event 8/8 and the loser changes neither
+  file. A winner interrupted after grant ends at 7/7; the loser continues to 8/8
+  without another grant.
+- Added pure approval decisions with complete observed bindings, explicit no-ops,
+  and the specified `approval-state-changed` error. Creation ignores only the
+  request timestamp when matching duplicate pending requests. Grant and stale
+  decisions reject absent, ambiguous, replaced, or incorrectly associated records.
+- Added `RunStore.decide_approval`, resolving against state loaded under the run
+  lock and using the existing shared commit path. No nested lock or change to
+  general `mutate` behavior was introduced. Returned records are detached copies.
+- Routed request, grant, invalidation, and approved continuation through locked
+  decisions. Continuation uses current returned records and the saved outcome.
+  Completed grants return current terminal/paused/successor state without advancing
+  that successor. The old grant-hook test now observes the approval decision seam.
+- Added deterministic coverage for identical/conflicting requests, grant overlaps,
+  failed continuation and retry, stale duplicates/replacements/advancement, reused
+  phase IDs, identity fields, ambiguous records, conflicting completion bindings,
+  lock scope, detached results, and recovery for all three approval event types.
+  Paused, pending, active, and completed successor cases are separate from the
+  unchanged sequential compatibility replay and its checked-in byte captures.
+- Documented the diagnostic, revision/event semantics, binding rules, and recovery
+  behavior in the public contracts and architecture map.
+
+Verification used Python 3.14.4 through `python3`, because this shell has no
+`python` executable. The initial command using `python` could not run; its
+`python3` equivalent reproduced the original test successfully. An intermediate
+focused run exposed the old test hook still wrapping `mutate`; moving that hook
+to `decide_approval` retained the existing validation/timestamp assertions.
+
+| Command | Result |
+| --- | --- |
+| `python3 -m unittest tests.features.unit.test_visit_transition_store.OverlappingAttemptTests.test_overlap_before_approval_grant_exposes_existing_assertion` (before change) | 1 passed; reproduced the expected assertion |
+| Stage focused command below | 48 passed in 2.028s |
+| `python3 -m unittest discover` | 246 passed in 27.429s |
+| `bin/specromancy adapters generate --check` | Passed; generated adapters are up to date |
+| `git diff --check` | Passed |
+
+```sh
+python3 -m unittest tests.features.unit.test_visit_transition_store tests.features.unit.test_run_persistence tests.features.contract.test_engine_orchestration tests.features.contract.test_compatibility tests.features.contract.test_recovery tests.features.contract.test_cli
+```
+
+No schema, exit-code, dependency, workflow, adapter, or compatibility-fixture
+changes. No scope deviations. Python 3.11 was not rerun; minimum-version execution
+remains a Stage 15 gate. External file edits versus validation, duplicate command
+execution/log interleavings, broader engine interleavings, and partial
+initialization remain outside this stage. Stages 14–15 were not executed.

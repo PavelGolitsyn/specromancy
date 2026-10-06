@@ -14,8 +14,8 @@ from typing import Any
 from . import responses
 from .approvals import (
     approval_integrity_errors, approved_for_phase, approved_record,
-    build_approval_record, granted_state, invalidated_state, pending_approval,
-    requested_state,
+    build_approval_record, conflict, grant_decision, invalidate_decision,
+    pending_approval, request_decision, require_binding,
 )
 from .artifacts import ArtifactError, artifact_record
 from .command_decisions import declared_reason, illegal_transition, select_outcome
@@ -53,17 +53,11 @@ class ApprovalService:
     ) -> None:
         decided_at = self._timestamp()
 
-        def invalidate(value: RunRecord) -> None:
-            value.update(invalidated_state(
-                value, visit["ordinal"], approval, decided_at=decided_at
-            ))
-
-        self.store.mutate(
+        self.store.decide_approval(
             manifest["run_id"],
-            "approval-invalidated",
-            invalidate,
-            visit_number=visit["ordinal"],
-            payload={"mismatches": mismatches},
+            lambda value: invalidate_decision(
+                value, approval, decided_at=decided_at, mismatches=mismatches,
+            ),
         )
 
     def advance_approved(
@@ -72,6 +66,23 @@ class ApprovalService:
         visit: VisitRecord,
         approval: ApprovalRecord,
     ) -> dict[str, Any]:
+        require_binding(manifest, approval)
+        transition = next((
+            item for item in self.pipeline.phase(visit["phase_id"]).transitions
+            if item.outcome == approval["outcome"]
+        ), None)
+        decision = self.store.decide_approval(
+            manifest["run_id"], lambda value: grant_decision(
+                value, approval, transition_target=transition.target if transition else None,
+                decided_at=None,
+            ),
+        )
+        manifest, approval = decision.manifest, decision.approval
+        if decision.disposition == "completed":
+            return responses.response_for_state(
+                self.pipeline, manifest, "approval was already recorded"
+            )
+        visit = current_visit(manifest)
         try:
             current_hash = self.artifact_hash(manifest, visit)
         except EngineError:
@@ -91,11 +102,10 @@ class ApprovalService:
                 visit_number=visit["ordinal"],
                 mismatches=mismatches,
             )
+        if transition is None:
+            raise conflict(approval)
         phase = self.pipeline.phase(visit["phase_id"])
         evidence = self._perform_validation(manifest, visit, phase)
-        transition = next(
-            item for item in phase.transitions if item.outcome == approval["outcome"]
-        )
         updated = self.store.transition_visit(
             manifest["run_id"],
             self.pipeline,
@@ -133,22 +143,19 @@ class ApprovalService:
         check = evidence.checks[0]
         existing = pending_approval(manifest, visit["ordinal"])
         if existing is not None:
-            if (
+            require_binding(manifest, existing)
+            if not (
                 existing["reason"] == chosen_reason
                 and existing["details"] == details
                 and existing["artifact_sha256"] == check["sha256"]
                 and existing["outcome"] == selected_outcome
             ):
-                return responses.approval_response(
-                    self.pipeline,
-                    manifest, existing, "approval is already pending"
-                )
-            raise illegal_transition("a different approval is already pending", manifest)
+                raise illegal_transition("a different approval is already pending", manifest)
         approved = approved_record(manifest, visit["ordinal"])
         if approved is not None:
             return self.advance_approved(manifest, visit, approved)
 
-        requested_at = self._timestamp()
+        requested_at = existing["requested_at"] if existing else self._timestamp()
         approval = build_approval_record(
             run_id=run_id,
             phase_id=phase.id,
@@ -161,24 +168,17 @@ class ApprovalService:
             requested_at=requested_at,
         )
 
-        def change(value: RunRecord) -> None:
-            value.update(requested_state(
-                value,
-                approval,
-                validation_checks=evidence.checks,
+        decision = self.store.decide_approval(
+            run_id, lambda value: request_decision(
+                value, approval, validation_checks=evidence.checks,
                 mutation_result=evidence.mutation_result,
                 command_results=evidence.command_results,
-            ))
-
-        manifest = self.store.mutate(
-            run_id,
-            "approval-requested",
-            change,
-            visit_number=visit["ordinal"],
-            payload={"reason": chosen_reason, "outcome": selected_outcome},
+            ),
         )
         return responses.approval_response(
-            self.pipeline, manifest, approval, "approval is required"
+            self.pipeline, decision.manifest, decision.approval,
+            "approval is required" if decision.disposition == "requested"
+            else "approval is already pending",
         )
 
     def approve(self, run_id: str, phase_id: str) -> dict[str, Any]:
@@ -197,6 +197,7 @@ class ApprovalService:
             if approved is not None:
                 return self.advance_approved(manifest, visit, approved)
             raise illegal_transition("visit has no pending approval request", manifest)
+        require_binding(manifest, approval)
         try:
             current_hash = self.artifact_hash(manifest, visit)
         except EngineError:
@@ -227,17 +228,24 @@ class ApprovalService:
             )
         decided_at = self._timestamp()
 
-        def decide(value: RunRecord) -> None:
-            value.update(granted_state(value, visit["ordinal"], decided_at=decided_at))
-
-        manifest = self.store.mutate(
-            run_id,
-            "approval-granted",
-            decide,
-            visit_number=visit["ordinal"],
-            payload={"phase_id": phase_id, "actor": "user"},
+        transition = next((
+            item for item in self.pipeline.phase(phase_id).transitions
+            if item.outcome == approval["outcome"]
+        ), None)
+        if transition is None:
+            raise conflict(approval)
+        decision = self.store.decide_approval(
+            run_id, lambda value: grant_decision(
+                value, approval, decided_at=decided_at, transition_target=transition.target,
+            ),
         )
-        return self.advance_approved(manifest, visit, approval)
+        if decision.disposition == "completed":
+            return responses.response_for_state(
+                self.pipeline, decision.manifest, "approval was already recorded"
+            )
+        return self.advance_approved(
+            decision.manifest, current_visit(decision.manifest), decision.approval,
+        )
 
     def artifact_hash(
         self, manifest: RunRecord, visit: VisitRecord

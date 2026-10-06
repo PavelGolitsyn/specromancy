@@ -1,6 +1,7 @@
 """Persistence and interleaving characterizations for the visit boundary."""
 from __future__ import annotations
 
+import copy
 import json
 import unittest
 from datetime import datetime, timezone
@@ -9,7 +10,9 @@ from unittest.mock import patch
 
 from specromancy.artifacts import ArtifactError
 from specromancy.config import load_pipeline
-from specromancy.engine import Engine
+from specromancy.engine import Engine, EngineError
+from specromancy.exit_codes import ExitCode
+from specromancy import approvals
 from specromancy.hashing import sha256_file, sha256_json
 from specromancy.locking import LockHeldError
 from specromancy.run_store import RunCorruptionError, RunStore, RunStoreError
@@ -315,21 +318,285 @@ class OverlappingAttemptTests(unittest.TestCase):
         events = self.store.read_events(self.run_id)
         self.assertEqual(sum(event["type"] == "approval-granted" for event in events), 1)
 
-    def test_overlap_before_approval_grant_exposes_existing_assertion(self):
-        # Characterization of a pre-existing engine race, not a supported error
-        # contract. A separate behavior change should replace this assertion.
+    def test_overlap_before_approval_grant_returns_winning_completion(self):
         self.prepare_approval()
-        original = self.store.mutate
+        original = self.store.decide_approval
         committed = []
 
         def overlap(*args, **kwargs):
-            if args[1] == "approval-granted":
-                self.other.approve(self.run_id, "publish")
-                committed.append(self.snapshot())
+            self.other.approve(self.run_id, "publish")
+            committed.append(self.snapshot())
             return original(*args, **kwargs)
 
-        with patch.object(self.store, "mutate", side_effect=overlap):
-            with self.assertRaises(AssertionError):
-                self.engine.approve(self.run_id, "publish")
+        with patch.object(self.store, "decide_approval", side_effect=overlap):
+            result = self.engine.approve(self.run_id, "publish")
+        self.assertEqual(result["message"], "approval was already recorded")
         self.assertEqual(self.snapshot(), committed[0])
         self.assertEqual(self.store.load(self.run_id)["status"], "completed")
+
+        self.assertEqual(self.store.load(self.run_id)["revision"], 8)
+        self.assertEqual(len(self.store.read_events(self.run_id)), 8)
+
+    def assert_conflict(self, operation, phase="publish", ordinal=2):
+        with self.assertRaises(EngineError) as raised:
+            operation()
+        self.assertEqual(raised.exception.code, ExitCode.ILLEGAL_TRANSITION)
+        self.assertEqual(raised.exception.message,
+                         "approval state changed before the command could be applied")
+        self.assertEqual(raised.exception.details, {
+            "error_code": "approval-state-changed", "run_id": self.run_id,
+            "phase": phase, "visit_number": ordinal,
+        })
+
+    def test_overlapping_request_creators_reuse_only_identical_binding(self):
+        self.engine.validate(self.run_id, "survey")
+        self.engine.start_phase(self.run_id, "publish")
+        self.fixture.output(self.run_id)
+        original = self.store.decide_approval
+        for conflicting in (True, False):
+            with self.subTest(conflicting=conflicting):
+                winner = []
+
+                def overlap(*args, **kwargs):
+                    result = self.other.request_approval(
+                        self.run_id, reason="external-effect", details="winner",
+                    )
+                    winner.append((self.snapshot(), result))
+                    return original(*args, **kwargs)
+
+                # Both attempts observe the same pre-request state. The second
+                # subcase also checks an identical sequential pending retry.
+                with patch.object(self.store, "decide_approval", side_effect=overlap):
+                    if conflicting:
+                        self.assert_conflict(lambda: self.engine.request_approval(
+                            self.run_id, reason="external-effect", details="loser",
+                        ))
+                    else:
+                        result = self.engine.request_approval(
+                            self.run_id, reason="external-effect", details="winner",
+                        )
+                        self.assertEqual(result["message"], "approval is already pending")
+                        self.assertEqual(result["approval"], winner[0][1]["approval"])
+                self.assertEqual(self.snapshot(), winner[0][0])
+        self.assertEqual(self.store.load(self.run_id)["revision"], 6)
+        self.assertEqual(len(self.store.read_events(self.run_id)), 6)
+
+    def test_two_fresh_identical_requests_keep_winning_timestamp_and_evidence(self):
+        self.engine.validate(self.run_id, "survey")
+        self.engine.start_phase(self.run_id, "publish")
+        self.fixture.output(self.run_id)
+        original = self.store.decide_approval
+        winner = []
+
+        def overlap(run_id, decide):
+            self.other.request_approval(run_id, reason="external-effect")
+            winner.append(self.snapshot())
+            return original(run_id, decide)
+
+        with patch.object(self.store, "decide_approval", side_effect=overlap):
+            result = self.engine.request_approval(self.run_id, reason="external-effect")
+        self.assertEqual(result["message"], "approval is already pending")
+        self.assertEqual(self.snapshot(), winner[0])
+        self.assertEqual(len(self.store.read_events(self.run_id)), 6)
+
+    def test_overlapping_grant_resumes_after_winner_stops_at_grant(self):
+        self.prepare_approval()
+        original = self.store.decide_approval
+        winners = []
+
+        def overlap(*args, **kwargs):
+            if not winners:
+                with patch.object(self.other, "_perform_validation",
+                                  side_effect=RuntimeError("interrupted")):
+                    with self.assertRaisesRegex(RuntimeError, "interrupted"):
+                        self.other.approve(self.run_id, "publish")
+                winners.append(self.store.load(self.run_id))
+            return original(*args, **kwargs)
+
+        with patch.object(self.store, "decide_approval", side_effect=overlap):
+            result = self.engine.approve(self.run_id, "publish")
+        self.assertEqual(winners[0]["revision"], 7)
+        self.assertEqual(result["status"]["status"], "completed")
+        after = self.store.load(self.run_id)
+        self.assertEqual(after["revision"], 8)
+        self.assertEqual(after["approvals"], winners[0]["approvals"])
+        self.assertEqual([e["type"] for e in self.store.read_events(self.run_id)][-2:],
+                         ["approval-granted", "visit-transitioned"])
+
+    def test_request_evidence_never_attaches_to_successor_with_same_phase(self):
+        # Pure decision uses the ordinal, even when the phase ID is reused.
+        self.prepare_approval()
+        before = self.store.load(self.run_id)
+        observed = before["approvals"][0]
+        successor = copy.deepcopy(before["visits"][-1])
+        successor.update(ordinal=3, attempt=2, status="active")
+        before["visits"].append(successor)
+        before.update(current_visit=3, status="active")
+        snapshot = copy.deepcopy(before)
+        self.assert_conflict(lambda: approvals.request_decision(
+            before, observed, validation_checks=[{"new": True}],
+            command_results=[], mutation_result=None,
+        ))
+        self.assertEqual(before, snapshot)
+
+    def test_stale_overlap_duplicate_replacement_and_advancement(self):
+        self.prepare_approval()
+        original = self.store.decide_approval
+        manifest = self.store.load(self.run_id)
+        output = self.store.run_directory(self.run_id) / manifest["visits"][-1]["output"]["path"]
+        output.write_text("changed evidence")
+        winner = []
+
+        def overlap(*args, **kwargs):
+            with self.assertRaises(EngineError) as raised:
+                self.other.approve(self.run_id, "publish")
+            self.assertEqual(raised.exception.diagnostic_code, "stale-approval")
+            winner.append(self.snapshot())
+            return original(*args, **kwargs)
+
+        with patch.object(self.store, "decide_approval", side_effect=overlap):
+            with self.assertRaises(EngineError) as raised:
+                self.engine.approve(self.run_id, "publish")
+        self.assertEqual(raised.exception.diagnostic_code, "stale-approval")
+        self.assertEqual(raised.exception.details["mismatches"], ["artifact"])
+        self.assertEqual(self.snapshot(), winner[0])
+        self.assertEqual(self.store.load(self.run_id)["revision"], 7)
+        observed = manifest["approvals"][0]
+        self.other.request_approval(self.run_id, reason="external-effect", details="replacement")
+        for advanced in (False, True):
+            if advanced:
+                self.other.approve(self.run_id, "publish")
+            snapshot = self.snapshot()
+            self.assert_conflict(lambda: original(self.run_id, lambda value:
+                approvals.invalidate_decision(value, observed,
+                    decided_at=observed["requested_at"], mismatches=["artifact"])))
+            self.assertEqual(self.snapshot(), snapshot)
+
+    def test_stale_observation_cannot_reopen_completed_exact_request(self):
+        self.prepare_approval()
+        manifest = self.store.load(self.run_id)
+        observed = manifest["approvals"][0]
+        self.other.approve(self.run_id, "publish")
+        before = self.snapshot()
+        self.assert_conflict(lambda: self.store.decide_approval(
+            self.run_id, lambda value: approvals.invalidate_decision(
+                value, observed, decided_at=observed["requested_at"], mismatches=["artifact"],
+            ),
+        ))
+        self.assertEqual(self.snapshot(), before)
+
+    def test_each_identity_field_and_ambiguous_record_conflicts_without_mutation(self):
+        self.prepare_approval()
+        manifest = self.store.load(self.run_id)
+        observed = manifest["approvals"][0]
+        for field in approvals.IDENTITY_FIELDS:
+            for kind in ("missing", "different"):
+                with self.subTest(field=field, kind=kind):
+                    changed = copy.deepcopy(manifest)
+                    record = changed["approvals"][0]
+                    if kind == "missing":
+                        del record[field]
+                    else:
+                        record[field] = "different"
+                    snapshot = copy.deepcopy(changed)
+                    for decide in (
+                        lambda: approvals.grant_decision(changed, observed,
+                            transition_target=None, decided_at=observed["requested_at"]),
+                        lambda: approvals.invalidate_decision(changed, observed,
+                            decided_at=observed["requested_at"], mismatches=["artifact"]),
+                    ):
+                        self.assert_conflict(decide)
+                    self.assertEqual(changed, snapshot)
+        for kind in ("duplicate", "absent", "phase", "run", "visit"):
+            with self.subTest(kind=kind):
+                changed = copy.deepcopy(manifest)
+                if kind == "duplicate":
+                    changed["approvals"].append(copy.deepcopy(observed))
+                elif kind == "absent":
+                    changed["approvals"].clear()
+                elif kind == "phase":
+                    changed["visits"][-1]["phase_id"] = "survey"
+                elif kind == "run":
+                    changed["run_id"] = "different"
+                else:
+                    changed["visits"].pop()
+                self.assert_conflict(lambda: approvals.grant_decision(
+                    changed, observed, transition_target=None, decided_at=observed["requested_at"],
+                ))
+
+    def test_completed_grant_rejects_conflicting_saved_outcome_or_target(self):
+        self.prepare_approval()
+        observed = self.store.load(self.run_id)["approvals"][0]
+        self.other.approve(self.run_id, "publish")
+        manifest = self.store.load(self.run_id)
+        for key in ("chosen_outcome", "transition_target"):
+            changed = copy.deepcopy(manifest)
+            changed["visits"][-1][key] = "different"
+            self.assert_conflict(lambda: approvals.grant_decision(
+                changed, observed, transition_target=None, decided_at=observed["requested_at"],
+            ))
+
+    def test_decision_holds_lock_and_returns_detached_noop(self):
+        self.prepare_approval()
+        manifest = self.store.load(self.run_id)
+        observed = manifest["approvals"][0]
+        snapshot = self.snapshot()
+
+        def decide(value):
+            with self.assertRaises(LockHeldError):
+                self.other.store.load(self.run_id)
+            return approvals.request_decision(value, observed,
+                validation_checks=[], command_results=[], mutation_result=None)
+
+        result = self.store.decide_approval(self.run_id, decide)
+        result.manifest["approvals"].clear()
+        result.approval["details"] = "mutated"
+        self.assertEqual(self.snapshot(), snapshot)
+        self.assertEqual(self.store.load(self.run_id), manifest)
+
+    def test_all_approval_commits_recover_once_without_replayed_event(self):
+        self.engine.validate(self.run_id, "survey")
+        self.engine.start_phase(self.run_id, "publish")
+        self.fixture.output(self.run_id)
+        manifest = self.store.load(self.run_id)
+        observed = approvals.build_approval_record(
+            run_id=self.run_id, phase_id="publish", visit_number=2,
+            reason="external-effect", details=None, outcome="done",
+            artifact_sha256=self.engine._artifact_hash(manifest, manifest["visits"][-1]),
+            pipeline_sha256=self.fixture.pipeline.config_hash,
+            requested_at=manifest["updated_at"],
+        )
+        operations = [
+            lambda value: approvals.request_decision(value, observed,
+                validation_checks=[], command_results=[], mutation_result=None),
+            lambda value: approvals.grant_decision(value, observed,
+                transition_target=None, decided_at=observed["requested_at"]),
+            lambda value: approvals.invalidate_decision(value, observed,
+                decided_at=observed["requested_at"], mismatches=["artifact", "pipeline"]),
+        ]
+
+        def fail(point):
+            if point == "after-manifest-replace":
+                raise RuntimeError("commit interrupted")
+
+        for operation, status in zip(operations, ("pending", "approved", "stale")):
+            with self.subTest(status=status):
+                before = self.store.load(self.run_id)
+                prior_events = self.store.read_events(self.run_id)
+                with patch.object(self.store, "_fault_injector", fail):
+                    with self.assertRaisesRegex(RuntimeError, "commit interrupted"):
+                        self.store.decide_approval(self.run_id, operation)
+                raw_manifest, raw_events = self.snapshot()
+                self.assertEqual(json.loads(raw_manifest)["revision"], before["revision"] + 1)
+                self.assertEqual(len(raw_events.splitlines()), len(prior_events))
+                recovered = self.other.store.load(self.run_id)
+                self.assertEqual(recovered["approvals"][0]["status"], status)
+                events = self.other.store.read_events(self.run_id)
+                self.assertEqual(events[:-1], prior_events)
+                self.assertEqual(events[-1]["type"], "recovery")
+                self.assertEqual(events[-1]["manifest_hash"], sha256_json(recovered))
+                snapshot = self.snapshot()
+                result = self.other.store.decide_approval(self.run_id, operation)
+                self.assertIsNone(result.event_type)
+                self.other.store.load(self.run_id)
+                self.assertEqual(self.snapshot(), snapshot)

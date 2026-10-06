@@ -174,6 +174,40 @@ class CompatibilityContractTests(unittest.TestCase):
                 finally:
                     fixture.close()
 
+    def test_overtaken_approval_returns_paused_or_successor_without_advancing_it(self):
+        # Intentional Stage 13 correction, separate from sequential byte replay.
+        for boundary in ("paused", "pending", "active", "completed"):
+            with self.subTest(boundary=boundary):
+                fixture = CompatibilityFixture(pause=True)
+                self.addCleanup(fixture.close)
+                fixture.restore(read_record("states.json")["awaiting-approval"])
+                winner = Engine(fixture.pipeline, fixture.new_store())
+                original = fixture.store.decide_approval
+                snapshots = []
+
+                def overlap(*args, **kwargs):
+                    with patch("specromancy.engine.utc_now", return_value=NOW):
+                        winner.approve(RUN_ID, "compose")
+                    if boundary != "paused":
+                        winner.resume(RUN_ID)
+                    if boundary in ("active", "completed"):
+                        winner.start_phase(RUN_ID, "seal")
+                    if boundary == "completed":
+                        fixture.store.write_visit_output(RUN_ID, 2, "Sealed.\n")
+                        winner.validate(RUN_ID, "seal")
+                    snapshots.append(fixture.snapshot())
+                    return original(*args, **kwargs)
+
+                with patch.object(fixture.store, "decide_approval", side_effect=overlap):
+                    result = fixture.engine.approve(RUN_ID, "compose")
+                self.assertEqual(result["message"], "approval was already recorded")
+                self.assertEqual(fixture.snapshot(), snapshots[0])
+                manifest = fixture.store.load(RUN_ID)
+                self.assertEqual(manifest["visits"][0]["chosen_outcome"], "z-next")
+                self.assertEqual(manifest["visits"][0]["transition_target"], "seal")
+                self.assertEqual(manifest["visits"][1]["status"], boundary
+                                 if boundary != "paused" else "pending")
+
     def test_exact_error_envelopes_locations_and_cli_streams(self) -> None:
         self.assertEqual(capture_diagnostics(), read_record("diagnostics.json"))
 

@@ -27,7 +27,7 @@ from .hashing import (
 )
 from .locking import RunLock
 from .run_persistence import RunPersistence
-from . import run_validation, visit_preparation, visit_transitions
+from . import approvals, run_validation, visit_preparation, visit_transitions
 from .run_errors import RunCorruptionError, RunNotFoundError, RunStoreError
 from .run_identity import (
     RUN_ID_PATTERN, format_timestamp, generate_run_id, is_valid_run_id,
@@ -425,9 +425,23 @@ class RunStore:
                 directory, manifest, events, visit_transitions.resume_paused(manifest)
             )
 
+    def decide_approval(
+        self, run_id: str,
+        decide: Callable[[RunRecord], approvals.ApprovalDecision],
+    ) -> approvals.ApprovalDecision:
+        """Resolve a bound approval against current state under one run lock."""
+
+        directory = self.run_directory(run_id)
+        with self._persistence.locked(directory, run_id) as (manifest, events):
+            decision = decide(copy.deepcopy(manifest))
+            decision.manifest = self._apply_decision_locked(
+                directory, manifest, events, decision,
+            )
+            return copy.deepcopy(decision)
+
     def _apply_decision_locked(
         self, directory: Path, previous: RunRecord, events: list[EventRecord],
-        decision: visit_transitions.Decision,
+        decision: visit_transitions.Decision | approvals.ApprovalDecision,
     ) -> RunRecord:
         """Stamp and commit a proposal under the caller's existing run lock."""
 

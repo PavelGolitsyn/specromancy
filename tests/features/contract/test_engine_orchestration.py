@@ -106,19 +106,19 @@ class EngineOrchestrationContractTests(unittest.TestCase):
         self.addCleanup(fixture.close)
         fixture.restore(read_record("states.json")["awaiting-approval"])
         before = fixture.store.load(RUN_ID)
-        original_mutate = fixture.store.mutate
+        original_decide = fixture.store.decide_approval
 
         def interrupted_validation(*args):
             raise RuntimeError("new validation hook interrupted")
 
         def grant_then_replace(*args, **kwargs):
-            result = original_mutate(*args, **kwargs)
-            if args[1] == "approval-granted":
+            result = original_decide(*args, **kwargs)
+            if result.event_type == "approval-granted":
                 fixture.engine._perform_validation = interrupted_validation
             return result
 
         decision_time = NOW.replace(hour=13)
-        with patch.object(fixture.store, "mutate", side_effect=grant_then_replace):
+        with patch.object(fixture.store, "decide_approval", side_effect=grant_then_replace):
             with patch("specromancy.engine.utc_now", return_value=decision_time):
                 with self.assertRaisesRegex(RuntimeError, "new validation hook interrupted"):
                     fixture.engine.approve(RUN_ID, "compose")
@@ -276,6 +276,48 @@ class EngineOrchestrationContractTests(unittest.TestCase):
             completed = Engine(fixture.pipeline, RunStore(fixture.root)).run(run_id)
             self.assertEqual(completed["status"]["status"], "completed")
             self.assertEqual(fixture.store.load(run_id)["approvals"], granted)
+
+    def test_overtaken_grant_failure_retains_winner_and_retries_saved_outcome(self):
+        fixture = CompatibilityFixture(pause=True)
+        self.addCleanup(fixture.close)
+        fixture.restore(read_record("states.json")["awaiting-approval"])
+        winner = Engine(fixture.pipeline, fixture.new_store())
+        original = fixture.store.decide_approval
+        granted = []
+
+        def overlap(*args, **kwargs):
+            if not granted:
+                with patch.object(winner, "_perform_validation", side_effect=RuntimeError("stop")):
+                    with self.assertRaisesRegex(RuntimeError, "stop"):
+                        winner.approve(RUN_ID, "compose")
+                granted.append(fixture.store.load(RUN_ID))
+            return original(*args, **kwargs)
+
+        def fail_validation(manifest, visit, phase):
+            fixture.store.record_validation_attempt(RUN_ID, visit["ordinal"],
+                validation_checks=[{"status": "passed"}],
+                command_results=[{"exit_code": 1}],
+                diagnostic={"error_code": "validation-command-failed"})
+            raise EngineError(ExitCode.VALIDATION_FAILED, "required command failed",
+                              "validation-command-failed")
+
+        before = fixture.store.load(RUN_ID)
+        with patch.object(fixture.store, "decide_approval", side_effect=overlap):
+            with patch.object(fixture.engine, "_perform_validation", side_effect=fail_validation):
+                for attempt in (1, 2):
+                    with self.assertRaises(EngineError) as raised:
+                        fixture.engine.approve(RUN_ID, "compose")
+                    self.assertEqual(raised.exception.diagnostic_code, "validation-command-failed")
+                    after = fixture.store.load(RUN_ID)
+                    self.assertEqual(after["revision"], before["revision"] + 1 + attempt)
+                    self.assertEqual(after["approvals"], granted[0]["approvals"])
+        result = fixture.engine.approve(RUN_ID, "compose")
+        self.assertEqual(result["status"]["status"], "paused")
+        events = fixture.store.read_events(RUN_ID)
+        self.assertEqual([e["type"] for e in events][-4:], [
+            "approval-granted", "validation-failed", "validation-failed", "visit-transitioned",
+        ])
+        self.assertEqual(fixture.store.load(RUN_ID)["visits"][0]["chosen_outcome"], "z-next")
 
     def test_provenance_observations_warn_on_status_and_reject_commands(self) -> None:
         states = read_record("states.json")

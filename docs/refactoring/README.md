@@ -4,14 +4,15 @@
 
 Prepared on 2026-10-04 against `c29094e58fd0369c5f0c585091a07cf4899f46b6`.
 The first refactoring pass below is complete. The new plan continues its numbering
-so completed work and historical verification remain intact. **Stages 09–12 are
-complete; stages 13–15 remain planned.** Stage 09 execution added characterization
+so completed work and historical verification remain intact. **Stages 09–13 are
+complete; stages 14–15 remain planned.** Stage 09 execution added characterization
 tests and recorded design decisions without runtime changes. Stage 10 separated
 field and phase parsing from pipeline assembly with compatibility checks passing.
 Stage 11 extracted visit resource observations while preserving lock scope,
 resource ordering, and stored/event bytes. Stage 12 isolated approval orchestration
 while preserving gate order, durable grant/transition boundaries, injected seams,
-and the known overlap assertion reserved for Stage 13.
+and the then-known overlap assertion. Stage 13 now resolves concurrent approval
+decisions under the run lock with explicit idempotency and conflict outcomes.
 
 The follow-on objective is to simplify remaining configuration and command
 boundaries, then address two narrowly scoped correctness issues in separate
@@ -25,7 +26,7 @@ extractions or introduce a service framework around them.
 | [10 — Configuration parsing](10-configuration-parsing.md) | Complete: field and phase parsing behind existing imports | 09 | Refactoring / medium |
 | [11 — Visit preparation](11-visit-preparation.md) | Complete: explicit resource observations for visit construction | 09–10 | Refactoring / medium |
 | [12 — Approval orchestration](12-approval-orchestration.md) | Complete: approval command coordinator with preserved ordering and seams | 09–11 | Refactoring / high |
-| [13 — Concurrent approval decisions](13-concurrent-approval-decisions.md) | Controlled retry/conflict outcomes under the run lock | 12 | Explicit behavior correction / high |
+| [13 — Concurrent approval decisions](13-concurrent-approval-decisions.md) | Complete: controlled retry/conflict outcomes under the run lock | 12 | Explicit behavior correction / high |
 | [14 — Persisted-data diagnostics](14-persisted-data-diagnostics.md) | Controlled errors for malformed status values; nested-validation decision record | 09, 13 | Narrow behavior correction and design / medium |
 | [15 — Integration and handoff](15-follow-on-integration.md) | Compatibility, documentation, and unresolved-work evidence | 09–14 | Verification / medium |
 

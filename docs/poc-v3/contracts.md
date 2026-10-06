@@ -264,3 +264,51 @@ or granted approval drift is recorded as stale before `approve` returns the
 stale-approval error. Ordinary commands reject pipeline or prepared resource
 drift; `status` instead reports warnings and remains readable when artifact
 hashes drift.
+
+Approval requests, grants, and invalidations decide against current persisted
+state while holding the run lock. The observed request identity is `run_id`,
+`visit_number`, `phase_id`, `reason`, `details`, `requested_at`, `outcome`,
+`pipeline_sha256`, and `artifact_sha256`; the containing run and referenced visit
+must also agree. Decision fields (`status`, `decision`, `actor`, `decided_at`) are
+mutable and excluded from identity. No persisted request ID is required.
+
+Overlapping request creators compare that identity except `requested_at`. An
+identical pending request returns the winner's record and evidence with
+`approval is already pending` (7), without changing its timestamp or adding a
+revision/event. A new request adds one `approval-requested` revision/event.
+Conflicting bindings or an overtaken visit cannot attach evidence to a successor,
+even if it reuses the same phase ID.
+
+An exact pending request on the current awaiting-approval visit is granted once.
+An already granted request on that visit resumes revalidation using its saved
+outcome, without another grant event. If its visit already completed with that
+outcome and the configured target, an in-flight approve returns the existing
+`approval was already recorded` response family for current state and never
+advances the successor. Each successful continuation adds one `visit-transitioned`
+event (or `loop-limit-exceeded`); an exact transition retry adds none. Each
+expected validation failure adds one `validation-failed` event and retains the
+grant; interruption before evidence recording adds none. Duplicate continuations
+may still execute validation commands more than once.
+
+A stale observation invalidates only its exact eligible pending or granted
+request, adding one `approval-invalidated` revision/event before returning
+`stale-approval` (7). Mismatch labels remain ordered: `artifact`, then `pipeline`.
+An in-flight duplicate invalidation of that same request returns `stale-approval`
+without another event, provided no replacement or visit change has occurred.
+
+An overtaken decision whose request is absent, replaced, ambiguous, missing
+identity fields, associated with the wrong run/visit, or completed with a different
+outcome/target fails with `EngineError`, `ILLEGAL_TRANSITION` (5), diagnostic
+`approval-state-changed`, and message `approval state changed before the command
+could be applied`. Details contain `error_code`, `run_id`, observed `phase`, and
+observed `visit_number`. The conflict creates no revision/event and preserves the
+winner. Fresh sequential commands finding a different pending request, or finding
+no pending request after invalidation, retain `illegal-transition`.
+
+Lock contention still returns `LOCK_HELD` (10) without implicit retries. General
+`RunStore.mutate` still commits an unchanged callback; only explicit decision
+no-ops skip commits. Approval decisions use the existing persistence protocol:
+interruption after manifest replacement but before event append is repaired on
+load with one `recovery` event at the same revision, without synthesizing the
+missing approval event. Schemas and existing stored records remain compatible.
+External artifact edits are not made atomic with validation by this lock.

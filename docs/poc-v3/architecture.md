@@ -63,7 +63,7 @@ dependencies. `config_models` and `run_records` do not load configuration or run
 state. `run_validation` validates in-memory data and never imports the store,
 engine, or CLI. `schema_validation` owns the supported schema algorithms and its
 schema-file loader. Persistence does not depend on command responses or harnesses.
-`visit_transitions` and approval state functions consume supplied evidence and
+`visit_transitions` and approval decisions consume supplied evidence and
 return copied state without filesystem, clock, subprocess, or locking operations.
 
 `Engine` dispatches ordinary commands, strictly loads request state, and commits
@@ -76,6 +76,12 @@ expected rejection. Successful evidence is committed with the request or
 transition. Both callbacks resolve their engine seams at the original call sites,
 so later instance hooks and `engine.utc_now` patches remain effective. Store time
 is independent. Existing Engine approval methods remain compatibility delegates.
+Approval decisions return detached state plus an optional event and explicit
+request/grant/completion disposition. `RunStore.decide_approval` loads, resolves
+the full observed binding, and commits under one lock through the existing
+persistence path. Explicit no-ops skip revision/event creation; the general
+`mutate` contract is unchanged. Continuation uses the returned current state.
+
 
 `command_decisions` shares pure reason/outcome resolution and illegal-transition
 diagnostics without a dependency back into command orchestration.
