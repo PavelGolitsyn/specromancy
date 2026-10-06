@@ -4,8 +4,8 @@
 
 Prepared on 2026-10-04 against `c29094e58fd0369c5f0c585091a07cf4899f46b6`.
 The first refactoring pass below is complete. The new plan continues its numbering
-so completed work and historical verification remain intact. **Stages 09–14 are
-complete; stage 15 remains planned.** Stage 09 execution added characterization
+so completed work and historical verification remain intact. **Stages 09–15 are
+complete.** Stage 09 execution added characterization
 tests and recorded design decisions without runtime changes. Stage 10 separated
 field and phase parsing from pipeline assembly with compatibility checks passing.
 Stage 11 extracted visit resource observations while preserving lock scope,
@@ -15,6 +15,10 @@ and the then-known overlap assertion. Stage 13 now resolves concurrent approval
 decisions under the run lock with explicit idempotency and conflict outcomes.
 Stage 14 now reports malformed run/visit statuses as controlled corruption errors
 before recovery, while retaining version-1 nested-data acceptance.
+Stage 15 verified the combined result on Python 3.11.15 and 3.14.4 (249 tests
+each), replayed unchanged compatibility captures, audited the final boundaries,
+and documented the remaining investigations. Adapter check mode passed with
+unchanged generated files.
 
 The follow-on objective is to simplify remaining configuration and command
 boundaries, then address two narrowly scoped correctness issues in separate
@@ -30,7 +34,7 @@ extractions or introduce a service framework around them.
 | [12 — Approval orchestration](12-approval-orchestration.md) | Complete: approval command coordinator with preserved ordering and seams | 09–11 | Refactoring / high |
 | [13 — Concurrent approval decisions](13-concurrent-approval-decisions.md) | Complete: controlled retry/conflict outcomes under the run lock | 12 | Explicit behavior correction / high |
 | [14 — Persisted-data diagnostics](14-persisted-data-diagnostics.md) | Complete: controlled errors for malformed status values; nested-validation decision record | 09, 13 | Narrow behavior correction and design / medium |
-| [15 — Integration and handoff](15-follow-on-integration.md) | Compatibility, documentation, and unresolved-work evidence | 09–14 | Verification / medium |
+| [15 — Integration and handoff](15-follow-on-integration.md) | Complete: compatibility, documentation, two-interpreter verification, and unresolved-work evidence | 09–14 | Verification / medium |
 
 Execute in this order, with an independently reviewable change for each stage.
 Suggested subdivisions are in the stage files. The structural work in 10–12 must

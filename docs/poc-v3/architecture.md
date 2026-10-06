@@ -49,6 +49,7 @@ cli -> cli_commands
                                   -> provenance / responses / RunStore
                                   -> supplied validation / timestamp callbacks
               -> RunStore -> visit_transitions
+                          -> approvals (locked decisions)
                           -> visit_preparation -> artifacts / hashing
                           -> run_persistence -> locking / run_validation / hashing
                           -> artifacts
@@ -81,7 +82,6 @@ request/grant/completion disposition. `RunStore.decide_approval` loads, resolves
 the full observed binding, and commits under one lock through the existing
 persistence path. Explicit no-ops skip revision/event creation; the general
 `mutate` contract is unchanged. Continuation uses the returned current state.
-
 
 `command_decisions` shares pure reason/outcome resolution and illegal-transition
 diagnostics without a dependency back into command orchestration.
@@ -313,3 +313,12 @@ approvals, active-run migration, parallel joins, YAML loader, or arbitrary
 JSON-Schema implementation. Validation commands run with the invoking user's
 normal permissions. Run locking is local to one filesystem and stale locks
 require a human to verify the owner has exited before removal.
+
+Approval locking covers request, grant, and invalidation decisions. It does not
+make validation and sealing atomic with external artifact or repository edits,
+nor establish general command-level concurrency safety. Duplicate continuations
+may execute validation commands more than once. Interrupted initialization and
+weakly accepted version-1 nested records also retain their existing limitations.
+The [follow-on integration record](../refactoring/15-follow-on-integration.md)
+links the two intentional corrections to tests and defines the evidence and
+decisions required before these deferred areas can be changed.

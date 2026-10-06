@@ -145,6 +145,8 @@ after replacement but before the event append, the next load appends a
 event sequence, or any other manifest/event disagreement is corrupt state and
 is not repaired heuristically.
 
+### Malformed persisted statuses
+
 Run and visit statuses must be recognized strings. Invalid JSON status values,
 including arrays and objects, raise `RunCorruptionError` with exit code 12 and
 details `{"error_code": "corrupt-run", "run_id": "<run-id>"}`. The messages are
@@ -155,6 +157,8 @@ before event reconciliation: malformed statuses leave `run.json` and
 acceptance of numeric quirks, open approval dictionaries, and weak nested metadata
 is unchanged; the [compatibility decision matrix](../refactoring/14-persisted-data-diagnostics.md#nested-validation-decision-matrix)
 records the separately deferred hardening work.
+
+### Durable operations and visit preparation
 
 The internal `run_persistence` component owns serialization, reconciliation,
 and commits. `RunStore` retains repository/run path ownership checks and artifact
@@ -262,6 +266,8 @@ command failure. An expected validation failure records one attempt with the
 available artifact, command, and mutation evidence before returning its error;
 the visit remains retriable.
 
+## Approval consistency
+
 Approval records bind the run, phase, visit, reason, output hash, pipeline hash,
 outcome, actor, decision, and timestamps. Artifact or pipeline drift marks the
 record stale and leaves the visit awaiting a fresh approval. Phase-visit and
@@ -323,3 +329,9 @@ interruption after manifest replacement but before event append is repaired on
 load with one `recovery` event at the same revision, without synthesizing the
 missing approval event. Schemas and existing stored records remain compatible.
 External artifact edits are not made atomic with validation by this lock.
+
+The [integration evidence](../refactoring/15-follow-on-integration.md#intentional-behavior-corrections)
+maps approval overlap outcomes and malformed-status diagnostics to their tests.
+Those are the only intended behavior corrections in the follow-on refactoring;
+sequential version-1 captures, public imports, schema versions, command metadata,
+and generated adapter bytes remain unchanged.
