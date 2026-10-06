@@ -45,7 +45,7 @@ def validate_manifest(value: dict[str, Any], run_id: str) -> None:
         invalid_manifest(run_id, "manifest revision must be positive")
     if value["run_id"] != run_id or not is_valid_run_id(value["run_id"]):
         invalid_manifest(run_id, "manifest run ID is invalid")
-    if value["status"] not in RUN_STATUSES:
+    if not isinstance(value["status"], str) or value["status"] not in RUN_STATUSES:
         invalid_manifest(run_id, "manifest status is invalid")
     validate_timestamp(value["created_at"], run_id)
     validate_timestamp(value["updated_at"], run_id)
@@ -124,6 +124,7 @@ def validate_visit(
         or visit["ordinal"] != expected_ordinal
         or not isinstance(visit["attempt"], int)
         or visit["attempt"] < 1
+        or not isinstance(visit["status"], str)
         or visit["status"] not in VISIT_STATUSES
     ):
         invalid_manifest(run_id, "visit identity or status is invalid")

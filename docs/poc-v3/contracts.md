@@ -145,6 +145,17 @@ after replacement but before the event append, the next load appends a
 event sequence, or any other manifest/event disagreement is corrupt state and
 is not repaired heuristically.
 
+Run and visit statuses must be recognized strings. Invalid JSON status values,
+including arrays and objects, raise `RunCorruptionError` with exit code 12 and
+details `{"error_code": "corrupt-run", "run_id": "<run-id>"}`. The messages are
+`manifest status is invalid` and `visit identity or status is invalid`,
+respectively, subject to earlier validation failures. Manifest validation occurs
+before event reconciliation: malformed statuses leave `run.json` and
+`events.jsonl` unchanged even when the log is one revision behind. Version-1
+acceptance of numeric quirks, open approval dictionaries, and weak nested metadata
+is unchanged; the [compatibility decision matrix](../refactoring/14-persisted-data-diagnostics.md#nested-validation-decision-matrix)
+records the separately deferred hardening work.
+
 The internal `run_persistence` component owns serialization, reconciliation,
 and commits. `RunStore` retains repository/run path ownership checks and artifact
 verification, and collects evidence for the pure internal `visit_transitions`
