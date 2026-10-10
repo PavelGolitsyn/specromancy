@@ -8,8 +8,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .config_errors import PipelineConfigError, _MISSING, _json_value
-from .config_loader import (
+from ._config.config_errors import PipelineConfigError, _MISSING, _json_value
+from ._config.config_loader import (
     IDENTIFIER_PATTERN,
     MUTATION_POLICIES,
     SUPPORTED_SCHEMA_VERSION,
@@ -21,14 +21,14 @@ from .config_loader import (
     _validate_output_pattern,
     load_pipeline,
 )
-from .config_models import (
+from ._config.config_models import (
     PhaseConfig,
     PipelineConfig,
     TransitionConfig,
     ValidationCommand,
     ValidatorConfig,
 )
-from .config_serialization import _canonical_document
+from ._config.config_serialization import _canonical_document
 from .contracts import RESERVED_COMMANDS
 
 

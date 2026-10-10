@@ -35,12 +35,13 @@ customization surface. Start with the
 
 ## Documentation
 
-- [Architecture](docs/poc-v3/architecture.md)
-- [CLI reference](docs/poc-v3/cli.md)
-- [Pipeline authoring](docs/poc-v3/authoring-pipelines.md)
-- [Harness usage](docs/poc-v3/harnesses.md)
-- [Public contracts](docs/poc-v3/contracts.md)
-- [POC v3 implementation plan](docs/poc-v3/implementation-plan/README.md)
+- [Documentation and repository map](docs/README.md)
+- [Architecture](docs/reference/architecture.md)
+- [CLI reference](docs/reference/cli.md)
+- [Pipeline authoring](docs/guides/authoring-pipelines.md)
+- [Harness usage](docs/guides/harnesses.md)
+- [Public contracts](docs/reference/contracts.md)
+- [Historical plans and refactoring records](docs/history/README.md)
 
 The POC intentionally does not launch harnesses, migrate active runs between
 pipeline versions, provide remote storage or distributed locking, authenticate

@@ -12,12 +12,12 @@ from typing import Any, TextIO
 
 from .contracts import RESERVED_COMMANDS
 from .actions import render_action_packet
-from .cli_commands import adapter_command_metadata, command_definitions
-from .config_models import PipelineConfig
+from ._cli.cli_commands import adapter_command_metadata, command_definitions
+from ._config.config_models import PipelineConfig
 from .engine import Engine
 from .errors import SpecromancyError, UsageError
 from .exit_codes import EXIT_CODE_DESCRIPTIONS, ExitCode
-from .pipeline_selection import selected_pipeline as _selected_pipeline
+from ._cli.pipeline_selection import selected_pipeline as _selected_pipeline
 from .registry import load_registry
 from .status import render_status
 

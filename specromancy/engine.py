@@ -6,25 +6,25 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from . import responses
-from .approval_service import ApprovalService
-from .approvals import approved_record, pending_approval
-from .command_decisions import (
+from ._engine import responses
+from ._engine.approval_service import ApprovalService
+from ._engine.approvals import approved_record, pending_approval
+from ._engine.command_decisions import (
     declared_reason as _declared_reason, illegal_transition, select_outcome,
 )
 from .artifacts import ArtifactError, verify_manifest_artifacts
-from .config_models import PhaseConfig, PipelineConfig
-from .engine_errors import EngineError
+from ._config.config_models import PhaseConfig, PipelineConfig
+from ._engine.engine_errors import EngineError
 from .errors import UsageError
 from .exit_codes import ExitCode
 from .git import GitError, capture_repository_snapshot
-from .provenance import observe_provenance, pipeline_identity, pipeline_matches
-from .responses import RESPONSE_SCHEMA_VERSION  # Backward-compatible re-export.
+from ._engine.provenance import observe_provenance, pipeline_identity, pipeline_matches
+from ._engine.responses import RESPONSE_SCHEMA_VERSION  # Backward-compatible re-export.
 from .run_store import RunStore, format_timestamp, utc_now
-from .run_records import (
+from ._runs.run_records import (
     ApprovalRecord, RunRecord, VisitRecord, current_visit,
 )
-from .validation_service import ValidationResult, perform_validation
+from ._engine.validation_service import ValidationResult, perform_validation
 
 
 class Engine:

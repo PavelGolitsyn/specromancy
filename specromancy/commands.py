@@ -10,7 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from .config_models import ValidationCommand
+from ._config.config_models import ValidationCommand
 
 
 DEFAULT_SUMMARY_BYTES = 4096

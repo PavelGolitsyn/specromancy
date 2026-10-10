@@ -81,5 +81,5 @@ Their ownership and hashes are recorded in `adapters/manifest.json`.
 The `specromancy-` skill prefix is reserved for generated launch skills; all
 other `.agents/skills/` procedures remain editable canonical sources.
 
-See [Pipeline authoring](../docs/poc-v3/authoring-pipelines.md) for graph rules
+See [Pipeline authoring](../docs/guides/authoring-pipelines.md) for graph rules
 and active-run safety.

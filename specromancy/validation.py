@@ -13,7 +13,7 @@ import stat
 from pathlib import Path
 from typing import Any
 
-from .config_models import ValidatorConfig
+from ._config.config_models import ValidatorConfig
 from .hashing import sha256_file
 from .schema_validation import (
     SUPPORTED_JSON_TYPES,

@@ -2,7 +2,7 @@
 
 The suite is split by the source of its test data:
 
-- `features/` tests engine behavior with test-owned pipelines, skills, templates,
+- `engine/` tests engine behavior with test-owned pipelines, skills, templates,
   and repositories. These tests must not depend on the checkout's customizable
   shipped configuration. CLI fixtures provide their own mandatory registry;
   low-level engine tests may load explicit test-owned graph paths. They assert
@@ -16,7 +16,7 @@ The suite is split by the source of its test data:
 Run the groups independently:
 
 ```sh
-python3 -m unittest discover -s tests/features -t .
+python3 -m unittest discover -s tests/engine -t .
 python3 -m unittest discover -s tests/shipped_configuration -t .
 ```
 
@@ -26,16 +26,16 @@ Run everything with:
 python3 -m unittest discover
 ```
 
-`features/fixtures/refactoring-compatibility/` retains pre-extraction version-1
+`engine/fixtures/refactoring-compatibility/` retains pre-extraction version-1
 records with exact canonical pipeline bytes/hashes, response and diagnostic
 envelopes, persisted manifests/events/artifacts, and generated adapter bytes.
-`features/contract/compatibility_support.py` runs deterministic scenarios in
+`engine/contract/compatibility_support.py` runs deterministic scenarios in
 temporary repositories; `test_compatibility.py` compares against those independent
 records and continues restored pending, active, approval, paused, terminal, and
 recovery states. Tests never refresh expected records. See the
-[fixture capture and normalization policy](features/fixtures/refactoring-compatibility/README.md).
+[fixture capture and normalization policy](engine/fixtures/refactoring-compatibility/README.md).
 
-`features/contract/source_scan.py` recursively discovers runtime Python sources,
+`engine/contract/source_scan.py` recursively discovers runtime Python sources,
 including nested package initializers, for architecture, subprocess, and
 standard-library dependency checks. Architecture tests also import extracted
 components independently of the public facades to expose reversed dependencies.
@@ -51,11 +51,11 @@ using `#!/usr/bin/env python3` also exercise it. Repeat on the development Pytho
 The source-export tests require no package installation or runtime dependencies.
 
 Follow-on integration evidence is recorded in
-[Stage 15](../docs/refactoring/15-follow-on-integration.md), including the exact
+[Stage 15](../docs/history/refactoring/15-follow-on-integration.md), including the exact
 interpreter paths, commands, counts, and deferred investigation boundaries.
 The regression coverage for the final module boundaries and corrections is:
 
-| Contract | Evidence under `features/` |
+| Contract | Evidence under `engine/` |
 | --- | --- |
 | Original sequential bytes, hashes, packets, errors, restored runs, and facade aliases | `contract/test_compatibility.py`; the overlap test is separate from unchanged captures |
 | Parsing and service import direction, generic runtime, pure decision dependencies | `contract/test_architecture.py` |

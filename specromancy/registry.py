@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import NoReturn
 
-from .config_errors import PipelineConfigError
-from .config_loader import IDENTIFIER_PATTERN, load_pipeline
-from .config_models import PipelineConfig
+from ._config.config_errors import PipelineConfigError
+from ._config.config_loader import IDENTIFIER_PATTERN, load_pipeline
+from ._config.config_models import PipelineConfig
 
 
 REGISTRY_PATH = "workflow/pipelines.toml"

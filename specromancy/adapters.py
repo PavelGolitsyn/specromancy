@@ -6,13 +6,13 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from .adapter_contracts import (
+from ._adapters.adapter_contracts import (
     ADAPTER_COMMANDS, ADAPTER_SCHEMA_VERSION, GENERATOR_VERSION, HARNESS_MODES,
     MANIFEST_PATH, REGENERATION_COMMAND, AdapterCommand, AdapterError,
 )
-from .adapter_ownership import _compare, _has_drift, write_adapters
-from .adapter_rendering import expected_manifest, render_sources
-from .adapter_sources import capture_sources
+from ._adapters.adapter_ownership import _compare, _has_drift, write_adapters
+from ._adapters.adapter_rendering import expected_manifest, render_sources
+from ._adapters.adapter_sources import capture_sources
 from .exit_codes import ExitCode
 from .hashing import canonical_json_bytes
 from .registry import PipelineRegistry

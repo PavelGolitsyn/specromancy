@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from .config_models import PhaseConfig, PipelineConfig
+from ._config.config_models import PhaseConfig, PipelineConfig
 from .errors import SpecromancyError
 from .exit_codes import ExitCode
 from .hashing import normalize_relative_path, resolve_relative_path, sha256_bytes, sha256_file

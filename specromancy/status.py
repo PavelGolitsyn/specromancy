@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from .config_models import PipelineConfig
-from .run_records import RunRecord, VisitRecord, current_visit, latest_approval
+from ._config.config_models import PipelineConfig
+from ._runs.run_records import RunRecord, VisitRecord, current_visit, latest_approval
 
 
 STATUS_SCHEMA_VERSION = 1

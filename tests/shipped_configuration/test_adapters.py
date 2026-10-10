@@ -26,7 +26,7 @@ class ShippedAdapterTests(unittest.TestCase):
     def test_adapter_entry_point_reports_no_checkout_drift(self) -> None:
         result = subprocess.run(
             [sys.executable, str(ROOT / "adapters" / "generate.py"), "--check"],
-            cwd=ROOT / "docs" / "poc-v3",
+            cwd=ROOT / "docs" / "reference",
             check=False,
             capture_output=True,
             text=True,
