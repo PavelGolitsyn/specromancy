@@ -1,7 +1,7 @@
 # Stage 08 — Migration rehearsal and release readiness
 
-Status: planned. Dependency: [Stage 07](../07-distribution-verification/stage.md).
-Index: [migration plan](../README.md).
+Status: planned. Dependency: [Stage 07](07-distribution-verification.md).
+Index: [migration plan](README.md).
 
 ## Objective
 

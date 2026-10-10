@@ -71,20 +71,20 @@ does not redesign the engine or introduce a new pipeline DSL or SDK abstraction.
 
 ## Stages
 
-Each stage has its own `stage.md`, file map, verification, acceptance criteria,
+Each stage has its own numbered Markdown file, file map, verification, acceptance criteria,
 and recovery guidance. Execute sequentially. Each stage should leave a working,
 reviewable tree; Stage 2 intentionally uses the old import name temporarily.
 
 | Stage | Deliverable | Depends on |
 | --- | --- | --- |
-| [01 — Contracts and baseline](01-contracts-and-baseline/stage.md) | Inventory, compatibility decisions, reproducible baseline | None |
-| [02 — Source layout and packaging](02-source-layout-and-packaging/stage.md) | `src/specromancy/`, installable distribution, console entry point | 01 |
-| [03 — Python namespace migration](03-python-namespace/stage.md) | `src/specromancy_engine/`, updated imports and public contracts | 02 |
-| [04 — Consumer roots and package resources](04-consumer-roots-and-resources/stage.md) | Installed runtime independent of producer checkout | 03 |
-| [05 — Portable skills and adapters](05-portable-skills-and-adapters/stage.md) | Consumer-executable generated instructions | 04 |
-| [06 — Consumer example and documentation](06-consumer-example-and-docs/stage.md) | Release-documentation example and dependency onboarding | 05 |
-| [07 — Distribution verification and CI](07-distribution-verification/stage.md) | Isolated wheel/sdist checks and repeatable CI | 06 |
-| [08 — Migration rehearsal and release readiness](08-release-readiness/stage.md) | Completed evidence, upgrade rehearsal, distributable artifacts | 07 |
+| [01 — Contracts and baseline](01-contracts-and-baseline.md) | Inventory, compatibility decisions, reproducible baseline | None |
+| [02 — Source layout and packaging](02-source-layout-and-packaging.md) | `src/specromancy/`, installable distribution, console entry point | 01 |
+| [03 — Python namespace migration](03-python-namespace.md) | `src/specromancy_engine/`, updated imports and public contracts | 02 |
+| [04 — Consumer roots and package resources](04-consumer-roots-and-resources.md) | Installed runtime independent of producer checkout | 03 |
+| [05 — Portable skills and adapters](05-portable-skills-and-adapters.md) | Consumer-executable generated instructions | 04 |
+| [06 — Consumer example and documentation](06-consumer-example-and-docs.md) | Release-documentation example and dependency onboarding | 05 |
+| [07 — Distribution verification and CI](07-distribution-verification.md) | Isolated wheel/sdist checks and repeatable CI | 06 |
+| [08 — Migration rehearsal and release readiness](08-release-readiness.md) | Completed evidence, upgrade rehearsal, distributable artifacts | 07 |
 
 ## Evidence informing the plan
 

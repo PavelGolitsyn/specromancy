@@ -1,7 +1,7 @@
 # Stage 02 — Source layout and packaging
 
-Status: planned. Dependency: [Stage 01](../01-contracts-and-baseline/stage.md).
-Next: [Stage 03](../03-python-namespace/stage.md). Index: [migration plan](../README.md).
+Status: planned. Dependency: [Stage 01](01-contracts-and-baseline.md).
+Next: [Stage 03](03-python-namespace.md). Index: [migration plan](README.md).
 
 ## Objective
 

@@ -1,8 +1,8 @@
 # Stage 03 — Python namespace migration
 
-Status: planned. Dependency: [Stage 02](../02-source-layout-and-packaging/stage.md).
-Next: [Stage 04](../04-consumer-roots-and-resources/stage.md).
-Index: [migration plan](../README.md).
+Status: planned. Dependency: [Stage 02](02-source-layout-and-packaging.md).
+Next: [Stage 04](04-consumer-roots-and-resources.md).
+Index: [migration plan](README.md).
 
 ## Objective
 

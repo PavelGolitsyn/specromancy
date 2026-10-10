@@ -1,7 +1,7 @@
 # Stage 07 — Distribution verification and CI
 
-Status: planned. Dependency: [Stage 06](../06-consumer-example-and-docs/stage.md).
-Next: [Stage 08](../08-release-readiness/stage.md). Index: [migration plan](../README.md).
+Status: planned. Dependency: [Stage 06](06-consumer-example-and-docs.md).
+Next: [Stage 08](08-release-readiness.md). Index: [migration plan](README.md).
 
 ## Objective
 

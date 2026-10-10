@@ -1,8 +1,8 @@
 # Stage 06 — Consumer example and documentation
 
-Status: planned. Dependency: [Stage 05](../05-portable-skills-and-adapters/stage.md).
-Next: [Stage 07](../07-distribution-verification/stage.md).
-Index: [migration plan](../README.md).
+Status: planned. Dependency: [Stage 05](05-portable-skills-and-adapters.md).
+Next: [Stage 07](07-distribution-verification.md).
+Index: [migration plan](README.md).
 
 ## Objective
 

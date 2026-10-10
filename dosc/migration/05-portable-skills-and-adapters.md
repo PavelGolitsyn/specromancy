@@ -1,8 +1,8 @@
 # Stage 05 — Portable skills and adapters
 
-Status: planned. Dependency: [Stage 04](../04-consumer-roots-and-resources/stage.md).
-Next: [Stage 06](../06-consumer-example-and-docs/stage.md).
-Index: [migration plan](../README.md).
+Status: planned. Dependency: [Stage 04](04-consumer-roots-and-resources.md).
+Next: [Stage 06](06-consumer-example-and-docs.md).
+Index: [migration plan](README.md).
 
 ## Objective
 

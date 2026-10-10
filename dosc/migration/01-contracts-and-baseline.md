@@ -1,7 +1,7 @@
 # Stage 01 — Contracts and baseline
 
-Status: planned. Dependency: none. Next: [Stage 02](../02-source-layout-and-packaging/stage.md).
-Index: [migration plan](../README.md).
+Status: planned. Dependency: none. Next: [Stage 02](02-source-layout-and-packaging.md).
+Index: [migration plan](README.md).
 
 ## Objective
 

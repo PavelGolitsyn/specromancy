@@ -1,8 +1,8 @@
 # Stage 04 — Consumer roots and package resources
 
-Status: planned. Dependency: [Stage 03](../03-python-namespace/stage.md).
-Next: [Stage 05](../05-portable-skills-and-adapters/stage.md).
-Index: [migration plan](../README.md).
+Status: planned. Dependency: [Stage 03](03-python-namespace.md).
+Next: [Stage 05](05-portable-skills-and-adapters.md).
+Index: [migration plan](README.md).
 
 ## Objective
 
