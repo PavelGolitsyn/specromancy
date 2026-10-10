@@ -71,6 +71,15 @@ validates the current artifact and binds its hash, pipeline hash, visit, and
 selected outcome. `approve` rechecks those bindings before transition. `block`
 records a declared stop condition; loop-limit blocks are created mechanically.
 
+Overlapping identical requests reuse the saved pending request. An overlapping
+`approve` resumes a saved grant, or reports `approval was already recorded` if
+that exact request's visit has completed, without advancing its successor.
+If another operation replaces the request or changes its visit binding, the
+overtaken command returns `approval-state-changed` (5) without changing the
+winner's state. Inspect `status RUN_ID` before deciding what to do next.
+Lock contention remains exit code 10 without automatic retries. Full binding,
+retry, and audit rules are in the [approval consistency contract](contracts.md#approval-consistency).
+
 ## Adapter commands
 
 ```bash
@@ -109,3 +118,10 @@ is available.
 
 Exit codes 7–10 and 13 are expected workflow boundaries, not generic crashes.
 Full public contracts are recorded in [contracts.md](contracts.md).
+
+Malformed run or visit statuses, including JSON arrays and objects, return
+`corrupt-run` (12), with `manifest status is invalid` or
+`visit identity or status is invalid`. These failures occur before audit recovery
+and leave persisted files unchanged. Other deliberately permissive version-1
+nested fields retain their existing acceptance; see the
+[persisted-status contract](contracts.md#malformed-persisted-statuses).

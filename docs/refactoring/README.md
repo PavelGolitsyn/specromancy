@@ -1,5 +1,94 @@
 # Staged refactoring plan
 
+## Current plan: follow-on refactoring
+
+Prepared on 2026-10-04 against `c29094e58fd0369c5f0c585091a07cf4899f46b6`.
+The first refactoring pass below is complete. The new plan continues its numbering
+so completed work and historical verification remain intact. **Stages 09–15 are
+complete.** Stage 09 execution added characterization
+tests and recorded design decisions without runtime changes. Stage 10 separated
+field and phase parsing from pipeline assembly with compatibility checks passing.
+Stage 11 extracted visit resource observations while preserving lock scope,
+resource ordering, and stored/event bytes. Stage 12 isolated approval orchestration
+while preserving gate order, durable grant/transition boundaries, injected seams,
+and the then-known overlap assertion. Stage 13 now resolves concurrent approval
+decisions under the run lock with explicit idempotency and conflict outcomes.
+Stage 14 now reports malformed run/visit statuses as controlled corruption errors
+before recovery, while retaining version-1 nested-data acceptance.
+Stage 15 verified the combined result on Python 3.11.15 and 3.14.4 (249 tests
+each), replayed unchanged compatibility captures, audited the final boundaries,
+and documented the remaining investigations. Adapter check mode passed with
+unchanged generated files.
+
+The follow-on objective is to simplify remaining configuration and command
+boundaries, then address two narrowly scoped correctness issues in separate
+changes. Existing modules already separate persistence, pure visit decisions,
+validation evidence, responses, and adapter ownership; do not repeat those
+extractions or introduce a service framework around them.
+
+| Stage | Deliverable | Depends on | Change category / risk |
+| --- | --- | --- | --- |
+| [09 — Baseline and contract decisions](09-follow-on-baseline.md) | Complete: current evidence, gap matrix, compatibility decisions | Completed 01–08 | Characterization / low |
+| [10 — Configuration parsing](10-configuration-parsing.md) | Complete: field and phase parsing behind existing imports | 09 | Refactoring / medium |
+| [11 — Visit preparation](11-visit-preparation.md) | Complete: explicit resource observations for visit construction | 09–10 | Refactoring / medium |
+| [12 — Approval orchestration](12-approval-orchestration.md) | Complete: approval command coordinator with preserved ordering and seams | 09–11 | Refactoring / high |
+| [13 — Concurrent approval decisions](13-concurrent-approval-decisions.md) | Complete: controlled retry/conflict outcomes under the run lock | 12 | Explicit behavior correction / high |
+| [14 — Persisted-data diagnostics](14-persisted-data-diagnostics.md) | Complete: controlled errors for malformed status values; nested-validation decision record | 09, 13 | Narrow behavior correction and design / medium |
+| [15 — Integration and handoff](15-follow-on-integration.md) | Complete: compatibility, documentation, two-interpreter verification, and unresolved-work evidence | 09–14 | Verification / medium |
+
+Execute in this order, with an independently reviewable change for each stage.
+Suggested subdivisions are in the stage files. The structural work in 10–12 must
+preserve behavior, including documented limitations. Stages 13–14 must explicitly
+document their changed behavior and test it; do not fold those changes into
+mechanical moves. No new CLI command, persisted format, migration, runtime
+dependency, or canonical workflow edit is planned.
+
+### Current evidence and priorities
+
+| Inspected area | Evidence at the planning revision | Intended result |
+| --- | --- | --- |
+| `config_loader.py` | 911 lines; `_Loader` owns field checks, paths, phase/validator/command parsing, graph validation, and construction | Separate reusable parsing context from domain parsers without changing error order or hashes |
+| `run_store.py` | 645 lines; `_new_visit` still combines resource reads, collision checks, identity, and record construction | Expose preparation observations while keeping their timing inside the existing store lock |
+| `engine.py` | 652 lines; request, grant, invalidation, and approved advancement span several methods and store callbacks | Give the approval lifecycle a cohesive boundary; keep validation/provenance/response collaborators |
+| `approvals.py` | `granted_state` asserts a pending record exists; a deterministic overlap test demonstrates the failure | Recheck the exact request against current persisted state under the lock |
+| `run_validation.py` | Status membership checks can receive unhashable values; nested fields intentionally retain weak version-1 acceptance | Improve the narrow diagnostic gap and decide broader compatibility policy separately |
+| Existing architecture | Configuration models, run persistence, transitions, responses, CLI definitions, and adapter modules already exist | Extend only boundaries that remove concrete coupling; line count is not an exit criterion |
+
+Evidence comes from inspected code and the
+[completed closeout](08-integration-and-closeout.md#deferred-defects-and-enhancements).
+The validation-to-transition race remains an investigation, not a demonstrated
+defect from this planning pass. Partial initialization is an existing documented
+limitation. Both have explicit follow-up criteria in Stage 15.
+
+### Cross-stage rules
+
+- Preserve the contracts listed in the historical plan below and in
+  [public contracts](../poc-v3/contracts.md). Preserve facade exports and private
+  compatibility seams covered by tests; new modules remain internal.
+- Keep pure decisions separate from resource observations and durable effects.
+  `RunStore` owns run paths and lock scope; `RunPersistence` owns the existing
+  manifest replacement/event append protocol. Do not call it a two-file transaction.
+- Keep exact pipeline canonicalization, generated bytes, diagnostics, and
+  revision/event behavior unchanged except for the explicitly enumerated cases
+  in 13–14. Never refresh compatibility captures to conceal a regression.
+- Every implementation stage runs its focused tests, the full suite, adapter
+  drift checking, and `git diff --check`. A failed gate blocks the next stage.
+  Do not install dependencies or regenerate checkout adapters merely to get green.
+- Use test-owned pipelines and temporary repositories for behavior tests.
+  Shipped-configuration tests check consistency without freezing customizable
+  phase names. Do not mutate actual run artifacts for tests or rollback.
+- Each stage records its starting revision, completed scope, exact commands,
+  results, deviations, and remaining limitations before being marked complete.
+
+### Planning verification
+
+The checkout was clean at inspection. Python 3.14.4 is available as `python3`;
+the shell has no `python` executable. The equivalent full-suite command is used
+for the planning baseline; see Stage 09 for its result. Adapter check mode passed.
+Python 3.11 results in Stage 08 are historical evidence, not a fresh planning run.
+
+## Completed first pass: stages 01–08
+
 Status: Stages 01–08 complete; final integration verified on 2026-10-04 with
 Python 3.11.15 and Python 3.14.4 (223 tests each). Configuration
 boundaries, persisted record types, validators, identity helpers, errors, and

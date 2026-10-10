@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import tomllib
 import unittest
 from unittest.mock import patch
 
 import specromancy
 from specromancy import artifacts, config, git, hashing, run_store
-from specromancy import config_errors, config_models, schema_validation, validation
+from specromancy import config_errors, config_fields, config_loader, config_models
+from specromancy import config_phase_parser, schema_validation, validation
 from specromancy import engine, engine_errors
 from specromancy.engine import Engine
 from tests.features.contract.compatibility_support import (
@@ -26,11 +28,37 @@ class CompatibilityContractTests(unittest.TestCase):
                 self.assertIs(getattr(config, name), getattr(config_models, name))
         self.assertIs(config.PipelineConfigError, config_errors.PipelineConfigError)
         self.assertIs(config._MISSING, config_errors._MISSING)
+        for module, names in (
+            (config_loader, ("_Loader", "_discover_root", "SUPPORTED_SCHEMA_VERSION", "load_pipeline")),
+            (config_fields, ("IDENTIFIER_PATTERN", "_safe_declared_path")),
+            (config_phase_parser, ("MUTATION_POLICIES", "VALIDATOR_TYPES",
+                                   "_validate_inputs", "_validate_output_pattern")),
+        ):
+            for name in names:
+                with self.subTest(name=name):
+                    self.assertIs(getattr(config, name), getattr(module, name))
         for name in (
             "SchemaDefinitionError", "load_json_schema", "validate_schema_definition",
         ):
             with self.subTest(name=name):
                 self.assertIs(getattr(validation, name), getattr(schema_validation, name))
+
+    def test_private_loader_parser_entry_points_remain_usable(self) -> None:
+        fixture = CompatibilityFixture()
+        self.addCleanup(fixture.close)
+        raw = tomllib.loads(fixture.path.read_text(encoding="utf-8"))
+        loader = config._Loader(fixture.path, fixture.root)
+        self.assertEqual(loader.parse(raw), fixture.pipeline)
+        for phase_raw, phase in zip(raw["phases"], fixture.pipeline.phases):
+            with self.subTest(phase=phase.id):
+                self.assertEqual(loader.parse_phase(phase_raw), phase)
+                self.assertEqual(loader.parse_validator(phase_raw, phase.id), phase.validator)
+                self.assertEqual(loader.parse_commands(phase_raw, phase.id), phase.commands)
+                self.assertEqual(
+                    tuple(loader.parse_transition(item, phase.id)
+                          for item in phase_raw["transitions"]),
+                    phase.transitions,
+                )
 
     def test_public_imports_and_compatibility_aliases_remain_available(self) -> None:
         self.assertIs(engine.EngineError, engine_errors.EngineError)
@@ -145,6 +173,40 @@ class CompatibilityContractTests(unittest.TestCase):
                         self.assertEqual(fixture.snapshot(), before)
                 finally:
                     fixture.close()
+
+    def test_overtaken_approval_returns_paused_or_successor_without_advancing_it(self):
+        # Intentional Stage 13 correction, separate from sequential byte replay.
+        for boundary in ("paused", "pending", "active", "completed"):
+            with self.subTest(boundary=boundary):
+                fixture = CompatibilityFixture(pause=True)
+                self.addCleanup(fixture.close)
+                fixture.restore(read_record("states.json")["awaiting-approval"])
+                winner = Engine(fixture.pipeline, fixture.new_store())
+                original = fixture.store.decide_approval
+                snapshots = []
+
+                def overlap(*args, **kwargs):
+                    with patch("specromancy.engine.utc_now", return_value=NOW):
+                        winner.approve(RUN_ID, "compose")
+                    if boundary != "paused":
+                        winner.resume(RUN_ID)
+                    if boundary in ("active", "completed"):
+                        winner.start_phase(RUN_ID, "seal")
+                    if boundary == "completed":
+                        fixture.store.write_visit_output(RUN_ID, 2, "Sealed.\n")
+                        winner.validate(RUN_ID, "seal")
+                    snapshots.append(fixture.snapshot())
+                    return original(*args, **kwargs)
+
+                with patch.object(fixture.store, "decide_approval", side_effect=overlap):
+                    result = fixture.engine.approve(RUN_ID, "compose")
+                self.assertEqual(result["message"], "approval was already recorded")
+                self.assertEqual(fixture.snapshot(), snapshots[0])
+                manifest = fixture.store.load(RUN_ID)
+                self.assertEqual(manifest["visits"][0]["chosen_outcome"], "z-next")
+                self.assertEqual(manifest["visits"][0]["transition_target"], "seal")
+                self.assertEqual(manifest["visits"][1]["status"], boundary
+                                 if boundary != "paused" else "pending")
 
     def test_exact_error_envelopes_locations_and_cli_streams(self) -> None:
         self.assertEqual(capture_diagnostics(), read_record("diagnostics.json"))

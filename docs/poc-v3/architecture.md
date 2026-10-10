@@ -44,8 +44,13 @@ cli -> cli_commands
     -> Engine -> responses -> actions / status
               -> provenance
               -> validation_service -> validation / commands / git
-              -> approvals
+              -> command_decisions
+              -> approval_service -> approvals / command_decisions
+                                  -> provenance / responses / RunStore
+                                  -> supplied validation / timestamp callbacks
               -> RunStore -> visit_transitions
+                          -> approvals (locked decisions)
+                          -> visit_preparation -> artifacts / hashing
                           -> run_persistence -> locking / run_validation / hashing
                           -> artifacts
 
@@ -59,15 +64,40 @@ dependencies. `config_models` and `run_records` do not load configuration or run
 state. `run_validation` validates in-memory data and never imports the store,
 engine, or CLI. `schema_validation` owns the supported schema algorithms and its
 schema-file loader. Persistence does not depend on command responses or harnesses.
-`visit_transitions` and approval state functions consume supplied evidence and
+`visit_transitions` and approval decisions consume supplied evidence and
 return copied state without filesystem, clock, subprocess, or locking operations.
 
-`Engine` owns command ordering and commits validation failures and approval
-changes through the store. `validation_service` returns artifact, command, and
-mutation evidence, including expected failures; it never commits state.
+`Engine` dispatches ordinary commands, strictly loads request state, and commits
+expected validation failures through the store. `approval_service` owns request,
+grant, invalidation, approved continuation, and idempotent approval responses.
+It receives a pipeline, store, evidence-collection callback, and timestamp callback;
+it never imports or receives an `Engine`. The validation callback retains
+`Engine._perform_validation`, including one failed-attempt commit before an
+expected rejection. Successful evidence is committed with the request or
+transition. Both callbacks resolve their engine seams at the original call sites,
+so later instance hooks and `engine.utc_now` patches remain effective. Store time
+is independent. Existing Engine approval methods remain compatibility delegates.
+Approval decisions return detached state plus an optional event and explicit
+request/grant/completion disposition. `RunStore.decide_approval` loads, resolves
+the full observed binding, and commits under one lock through the existing
+persistence path. Explicit no-ops skip revision/event creation; the general
+`mutate` contract is unchanged. Continuation uses the returned current state.
+
+`command_decisions` shares pure reason/outcome resolution and illegal-transition
+diagnostics without a dependency back into command orchestration.
+`validation_service` returns artifact, command, and mutation evidence, including
+expected failures; it never commits state.
 `provenance` reads prepared resources and returns observations, leaving rejection
 or warning presentation to the command. `responses` builds versioned envelopes
 through `actions` and `status` without loading a run or changing its state.
+
+Approval grants deliberately load persisted state before binding checks, allowing
+artifact/pipeline drift to become a durable invalidation before provenance
+rejection. The grant commits before revalidation and the separate transition;
+failed revalidation retains the grant, and unexpected interruptions do not add a
+failed-attempt event. An identical pending request still validates before its
+response. A request after a saved grant retains its existing two validation passes
+(request selection, then continuation); approve/run continuation performs one.
 
 `cli_commands` supplies explicit descriptions shared by parser construction and
 adapter metadata. `pipeline_selection` implements registered initialization and
@@ -84,18 +114,32 @@ diagnostics and the omitted-value sentinel live in `config_errors`.
 
 ```text
 config facade -> config_loader -> config_models / config_errors
+                              -> config_fields -> config_errors
+                              -> config_phase_parser -> config_fields / config_models
+                                                     -> schema_validation
                               -> graph
                               -> config_serialization -> config_models
-                              -> schema_validation
 
 validation -> config_models / schema_validation
 runtime consumers -> config_models
 registry -> config_loader / config_models / config_errors
 ```
 
-The loader owns TOML parsing, field rejection order, repository discovery, and
-resource containment. Graph analysis remains in `graph`, with diagnostic
-callbacks supplied by the loader. Models, diagnostics, canonical serialization,
+The loader owns TOML/root loading, repository discovery, pipeline assembly, and
+graph validation orchestration. `config_fields.FieldContext` carries the source
+path and repository root, emits diagnostics, checks scalar/list values and unknown
+keys, and resolves existing resource paths with repository containment checks.
+Shared resources may use parent traversal within the repository; registry path
+rules remain separate. `config_phase_parser` consumes that context explicitly for
+phase, validator, command, transition, input, and output-pattern parsing. Validator
+parsing reads schema files through `schema_validation` in the existing check order.
+
+`_Loader` retains its field methods through `FieldContext` inheritance and its
+phase-parser methods through delegates. Existing helpers/constants remain
+re-exported through the loader and public facade. Field parsing does not import
+phase parsing; neither parsing module imports the loader, facade, CLI, engine,
+or run storage. Graph analysis remains in `graph`, with diagnostic callbacks
+supplied by the loader. Models, diagnostics, canonical serialization,
 and schema validation do not import the loader or public facade. Artifact
 validation owns artifact reads, Markdown/file checks, and `ValidationFailure`;
 it delegates JSON schema algorithms to `schema_validation` and re-exports the
@@ -160,10 +204,27 @@ dictionary annotations and pure selectors, `run_identity` owns injected
 clock/random helpers, `run_errors` defines shared exceptions, and
 `run_validation` checks persisted fields without filesystem mutation or
 engine/CLI dependencies. The store retains run-path ownership, artifact checks,
-evidence collection, and defensive copies. It delegates locking, serialization,
-audit consistency, revision stamping, and recovery to `run_persistence`, and
+observation ordering, timestamps, and defensive copies. It delegates locking,
+serialization, audit consistency, revision stamping, and recovery to `run_persistence`, and
 in-memory visit decisions to `visit_transitions`. Engine, action, status, and
 approval code share the record vocabulary.
+
+`visit_preparation` collects literal inputs, checks output collisions, and reads
+skill/template provenance into a detached `VisitResources` result. It borrows
+the supplied manifest without mutation and uses the existing `artifacts` and
+`hashing` policies. It does not acquire locks, write files, construct visits, or
+commit state. `RunStore._new_visit` retains status/phase checks, ordinal/attempt
+calculation, and active-start timestamps, then supplies the observations to
+`visit_transitions.new_visit` for record construction.
+
+All preparation reads stay under the calling store operation's run lock. A
+successor resolves inputs against the sealed, uncommitted proposal, so its
+`latest:` and `visit:` references can bind the just-completed output. Skill and
+optional template hashes are captured in that order before an active visit's
+start timestamp. Pending preparation has no start timestamp or mutation baseline;
+activation records those without refreshing resources. Exact transition retries
+also skip resource capture. The lock coordinates store operations, not external
+filesystem edits; missing resource reads retain their existing raw IO failures.
 
 Selectors borrow records from their arguments. Current-visit presentation
 lookups tolerate an absent ordinal and can return a completed visit; the
@@ -252,3 +313,12 @@ approvals, active-run migration, parallel joins, YAML loader, or arbitrary
 JSON-Schema implementation. Validation commands run with the invoking user's
 normal permissions. Run locking is local to one filesystem and stale locks
 require a human to verify the owner has exited before removal.
+
+Approval locking covers request, grant, and invalidation decisions. It does not
+make validation and sealing atomic with external artifact or repository edits,
+nor establish general command-level concurrency safety. Duplicate continuations
+may execute validation commands more than once. Interrupted initialization and
+weakly accepted version-1 nested records also retain their existing limitations.
+The [follow-on integration record](../refactoring/15-follow-on-integration.md)
+links the two intentional corrections to tests and defines the evidence and
+decisions required before these deferred areas can be changed.

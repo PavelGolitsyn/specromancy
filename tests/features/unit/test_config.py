@@ -444,6 +444,35 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(unknown.details["field"], "extra")
         self.assertIs(unknown.details["value"], True)
 
+    def test_multiple_invalid_fields_preserve_the_first_complete_diagnostic(self) -> None:
+        cases = [
+            ("a_extra = true\n" + document(),
+             "z_extra = false\na_extra = true\n" + document(schema_version="false"),
+             "unknown-field", "a_extra"),
+            (document(schema_version="false"),
+             document(schema_version="false", id="42"), "invalid-field-type", "schema_version"),
+            (document(PHASE.replace('id = "compose"', 'id = "Bad"')),
+             document(PHASE.replace('id = "compose"', 'id = "Bad"\nextra = true')),
+             "invalid-identifier", "id"),
+            (document(PHASE.replace('skill = "compose"', 'skill = "missing"')),
+             document(PHASE.replace('skill = "compose"', 'skill = "missing"')
+                      .replace('inputs = ["request"]', 'inputs = false')),
+             "missing-file", "skill"),
+            (document(PHASE.replace('validator = "file"', 'validator = "unknown"')),
+             document(PHASE.replace('validator = "file"', 'validator = "unknown"\ncommands = false')),
+             "invalid-validator", "validator"),
+            (document(PHASE.replace('validator = "file"', 'validator = "file"\ncommands = false')),
+             document(PHASE.replace('validator = "file"', 'validator = "file"\ncommands = false')
+                      .replace('outcome = "done"', 'outcome = false')),
+             "invalid-field-type", "commands"),
+        ]
+        for single, multiple, diagnostic, field in cases:
+            with self.subTest(field=field):
+                expected = self.assert_error(single, diagnostic)
+                self.assertEqual(expected.details["field"], field)
+                actual = self.assert_error(multiple, diagnostic)
+                self.assertEqual(actual.as_dict(), expected.as_dict())
+
     def test_schema_paths_and_dependencies_are_resolved_on_every_load(self) -> None:
         schema = self.fixture.root / "shared.schema.json"
         schema.write_text('{"type":"string"}', encoding="utf-8")

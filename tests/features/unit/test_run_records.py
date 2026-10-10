@@ -16,6 +16,26 @@ def manifest_at(state: str = "active") -> dict:
 
 
 class RecordValidationTests(unittest.TestCase):
+    def test_invalid_status_shapes_raise_corruption_without_mutation(self) -> None:
+        # No status value in this table is accepted version-1 data.
+        for path, message in ((("status",), "manifest status is invalid"),
+                              (("visits", 0, "status"), "visit identity or status is invalid")):
+            for invalid in (None, False, True, 0, 1, 1.5, "unknown", [], {}):
+                with self.subTest(path=path, invalid=invalid):
+                    value = manifest_at()
+                    target = value
+                    for key in path[:-1]:
+                        target = target[key]
+                    target[path[-1]] = invalid
+                    original = copy.deepcopy(value)
+                    with self.assertRaises(run_store.RunCorruptionError) as raised:
+                        run_validation.validate_manifest(value, RUN_ID)
+                    self.assertEqual(str(raised.exception), message)
+                    self.assertEqual(raised.exception.code, 12)
+                    self.assertEqual(raised.exception.details,
+                                     {"error_code": "corrupt-run", "run_id": RUN_ID})
+                    self.assertEqual(value, original)
+
     def test_baseline_records_validate_without_mutation(self) -> None:
         for state, files in read_record("states.json").items():
             with self.subTest(state=state):
@@ -136,6 +156,28 @@ class RecordValidationTests(unittest.TestCase):
         value["terminal_result"] = float("nan")
         with self.assertRaisesRegex(run_store.RunCorruptionError, "not JSON serializable"):
             run_validation.validate_manifest(value, RUN_ID)
+
+    def test_nested_compatibility_matrix_remains_accepted_without_mutation(self) -> None:
+        cases = [
+            (("approvals",), [{"visit_number": 999, "status": "pending"}]),
+            (("git",), {"base": [], "head": 42}),
+            (("visits", 0, "mutation_baseline"), {"files": []}),
+            (("visits", 0, "mutation_result"), [None, 42]),
+            (("visits", 0, "deviations"), [None, "unstructured"]),
+            (("status",), "completed"),  # Current visit remains active.
+            (("terminal_result",), ["unstructured"]),
+            (("block_reason",), ["unstructured"]),
+        ]
+        for path, accepted in cases:
+            with self.subTest(path=path):
+                value = manifest_at()
+                target = value
+                for key in path[:-1]:
+                    target = target[key]
+                target[path[-1]] = accepted
+                original = copy.deepcopy(value)
+                run_validation.validate_manifest(value, RUN_ID)
+                self.assertEqual(value, original)
 
     def test_record_field_vocabulary_matches_schema_without_inserting_defaults(self) -> None:
         from pathlib import Path

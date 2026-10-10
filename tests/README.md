@@ -49,3 +49,25 @@ For minimum-version verification, run the full suite with Python 3.11 and put
 that interpreter's `bin` directory first on `PATH`, so subprocess launcher tests
 using `#!/usr/bin/env python3` also exercise it. Repeat on the development Python.
 The source-export tests require no package installation or runtime dependencies.
+
+Follow-on integration evidence is recorded in
+[Stage 15](../docs/refactoring/15-follow-on-integration.md), including the exact
+interpreter paths, commands, counts, and deferred investigation boundaries.
+The regression coverage for the final module boundaries and corrections is:
+
+| Contract | Evidence under `features/` |
+| --- | --- |
+| Original sequential bytes, hashes, packets, errors, restored runs, and facade aliases | `contract/test_compatibility.py`; the overlap test is separate from unchanged captures |
+| Parsing and service import direction, generic runtime, pure decision dependencies | `contract/test_architecture.py` |
+| Preparation lock scope, resource order, collision/failure non-mutation, sealed successor inputs | `unit/test_visit_transition_store.py`, class `VisitStoreBoundaryTests` |
+| Request/grant/invalidation overlaps, no-op event counts, binding conflicts, recovery | `unit/test_visit_transition_store.py`, class `OverlappingAttemptTests`; `contract/test_engine_orchestration.py` |
+| Controlled malformed-status errors before recovery, without persisted changes | `unit/test_run_records.py`; `contract/test_cli.py` |
+| Deliberately retained weak version-1 acceptance | `unit/test_run_records.py`, status and nested compatibility tables |
+| Fault points, clocks, recovery, ownership, immutable outputs, read-only policy | `unit/test_run_persistence.py`, `unit/test_run_store.py`, `contract/test_interruptions.py`, `contract/test_recovery.py`, `contract/test_safety.py` |
+| Deterministic generation and adapter ownership in temporary repositories | `unit/test_adapters.py`, `contract/test_adapter_drift.py`, `contract/test_compatibility.py` |
+| Installation-free source exports, launchers, standard-library imports | `contract/test_release.py`, `contract/test_launcher.py` |
+
+Overlap tests deterministically inject a second engine at selected operation
+boundaries. They establish the specified approval outcomes, not safety for every
+possible command interleaving or external file edit. The deferred investigations
+in Stage 15 require separate reproductions and design decisions.

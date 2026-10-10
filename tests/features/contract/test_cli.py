@@ -117,6 +117,76 @@ class CliContractTests(unittest.TestCase):
         self.assertEqual(run.returncode, ExitCode.AGENT_ACTION_REQUIRED)
         self.assertEqual(json.loads(run.stdout)["action"]["visit_status"], "active")
 
+    def test_malformed_status_fails_before_recovery_without_changing_files(self) -> None:
+        initialized = self.command("init", "Malformed status fixture")
+        self.assertEqual(initialized.returncode, ExitCode.AGENT_ACTION_REQUIRED)
+        run_id = json.loads(initialized.stdout)["action"]["run_id"]
+        directory = self.root / ".specromancy" / "runs" / run_id
+        manifest_path = directory / "run.json"
+        events_path = directory / "events.jsonl"
+        original_manifest = manifest_path.read_bytes()
+        original_events = events_path.read_bytes()
+        events = original_events.splitlines(keepends=True)
+        self.assertGreater(len(events), 1)
+        self.assertEqual(json.loads(events[-1])["manifest_revision"],
+                         json.loads(original_manifest)["revision"])
+
+        for gap in (False, True):
+            for level, message in (("run", "manifest status is invalid"),
+                                   ("visit", "visit identity or status is invalid")):
+                for invalid in (None, False, True, 0, 1, 1.5, "unknown", [], {}):
+                    with self.subTest(gap=gap, level=level, invalid=invalid):
+                        manifest = json.loads(original_manifest)
+                        target = manifest if level == "run" else manifest["visits"][0]
+                        target["status"] = invalid
+                        manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+                        events_path.write_bytes(b"".join(events[:-1]) if gap else original_events)
+                        before = {path.relative_to(directory): path.read_bytes()
+                                  for path in directory.rglob("*") if path.is_file()}
+
+                        result = self.command("status", run_id)
+
+                        self.assertEqual(result.returncode, ExitCode.INTERNAL_ERROR)
+                        self.assertEqual(result.stdout, "")
+                        self.assertEqual(json.loads(result.stderr), {
+                            "code": 12,
+                            "message": message,
+                            "details": {"error_code": "corrupt-run", "run_id": run_id},
+                        })
+                        self.assertEqual(
+                            {path.relative_to(directory): path.read_bytes()
+                             for path in directory.rglob("*") if path.is_file()},
+                            before,
+                        )
+
+    def test_valid_manifest_recovers_before_artifact_verification_fails(self) -> None:
+        initialized = self.command("init", "Artifact recovery fixture")
+        self.assertEqual(initialized.returncode, ExitCode.AGENT_ACTION_REQUIRED)
+        run_id = json.loads(initialized.stdout)["action"]["run_id"]
+        directory = self.root / ".specromancy" / "runs" / run_id
+        manifest_path = directory / "run.json"
+        events_path = directory / "events.jsonl"
+        original_manifest = manifest_path.read_bytes()
+        manifest = json.loads(original_manifest)
+        retained_events = b"".join(events_path.read_bytes().splitlines(keepends=True)[:-1])
+        events_path.write_bytes(retained_events)
+        (directory / manifest["request"]["path"]).write_text("changed\n", encoding="utf-8")
+
+        result = self.command("resume", run_id)
+
+        self.assertEqual(result.returncode, ExitCode.INTERNAL_ERROR)
+        self.assertEqual(result.stdout, "")
+        self.assertEqual(json.loads(result.stderr)["details"]["error_code"],
+                         "artifact-hash-mismatch")
+        self.assertEqual(manifest_path.read_bytes(), original_manifest)
+        recovered_events = events_path.read_bytes()
+        self.assertTrue(recovered_events.startswith(retained_events))
+        appended = recovered_events[len(retained_events):].splitlines()
+        self.assertEqual(len(appended), 1)
+        recovery = json.loads(appended[0])
+        self.assertEqual(recovery["type"], "recovery")
+        self.assertEqual(recovery["manifest_revision"], manifest["revision"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -7,12 +7,12 @@ from pathlib import Path
 from typing import Any
 
 from . import responses
-from .approvals import (
-    approval_integrity_errors, approved_for_phase, approved_record,
-    build_approval_record, granted_state, invalidated_state, pending_approval,
-    requested_state,
+from .approval_service import ApprovalService
+from .approvals import approved_record, pending_approval
+from .command_decisions import (
+    declared_reason as _declared_reason, illegal_transition, select_outcome,
 )
-from .artifacts import ArtifactError, artifact_record, verify_manifest_artifacts
+from .artifacts import ArtifactError, verify_manifest_artifacts
 from .config_models import PhaseConfig, PipelineConfig
 from .engine_errors import EngineError
 from .errors import UsageError
@@ -193,121 +193,12 @@ class Engine:
         outcome: str | None = None,
     ) -> dict[str, Any]:
         manifest = self._load(run_id)
-        visit = self._current_visit(manifest)
-        if visit is None or visit["status"] not in {"active", "awaiting-approval"}:
-            raise self._illegal("only an active visit can request approval", manifest)
-        phase = self.pipeline.phase(visit["phase_id"])
-        chosen_reason = _declared_reason(reason, phase.approval_conditions, "approval")
-        selected_outcome = self._select_outcome(phase, outcome)
-        evidence = self._perform_validation(manifest, visit, phase)
-        check = evidence.checks[0]
-        existing = pending_approval(manifest, visit["ordinal"])
-        if existing is not None:
-            if (
-                existing["reason"] == chosen_reason
-                and existing["details"] == details
-                and existing["artifact_sha256"] == check["sha256"]
-                and existing["outcome"] == selected_outcome
-            ):
-                return responses.approval_response(
-                    self.pipeline,
-                    manifest, existing, "approval is already pending"
-                )
-            raise self._illegal("a different approval is already pending", manifest)
-        approved = approved_record(manifest, visit["ordinal"])
-        if approved is not None:
-            return self._advance_approved(manifest, visit, approved)
-
-        requested_at = format_timestamp(utc_now())
-        approval = build_approval_record(
-            run_id=run_id,
-            phase_id=phase.id,
-            visit_number=visit["ordinal"],
-            reason=chosen_reason,
-            details=details,
-            artifact_sha256=check["sha256"],
-            pipeline_sha256=self.pipeline.config_hash,
-            outcome=selected_outcome,
-            requested_at=requested_at,
-        )
-
-        def change(value: RunRecord) -> None:
-            value.update(requested_state(
-                value,
-                approval,
-                validation_checks=evidence.checks,
-                mutation_result=evidence.mutation_result,
-                command_results=evidence.command_results,
-            ))
-
-        manifest = self.store.mutate(
-            run_id,
-            "approval-requested",
-            change,
-            visit_number=visit["ordinal"],
-            payload={"reason": chosen_reason, "outcome": selected_outcome},
-        )
-        return responses.approval_response(
-            self.pipeline, manifest, approval, "approval is required"
+        return self._approval_service().request_approval(
+            manifest, reason=reason, details=details, outcome=outcome
         )
 
     def approve(self, run_id: str, phase_id: str) -> dict[str, Any]:
-        # Approval verification intentionally loads persisted state before
-        # enforcing the current pipeline hash so drift can be recorded as a
-        # stale approval instead of becoming an unaudited early error.
-        manifest = self.store.load(run_id)
-        visit = self._current_visit(manifest)
-        if visit is None:
-            return self._idempotent_approval_result(manifest, phase_id)
-        if visit["phase_id"] != phase_id or visit["status"] != "awaiting-approval":
-            return self._idempotent_approval_result(manifest, phase_id)
-        approval = pending_approval(manifest, visit["ordinal"])
-        if approval is None:
-            approved = approved_record(manifest, visit["ordinal"])
-            if approved is not None:
-                return self._advance_approved(manifest, visit, approved)
-            raise self._illegal("visit has no pending approval request", manifest)
-        try:
-            current_hash = self._artifact_hash(manifest, visit)
-        except EngineError:
-            current_hash = ""
-        mismatches = approval_integrity_errors(
-            approval,
-            artifact_sha256=current_hash,
-            pipeline_sha256=self.pipeline.config_hash,
-        )
-        if mismatches:
-            self._invalidate_approval(manifest, visit, approval, mismatches)
-            raise EngineError(
-                ExitCode.APPROVAL_REQUIRED,
-                "approval request is stale because its artifact or pipeline changed",
-                "stale-approval",
-                phase=phase_id,
-                visit_number=visit["ordinal"],
-                mismatches=mismatches,
-            )
-        provenance_warnings = observe_provenance(self.pipeline, manifest)
-        if provenance_warnings:
-            warning = provenance_warnings[0]
-            raise EngineError(
-                ExitCode.INTERNAL_ERROR,
-                warning["message"],
-                warning["code"],
-                **warning.get("details", {}),
-            )
-        decided_at = format_timestamp(utc_now())
-
-        def decide(value: RunRecord) -> None:
-            value.update(granted_state(value, visit["ordinal"], decided_at=decided_at))
-
-        manifest = self.store.mutate(
-            run_id,
-            "approval-granted",
-            decide,
-            visit_number=visit["ordinal"],
-            payload={"phase_id": phase_id, "actor": "user"},
-        )
-        return self._advance_approved(manifest, visit, approval)
+        return self._approval_service().approve(run_id, phase_id)
 
     def block(
         self,
@@ -403,53 +294,25 @@ class Engine:
             self.pipeline, manifest, "run reached a boundary"
         )
 
+    def _approval_service(self) -> ApprovalService:
+        # Resolve validation and the engine clock at their original call sites,
+        # including hooks replaced after a grant has committed.
+        return ApprovalService(
+            self.pipeline,
+            self.store,
+            validate=lambda manifest, visit, phase: self._perform_validation(
+                manifest, visit, phase
+            ),
+            timestamp=lambda: format_timestamp(utc_now()),
+        )
+
     def _advance_approved(
         self,
         manifest: RunRecord,
         visit: VisitRecord,
         approval: ApprovalRecord,
     ) -> dict[str, Any]:
-        try:
-            current_hash = self._artifact_hash(manifest, visit)
-        except EngineError:
-            current_hash = ""
-        mismatches = approval_integrity_errors(
-            approval,
-            artifact_sha256=current_hash,
-            pipeline_sha256=self.pipeline.config_hash,
-        )
-        if mismatches:
-            self._invalidate_approval(manifest, visit, approval, mismatches)
-            raise EngineError(
-                ExitCode.APPROVAL_REQUIRED,
-                "approval is stale because its artifact or pipeline changed",
-                "stale-approval",
-                phase=visit["phase_id"],
-                visit_number=visit["ordinal"],
-                mismatches=mismatches,
-            )
-        phase = self.pipeline.phase(visit["phase_id"])
-        evidence = self._perform_validation(manifest, visit, phase)
-        transition = next(
-            item for item in phase.transitions if item.outcome == approval["outcome"]
-        )
-        updated = self.store.transition_visit(
-            manifest["run_id"],
-            self.pipeline,
-            visit["ordinal"],
-            outcome=approval["outcome"],
-            transition_target=transition.target,
-            terminal_result={
-                "outcome": approval["outcome"],
-                "phase": phase.id,
-                "visit_number": visit["ordinal"],
-                "approval_reason": approval["reason"],
-            },
-            validation_checks=evidence.checks,
-            mutation_result=evidence.mutation_result,
-            command_results=evidence.command_results,
-        )
-        return responses.after_transition(self.pipeline, updated, approval["outcome"])
+        return self._approval_service().advance_approved(manifest, visit, approval)
 
     def _load(self, run_id: str) -> RunRecord:
         manifest = self.store.load(run_id)
@@ -501,20 +364,7 @@ class Engine:
     def _artifact_hash(
         self, manifest: RunRecord, visit: VisitRecord
     ) -> str:
-        try:
-            return artifact_record(
-                self.store.run_directory(manifest["run_id"]),
-                visit["output"]["path"],
-            )["sha256"]
-        except (ArtifactError, OSError) as exc:
-            details = dict(getattr(exc, "details", None) or {"error": str(exc)})
-            details.pop("error_code", None)
-            raise EngineError(
-                ExitCode.VALIDATION_FAILED,
-                "output artifact is missing or unreadable",
-                "invalid-output",
-                **details,
-            ) from exc
+        return self._approval_service().artifact_hash(manifest, visit)
 
     def _invalidate_approval(
         self,
@@ -523,55 +373,10 @@ class Engine:
         approval: ApprovalRecord,
         mismatches: list[str],
     ) -> None:
-        decided_at = format_timestamp(utc_now())
-
-        def invalidate(value: RunRecord) -> None:
-            value.update(invalidated_state(
-                value, visit["ordinal"], approval, decided_at=decided_at
-            ))
-
-        self.store.mutate(
-            manifest["run_id"],
-            "approval-invalidated",
-            invalidate,
-            visit_number=visit["ordinal"],
-            payload={"mismatches": mismatches},
-        )
+        self._approval_service().invalidate_approval(manifest, visit, approval, mismatches)
 
     def _select_outcome(self, phase: PhaseConfig, requested: str | None) -> str:
-        outcomes = [
-            transition.outcome
-            for transition in phase.transitions
-            if transition.outcome != "blocked"
-        ]
-        if requested is not None:
-            if requested not in outcomes:
-                raise EngineError(
-                    ExitCode.ILLEGAL_TRANSITION,
-                    f"outcome {requested!r} is not declared by phase {phase.id!r}",
-                    "undeclared-outcome",
-                    phase=phase.id,
-                    requested=requested,
-                    declared=outcomes,
-                )
-            if len(outcomes) <= 1:
-                raise EngineError(
-                    ExitCode.ILLEGAL_TRANSITION,
-                    "--outcome is valid only when the phase has multiple successful outcomes",
-                    "unnecessary-outcome",
-                    phase=phase.id,
-                    declared=outcomes,
-                )
-            return requested
-        if len(outcomes) != 1:
-            raise EngineError(
-                ExitCode.ILLEGAL_TRANSITION,
-                f"phase {phase.id!r} requires one of {outcomes!r}",
-                "outcome-required",
-                phase=phase.id,
-                declared=outcomes,
-            )
-        return outcomes[0]
+        return select_outcome(phase, requested)
 
     @staticmethod
     def _current_visit(manifest: RunRecord) -> VisitRecord | None:
@@ -596,25 +401,12 @@ class Engine:
     def _illegal(
         message: str, manifest: RunRecord, **details: Any
     ) -> EngineError:
-        return EngineError(
-            ExitCode.ILLEGAL_TRANSITION,
-            message,
-            "illegal-transition",
-            status=manifest["status"],
-            **details,
-        )
+        return illegal_transition(message, manifest, **details)
 
     def _idempotent_approval_result(
         self, manifest: RunRecord, phase_id: str
     ) -> dict[str, Any]:
-        approved = approved_for_phase(manifest, phase_id)
-        if approved is None:
-            raise self._illegal(
-                f"phase {phase_id!r} has no pending approval", manifest
-            )
-        return responses.response_for_state(
-            self.pipeline, manifest, "approval was already recorded"
-        )
+        return self._approval_service().idempotent_approval_result(manifest, phase_id)
 
 
 def capture_git_metadata(root: Path, *, include_status: bool = False) -> dict[str, Any]:
@@ -629,24 +421,3 @@ def capture_git_metadata(root: Path, *, include_status: bool = False) -> dict[st
         "branch": snapshot["branch"],
         "status": [],
     }
-
-
-def _declared_reason(
-    requested: str | None, declared: tuple[str, ...], kind: str
-) -> str:
-    if requested is None:
-        if len(declared) == 1:
-            return declared[0]
-        raise UsageError(
-            f"--reason is required; declared {kind} reasons: {', '.join(declared) or 'none'}",
-            {"declared": list(declared)},
-        )
-    if requested not in declared:
-        raise EngineError(
-            ExitCode.ILLEGAL_TRANSITION,
-            f"{kind} reason {requested!r} is not declared",
-            f"undeclared-{kind}-reason",
-            requested=requested,
-            declared=list(declared),
-        )
-    return requested
