@@ -1,0 +1,127 @@
+# CLI reference
+
+Run `bin/specromancy` from a checkout or `python -m specromancy` from the
+repository root. Python 3.11 or newer is required; the runtime has no
+third-party dependencies.
+
+Global options may appear before or after a subcommand:
+
+```text
+--root PATH       explicit repository root
+--pipeline ID     registered pipeline ID (required for init)
+--json            emit exactly one JSON object
+--quiet           suppress successful human-readable output
+```
+
+`--root` is required when no `.git` directory or worktree marker can be
+discovered. `workflow/pipelines.toml` is mandatory and contains at least one
+registration pointing to a TOML graph under `workflow/pipelines/`. There is no
+default pipeline. See [Workflow customization](../../workflow/README.md).
+
+## Workflow commands
+
+```bash
+bin/specromancy init "describe the requested change" --pipeline implementation
+bin/specromancy status RUN_ID
+bin/specromancy resume RUN_ID
+bin/specromancy phase RUN_ID PHASE
+bin/specromancy validate RUN_ID PHASE
+```
+
+- `init DESCRIPTION --pipeline ID` creates a run, immutable request artifact, and pending
+  first visit. `--description-file PATH` reads the request from UTF-8 input.
+- `status RUN_ID` reports current persisted state, warnings, and the next command
+  without advancing the workflow. Loading may append a recovery event for an
+  interrupted manifest commit, as described in the persistence contract.
+- `resume RUN_ID` reconstructs the next boundary from disk. For a paused run it
+  atomically releases the checkpoint and returns the pending successor action;
+  otherwise it returns the current boundary without a new transition. Loading
+  may recover the same permitted audit gap. It does not depend on the process
+  or conversation that created the run.
+- `phase RUN_ID PHASE` starts or resumes only the recorded current phase and
+  emits its action packet. Each configured phase also has a dynamic alias, such
+  as `bin/specromancy research RUN_ID` when the run's graph declares that phase.
+- `validate RUN_ID [PHASE] [--outcome OUTCOME]` validates the output, configured
+  commands, and repository mutation policy before recording a transition.
+  `--outcome` is required when more than one non-blocking outcome is possible.
+- `run RUN_ID` performs deterministic CLI work until the next agent, pause,
+  approval, block, failure, or terminal boundary. It never launches a harness.
+
+Existing-run commands select the original graph from validated persisted ID,
+path, version and hash. An optional `--pipeline ID` must agree with that run.
+Paths are not accepted as selectors. Action packets validate using the run ID
+without a selector.
+
+Removing a registration prevents new runs while existing runs can still use
+their original files. Changing or moving their graph causes drift or missing-file
+errors; restoring the original files is required to continue. Unrelated graphs
+are not loaded for an existing-run command.
+
+## Approval and stop commands
+
+```bash
+bin/specromancy request-approval RUN_ID --reason REASON --details TEXT
+bin/specromancy approve RUN_ID PHASE
+bin/specromancy block RUN_ID --reason REASON --details TEXT
+```
+
+Only reasons declared by the current phase are accepted. `--reason` may be
+omitted when exactly one relevant reason is configured. An approval request
+validates the current artifact and binds its hash, pipeline hash, visit, and
+selected outcome. `approve` rechecks those bindings before transition. `block`
+records a declared stop condition; loop-limit blocks are created mechanically.
+
+Overlapping identical requests reuse the saved pending request. An overlapping
+`approve` resumes a saved grant, or reports `approval was already recorded` if
+that exact request's visit has completed, without advancing its successor.
+If another operation replaces the request or changes its visit binding, the
+overtaken command returns `approval-state-changed` (5) without changing the
+winner's state. Inspect `status RUN_ID` before deciding what to do next.
+Lock contention remains exit code 10 without automatic retries. Full binding,
+retry, and audit rules are in the [approval consistency contract](contracts.md#approval-consistency).
+
+## Adapter commands
+
+```bash
+bin/specromancy adapters generate
+bin/specromancy adapters generate --check
+```
+
+Generation processes all registered pipelines; `--pipeline` is rejected here.
+It produces a `specromancy-<id>` skill per registration and updates only
+manifest-owned adapter paths. `--check` writes nothing
+and reports missing, modified, extra, or source-stale generated files.
+
+## JSON and exit codes
+
+With `--json`, responses have stable `schema_version`, `kind`, `code`, and
+`message` fields. Actionable responses include `action`; approval responses
+include `approval` and `status`; terminal and read-only responses include
+`status`. Expected errors include `details.error_code` where a stable diagnostic
+is available.
+
+| Code | Meaning |
+| ---: | --- |
+| 0 | success |
+| 2 | CLI usage error |
+| 3 | invalid or changed pipeline |
+| 4 | run or artifact not found |
+| 5 | illegal transition |
+| 6 | artifact, command, or mutation validation failed |
+| 7 | approval required |
+| 8 | agent action required |
+| 9 | run blocked |
+| 10 | run lock held |
+| 11 | generated adapter drift |
+| 12 | internal or corrupt-state error |
+| 13 | run paused at a configured checkpoint |
+
+Exit codes 7–10 and 13 are expected workflow boundaries, not generic crashes.
+Full public contracts are recorded in [contracts.md](contracts.md).
+
+Malformed run or visit statuses, including JSON arrays and objects, return
+`corrupt-run` (12), with `manifest status is invalid` or
+`visit identity or status is invalid`. These failures occur before audit recovery
+and leave persisted files unchanged. Other deliberately permissive version-1
+nested fields retain their existing acceptance; see the
+[persisted-status contract](contracts.md#malformed-persisted-statuses).

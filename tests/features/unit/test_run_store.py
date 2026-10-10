@@ -1,0 +1,341 @@
+from __future__ import annotations
+
+import copy
+import json
+import tempfile
+import textwrap
+import unittest
+from datetime import datetime, timezone
+from pathlib import Path
+
+from specromancy.artifacts import ArtifactError, resolve_input_reference
+from specromancy.config import load_pipeline
+from specromancy.hashing import sha256_json
+from specromancy.locking import LockHeldError
+from specromancy.run_store import (
+    RunCorruptionError,
+    RunStore,
+    generate_run_id,
+    is_valid_run_id,
+    validate_run_id,
+)
+from specromancy.visit_preparation import collect_resources
+
+
+RUN_ID = "20260925T120000Z-01020304"
+
+
+PIPELINE = """
+schema_version = 1
+id = "fixture"
+version = 1
+start = "compose"
+terminal_outcomes = ["done"]
+artifact_pattern = "artifacts/{visit:03}-{phase}.md"
+
+[[phases]]
+id = "compose"
+skill = "compose"
+inputs = ["request"]
+output_name = "{visit:03}-result.md"
+mutation = "read-only"
+completion_criteria = ["Write a result."]
+validator = "file"
+approval_conditions = []
+stop_conditions = []
+max_visits = 2
+
+[[phases.transitions]]
+outcome = "done"
+"""
+
+
+class StoreFixture:
+    def __init__(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        (self.root / ".git").mkdir()
+        skill = self.root / ".agents" / "skills" / "compose" / "SKILL.md"
+        skill.parent.mkdir(parents=True)
+        skill.write_text(
+            "---\nname: compose\ndescription: Test skill.\n---\n",
+            encoding="utf-8",
+        )
+        self.pipeline_path = self.root / "pipeline.toml"
+        self.pipeline_path.write_text(textwrap.dedent(PIPELINE), encoding="utf-8")
+        self.pipeline = load_pipeline(self.pipeline_path, self.root)
+
+    def close(self) -> None:
+        self.temporary.cleanup()
+
+
+class RunIdTests(unittest.TestCase):
+    def test_generation_is_deterministic_with_injected_sources(self) -> None:
+        run_id = generate_run_id(
+            clock=lambda: datetime(2026, 9, 25, 14, 30, 1, tzinfo=timezone.utc),
+            random_source=lambda count: bytes.fromhex("a1b2c3d4"),
+        )
+        self.assertEqual(run_id, "20260925T143001Z-a1b2c3d4")
+        self.assertTrue(is_valid_run_id(run_id))
+        without_argument = generate_run_id(
+            clock=lambda: datetime(2026, 9, 25, 14, 30, 1, tzinfo=timezone.utc),
+            random_source=lambda: "01020304",
+        )
+        self.assertEqual(without_argument, "20260925T143001Z-01020304")
+
+    def test_distinct_random_values_produce_distinct_ids(self) -> None:
+        values = iter((bytes.fromhex("00000001"), bytes.fromhex("00000002")))
+        clock = lambda: datetime(2026, 9, 25, 14, 30, 1, tzinfo=timezone.utc)
+        first = generate_run_id(clock=clock, random_source=lambda count: next(values))
+        second = generate_run_id(clock=clock, random_source=lambda count: next(values))
+        self.assertNotEqual(first, second)
+
+    def test_rejects_separators_dot_segments_bad_dates_and_uppercase_hex(self) -> None:
+        for value in (
+            "../20260925T143001Z-a1b2c3d4",
+            "20260925T143001Z/a1b2c3d4",
+            ".",
+            "20261340T999999Z-a1b2c3d4",
+            "20260925T143001Z-A1B2C3D4",
+            "run-1",
+        ):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                validate_run_id(value)
+
+
+class RunStoreTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.fixture = StoreFixture()
+        self.store = RunStore(self.fixture.root)
+
+    def tearDown(self) -> None:
+        self.fixture.close()
+
+    def create(self) -> dict[str, object]:
+        return self.store.create(
+            self.fixture.pipeline,
+            "Build the feature",
+            run_id=RUN_ID,
+            git_base={"head": "base"},
+            git_head={"head": "current"},
+        )
+
+    def test_creation_writes_valid_request_manifest_and_first_event(self) -> None:
+        manifest = self.create()
+        directory = self.store.run_directory(RUN_ID)
+        self.assertEqual(
+            (directory / "artifacts" / "000-request.md").read_text(encoding="utf-8"),
+            "Build the feature\n",
+        )
+        self.assertEqual(json.loads((directory / "run.json").read_text()), manifest)
+        events = self.store.read_events(RUN_ID)
+        self.assertEqual([event["type"] for event in events], ["run-created"])
+        self.assertEqual(events[0]["sequence"], 1)
+        self.assertEqual(events[0]["manifest_hash"], sha256_json(manifest))
+        self.assertFalse((directory / ".lock").exists())
+
+    def test_returned_records_and_mutator_captures_are_detached(self) -> None:
+        created = self.create()
+        created["request"]["path"] = "changed"
+        self.assertNotEqual(self.store.load(RUN_ID)["request"]["path"], "changed")
+        visit = self.store.prepare_visit(RUN_ID, self.fixture.pipeline, "compose")
+        visit["output"]["path"] = "changed"
+        active = self.store.activate_visit(RUN_ID, self.fixture.pipeline, 1)
+        active["inputs"][0]["sha256"] = "changed"
+        self.assertNotEqual(self.store.load(RUN_ID)["visits"][0]["inputs"][0]["sha256"], "changed")
+
+        captured = []
+        def change(value):
+            captured.append(value)
+            value["block_reason"] = {"nested": ["original"]}
+        updated = self.store.mutate(RUN_ID, "test-mutation", change)
+        captured[0]["block_reason"]["nested"].append("captured")
+        self.assertEqual(updated["block_reason"], {"nested": ["original"]})
+        updated["block_reason"]["nested"].append("returned")
+        loaded = self.store.load(RUN_ID)
+        self.assertEqual(loaded["block_reason"], {"nested": ["original"]})
+        loaded["visits"][0]["output"]["path"] = "changed"
+        self.assertNotEqual(self.store.load(RUN_ID)["visits"][0]["output"]["path"], "changed")
+
+        events = self.store.read_events(RUN_ID)
+        events[0]["payload"]["pipeline_id"] = "changed"
+        self.assertEqual(self.store.read_events(RUN_ID)[0]["payload"]["pipeline_id"], "fixture")
+
+    def test_two_writers_cannot_lock_one_run(self) -> None:
+        self.create()
+        with self.store.lock(RUN_ID):
+            with self.assertRaises(LockHeldError) as raised:
+                RunStore(self.fixture.root).load(RUN_ID)
+        self.assertIn("remove the lock file manually", raised.exception.details["remediation"])
+
+    def test_resource_collection_borrows_state_and_returns_detached_inputs(self) -> None:
+        manifest = self.create()
+        before = copy.deepcopy(manifest)
+        directory = self.store.run_directory(RUN_ID)
+        files_before = {p.relative_to(directory): p.read_bytes()
+                        for p in directory.rglob("*") if p.is_file()}
+        with self.store.lock(RUN_ID):
+            resources = collect_resources(
+                directory, manifest, self.fixture.pipeline,
+                self.fixture.pipeline.phase("compose"),
+                repository_root=self.store.repository_root, ordinal=1,
+            )
+        self.assertEqual(manifest, before)
+        self.assertEqual(resources.inputs, [{"reference": "request", **manifest["request"]}])
+        self.assertIsNone(resources.template)
+        self.assertFalse((directory / resources.output_path).exists())
+        resources.inputs[0]["sha256"] = "changed"
+        resources.inputs.clear()
+        self.assertEqual(manifest, before)
+        self.assertEqual({p.relative_to(directory): p.read_bytes()
+                          for p in directory.rglob("*") if p.is_file()}, files_before)
+
+    def test_completed_artifact_hash_detects_edits(self) -> None:
+        self.create()
+        visit = self.store.start_visit(RUN_ID, self.fixture.pipeline, "compose")
+        self.store.write_visit_output(RUN_ID, visit["ordinal"], "# Result\n")
+        sealed = self.store.complete_visit(RUN_ID, visit["ordinal"], outcome="done")
+        output = self.store.run_directory(RUN_ID) / sealed["output"]["path"]
+        output.write_text("changed\n", encoding="utf-8")
+        with self.assertRaises(ArtifactError) as raised:
+            self.store.load(RUN_ID)
+        self.assertEqual(raised.exception.diagnostic_code, "artifact-hash-mismatch")
+
+    def test_repeated_phase_visits_have_distinct_ordinals_paths_and_attempts(self) -> None:
+        self.create()
+        first = self.store.start_visit(RUN_ID, self.fixture.pipeline, "compose")
+        self.store.write_visit_output(RUN_ID, 1, "first\n")
+        self.store.complete_visit(RUN_ID, 1)
+        resolved = resolve_input_reference(
+            "visit:1", self.store.load(RUN_ID), self.store.run_directory(RUN_ID)
+        )
+        self.assertEqual(resolved["path"], first["output"]["path"])
+        second = self.store.start_visit(RUN_ID, self.fixture.pipeline, "compose")
+        self.assertEqual((first["ordinal"], second["ordinal"]), (1, 2))
+        self.assertEqual((first["attempt"], second["attempt"]), (1, 2))
+        self.assertNotEqual(first["output"]["path"], second["output"]["path"])
+        self.assertTrue((self.store.run_directory(RUN_ID) / first["output"]["path"]).is_file())
+
+    def test_symbolic_inputs_fail_safely_and_resolve_only_completed_outputs(self) -> None:
+        manifest = self.create()
+        directory = self.store.run_directory(RUN_ID)
+        request = resolve_input_reference("request", manifest, directory)
+        self.assertEqual(request["path"], "artifacts/000-request.md")
+        for reference in ("latest:compose", "visit:1", "visit:0", "../request"):
+            with self.subTest(reference=reference), self.assertRaises(ArtifactError):
+                resolve_input_reference(reference, manifest, directory)
+
+    def test_before_replace_fault_preserves_the_previous_complete_manifest(self) -> None:
+        original = self.create()
+
+        def fail(point: str) -> None:
+            if point == "before-manifest-replace":
+                raise RuntimeError("injected")
+
+        self.store._fault_injector = fail
+        with self.assertRaises(RuntimeError):
+            self.store.block(RUN_ID, "test")
+        raw = (self.store.run_directory(RUN_ID) / "run.json").read_text(encoding="utf-8")
+        self.assertEqual(json.loads(raw), original)
+        self.assertEqual(RunStore(self.fixture.root).load(RUN_ID), original)
+
+    def test_after_replace_fault_is_recovered_with_an_audit_event(self) -> None:
+        self.create()
+
+        def fail(point: str) -> None:
+            if point == "after-manifest-replace":
+                raise RuntimeError("injected")
+
+        self.store._fault_injector = fail
+        with self.assertRaises(RuntimeError):
+            self.store.block(RUN_ID, "interrupted")
+        restarted = RunStore(self.fixture.root)
+        recovered = restarted.load(RUN_ID)
+        self.assertEqual(recovered["status"], "blocked")
+        events = restarted.read_events(RUN_ID)
+        self.assertEqual([event["type"] for event in events], ["run-created", "recovery"])
+        self.assertEqual(events[-1]["manifest_hash"], sha256_json(recovered))
+
+    def test_valid_but_unaudited_manifest_edit_is_detected_as_corruption(self) -> None:
+        manifest = self.create()
+        manifest["status"] = "failed"
+        path = self.store.run_directory(RUN_ID) / "run.json"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaises(RunCorruptionError):
+            self.store.load(RUN_ID)
+
+    def test_path_escaping_manifest_reference_is_corruption(self) -> None:
+        manifest = self.create()
+        manifest["request"]["path"] = "../request.md"
+        manifest["revision"] += 1
+        path = self.store.run_directory(RUN_ID) / "run.json"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        with self.assertRaises(RunCorruptionError):
+            self.store.load(RUN_ID)
+
+    def test_malformed_manifest_is_never_guessed_back_into_shape(self) -> None:
+        self.create()
+        path = self.store.run_directory(RUN_ID) / "run.json"
+        path.write_text('{"status":', encoding="utf-8")
+        with self.assertRaises(RunCorruptionError):
+            self.store.load(RUN_ID)
+
+    def test_event_log_corruption_is_never_guessed_back_into_shape(self) -> None:
+        self.create()
+        self.store.block(RUN_ID, "test")
+        path = self.store.run_directory(RUN_ID) / "events.jsonl"
+        original = path.read_text(encoding="utf-8")
+        events = [json.loads(line) for line in original.splitlines()]
+
+        changed_sequence = [dict(event) for event in events]
+        changed_sequence[1]["sequence"] = 3
+        changed_revision = [dict(event) for event in events]
+        changed_revision[0]["manifest_revision"] = 2
+        changed_final_hash = [dict(event) for event in events]
+        changed_final_hash[-1]["manifest_hash"] = "0" * 64
+        cases = {
+            "malformed-json": original + "{\n",
+            "empty-record": original + "\n",
+            "sequence-gap": "".join(
+                json.dumps(event) + "\n" for event in changed_sequence
+            ),
+            "revision-gap": "".join(
+                json.dumps(event) + "\n" for event in changed_revision
+            ),
+            "final-hash-mismatch": "".join(
+                json.dumps(event) + "\n" for event in changed_final_hash
+            ),
+        }
+        for name, content in cases.items():
+            with self.subTest(name=name):
+                path.write_text(content, encoding="utf-8")
+                with self.assertRaises(RunCorruptionError):
+                    self.store.load(RUN_ID)
+        path.write_text(original, encoding="utf-8")
+        self.assertEqual(self.store.load(RUN_ID)["status"], "blocked")
+
+    def test_persisted_records_match_their_published_schema_surfaces(self) -> None:
+        schemas = Path(__file__).resolve().parents[3] / "specromancy" / "schemas"
+        run_schema = json.loads((schemas / "run.schema.json").read_text())
+        event_schema = json.loads((schemas / "event.schema.json").read_text())
+        self.assertEqual(run_schema["properties"]["schema_version"]["const"], 1)
+        self.assertEqual(event_schema["properties"]["schema_version"]["const"], 1)
+        self.assertIn("paused", run_schema["$defs"]["status"]["enum"])
+        self.assertEqual(set(run_schema["required"]), set(run_schema["properties"]))
+        self.assertEqual(
+            set(event_schema["required"]), set(event_schema["properties"])
+        )
+
+        self.create()
+        self.store.start_visit(RUN_ID, self.fixture.pipeline, "compose")
+        manifest = self.store.load(RUN_ID)
+        event = self.store.read_events(RUN_ID)[-1]
+        self.assertEqual(set(manifest), set(run_schema["required"]))
+        self.assertEqual(set(event), set(event_schema["required"]))
+        visit_schema = run_schema["$defs"]["visit"]
+        self.assertEqual(set(visit_schema["required"]), set(visit_schema["properties"]))
+        self.assertEqual(set(manifest["visits"][0]), set(visit_schema["required"]))
+
+
+if __name__ == "__main__":
+    unittest.main()

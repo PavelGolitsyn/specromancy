@@ -1,0 +1,41 @@
+schema_version = 1
+id = "bounded-loop"
+version = 1
+start = "transform"
+terminal_outcomes = ["accepted"]
+artifact_pattern = "artifacts/{visit:03}-{phase}.md"
+
+[[phases]]
+id = "transform"
+skill = "implement"
+inputs = ["request"]
+output_name = "{visit:03}-transformation.md"
+mutation = "repository-write"
+completion_criteria = ["Produce a transformation record."]
+validator = "file"
+approval_conditions = []
+stop_conditions = []
+
+[[phases.transitions]]
+outcome = "ready"
+target = "verify"
+
+[[phases]]
+id = "verify"
+skill = "review"
+inputs = ["latest:transform"]
+output_name = "{visit:03}-verification.md"
+mutation = "read-only"
+completion_criteria = ["Record a verification result."]
+validator = "file"
+approval_conditions = []
+stop_conditions = []
+
+[[phases.transitions]]
+outcome = "accepted"
+
+[[phases.transitions]]
+outcome = "retry"
+target = "transform"
+max_traversals = 2
+
