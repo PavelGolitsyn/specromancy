@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from specromancy.graph import reachable_from, strongly_connected_components
+from specromancy_engine.graph import reachable_from, strongly_connected_components
 
 
 class GraphUtilityTests(unittest.TestCase):

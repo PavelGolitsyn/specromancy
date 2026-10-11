@@ -6,10 +6,10 @@ import json
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from specromancy.artifacts import ArtifactError
-from specromancy.hashing import sha256_json
-from specromancy.locking import LockHeldError
-from specromancy.run_store import RunCorruptionError, RunStore, RunStoreError
+from specromancy_engine.artifacts import ArtifactError
+from specromancy_engine.hashing import sha256_json
+from specromancy_engine.locking import LockHeldError
+from specromancy_engine.run_store import RunCorruptionError, RunStore, RunStoreError
 from tests.engine.unit.test_run_store import RUN_ID, StoreFixture
 
 

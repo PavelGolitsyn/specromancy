@@ -4,11 +4,11 @@ import json
 import unittest
 from unittest.mock import patch
 
-from specromancy.adapters import AdapterError, generate_adapters, render_adapters
-from specromancy._adapters.adapter_rendering import expected_manifest, render_sources
-from specromancy._adapters.adapter_sources import capture_sources
-from specromancy.cli import adapter_command_metadata
-from specromancy.registry import load_registry
+from specromancy_engine.adapters import AdapterError, generate_adapters, render_adapters
+from specromancy_engine._adapters.adapter_rendering import expected_manifest, render_sources
+from specromancy_engine._adapters.adapter_sources import capture_sources
+from specromancy_engine.cli import adapter_command_metadata
+from specromancy_engine.registry import load_registry
 from tests.engine.support import MultiPipelineFixture
 
 

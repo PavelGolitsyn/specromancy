@@ -8,19 +8,19 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from specromancy._adapters import adapter_ownership
-from specromancy._adapters import adapter_sources
-from specromancy.adapters import (
+from specromancy_engine._adapters import adapter_ownership
+from specromancy_engine._adapters import adapter_sources
+from specromancy_engine.adapters import (
     MANIFEST_PATH,
     AdapterError,
     generate_adapters,
     render_adapters,
 )
-from specromancy.cli import adapter_command_metadata, main
-from specromancy.config import load_pipeline
-from specromancy.registry import PipelineRegistry, load_registry
-from specromancy.exit_codes import ExitCode
-from specromancy.hashing import sha256_bytes
+from specromancy_engine.cli import adapter_command_metadata, main
+from specromancy_engine.config import load_pipeline
+from specromancy_engine.registry import PipelineRegistry, load_registry
+from specromancy_engine.exit_codes import ExitCode
+from specromancy_engine.hashing import sha256_bytes
 
 
 class AdapterFixture:

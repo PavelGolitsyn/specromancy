@@ -25,10 +25,13 @@ bin/specromancy adapters generate --check
 use its exact output path, skill, mutation policy, and final validation command.
 Runtime data is written only under ignored `.specromancy/runs/` storage.
 
-The intermediate distribution is `specromancy-engine` version `0.1.0`. It
-provides the `specromancy` console command and `python -m specromancy`. This
+The distribution is `specromancy-engine` version `0.2.0`. It
+provides the `specromancy` console command and `python -m specromancy_engine`. This
 build is for local verification, not publication. The checkout wrappers
 `bin/specromancy` and `adapters/generate.py` also work without installation.
+Python consumers must change imports to `specromancy_engine`; no legacy import
+shim is shipped. Stored runs retain their version-1 formats. See the
+[0.2.0 release notes](docs/releases/0.2.0.md) for upgrade instructions.
 
 ## Customize the workflow
 
@@ -38,7 +41,7 @@ Adapters generate a `specromancy-<id>` launch skill for each registration.
 The editable graphs and shared artifact templates live in [`workflow/`](workflow/).
 Phase procedures live in [`.agents/skills/`](.agents/skills/) for native harness
 discovery, and repository-wide agent constraints live in [`AGENTS.md`](AGENTS.md).
-The Python package under `src/specromancy/` is the generic engine, not a workflow
+The Python package under `src/specromancy_engine/` is the generic engine, not a workflow
 customization surface. Start with the
 [`workflow/README.md`](workflow/README.md) customization map.
 

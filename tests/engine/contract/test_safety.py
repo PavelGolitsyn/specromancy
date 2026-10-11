@@ -8,11 +8,11 @@ import textwrap
 import unittest
 from pathlib import Path
 
-from specromancy.commands import execute_validation_commands
-from specromancy.config import ValidationCommand, load_pipeline
-from specromancy.engine import Engine, EngineError
-from specromancy.exit_codes import ExitCode
-from specromancy.run_store import RunStore
+from specromancy_engine.commands import execute_validation_commands
+from specromancy_engine.config import ValidationCommand, load_pipeline
+from specromancy_engine.engine import Engine, EngineError
+from specromancy_engine.exit_codes import ExitCode
+from specromancy_engine.run_store import RunStore
 
 from tests.engine.contract.support import DEFAULT_ARTIFACTS, CliRepository, advance_to
 

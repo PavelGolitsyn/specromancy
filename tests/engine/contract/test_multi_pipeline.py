@@ -6,7 +6,7 @@ import sys
 import unittest
 from pathlib import Path
 
-from specromancy.exit_codes import ExitCode
+from specromancy_engine.exit_codes import ExitCode
 from tests.engine.support import MultiPipelineFixture
 
 
@@ -23,7 +23,7 @@ class MultiPipelineContractTests(unittest.TestCase):
 
     def command(self, *arguments: str) -> tuple[int, dict]:
         result = subprocess.run(
-            [sys.executable, "-m", "specromancy", "--root", str(self.root), "--json", *arguments],
+            [sys.executable, "-m", "specromancy_engine", "--root", str(self.root), "--json", *arguments],
             cwd=ROOT, capture_output=True, text=True, check=False,
         )
         return result.returncode, json.loads(result.stdout or result.stderr)

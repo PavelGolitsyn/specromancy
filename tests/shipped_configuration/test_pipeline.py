@@ -9,9 +9,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from specromancy.registry import load_registry
-from specromancy.exit_codes import ExitCode
-from specromancy.validation import markdown_heading_counts
+from specromancy_engine.registry import load_registry
+from specromancy_engine.exit_codes import ExitCode
+from specromancy_engine.validation import markdown_heading_counts
 
 
 ROOT = Path(__file__).resolve().parents[2]

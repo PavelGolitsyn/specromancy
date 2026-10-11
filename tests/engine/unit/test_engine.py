@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-import sys
 import tempfile
 import textwrap
 import unittest
 from pathlib import Path
 
-from specromancy.config import load_pipeline
-from specromancy.engine import Engine, EngineError
-from specromancy.exit_codes import ExitCode
-from specromancy.run_store import RunStore
+from specromancy_engine.config import load_pipeline
+from specromancy_engine.engine import Engine, EngineError
+from specromancy_engine.exit_codes import ExitCode
+from specromancy_engine.run_store import RunStore
 
 
 PIPELINE = """
@@ -260,8 +259,8 @@ class EngineTests(unittest.TestCase):
         )
         self.assertEqual(first["inputs"][0]["reference"], "request")
         self.assertEqual(
-            first["final_validation_command"][:3],
-            [sys.executable, "-m", "specromancy"],
+            first["final_validation_command"][:1],
+            ["specromancy"],
         )
         self.assertEqual(
             first["final_validation_command"][-2:],

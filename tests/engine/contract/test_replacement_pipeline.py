@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from specromancy.exit_codes import ExitCode
+from specromancy_engine.exit_codes import ExitCode
 
 from tests.engine.contract.support import CliRepository
 

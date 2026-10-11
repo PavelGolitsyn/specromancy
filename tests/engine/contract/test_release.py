@@ -11,7 +11,7 @@ import tomllib
 import unittest
 from pathlib import Path
 
-import specromancy
+import specromancy_engine
 from tests.engine.contract.source_scan import runtime_sources
 
 
@@ -23,8 +23,8 @@ class ReleaseContractTests(unittest.TestCase):
     def test_package_and_installed_metadata_agree(self) -> None:
         project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
         distribution = importlib.metadata.distribution("specromancy-engine")
-        self.assertEqual(project["version"], specromancy.__version__)
-        self.assertEqual(distribution.version, specromancy.__version__)
+        self.assertEqual(project["version"], specromancy_engine.__version__)
+        self.assertEqual(distribution.version, specromancy_engine.__version__)
         self.assertEqual(distribution.metadata["Name"], project["name"])
         self.assertEqual(distribution.metadata["Requires-Python"], ">=3.11")
         self.assertEqual(distribution.metadata["License-Expression"], "MIT")
@@ -35,7 +35,7 @@ class ReleaseContractTests(unittest.TestCase):
             for entry in distribution.entry_points
             if entry.group == "console_scripts"
         }
-        self.assertEqual(scripts, {"specromancy": "specromancy.cli:main"})
+        self.assertEqual(scripts, {"specromancy": "specromancy_engine.cli:main"})
 
     def test_fresh_source_export_runs_without_installation(self) -> None:
         self.assertGreaterEqual(sys.version_info, (3, 11))
@@ -87,14 +87,14 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_runtime_package_imports_only_standard_library_modules(self) -> None:
         imported: set[str] = set()
-        for path in runtime_sources(ROOT / "src" / "specromancy"):
+        for path in runtime_sources(ROOT / "src" / "specromancy_engine"):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     imported.update(alias.name.split(".", 1)[0] for alias in node.names)
                 elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
                     imported.add(node.module.split(".", 1)[0])
-        non_standard = imported - sys.stdlib_module_names - {"specromancy"}
+        non_standard = imported - sys.stdlib_module_names - {"specromancy_engine"}
         self.assertEqual(non_standard, set())
 
     def test_runtime_data_is_ignored_and_license_metadata_is_consistent(self) -> None:

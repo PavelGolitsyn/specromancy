@@ -4,8 +4,8 @@ import re
 import unittest
 from pathlib import Path
 
-from specromancy.registry import load_registry
-from specromancy.contracts import RESERVED_COMMANDS
+from specromancy_engine.registry import load_registry
+from specromancy_engine.contracts import RESERVED_COMMANDS
 
 
 ROOT = Path(__file__).resolve().parents[2]

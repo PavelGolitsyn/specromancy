@@ -18,13 +18,13 @@ use the references and guides above for current behavior.
 | Location | Purpose |
 | --- | --- |
 | `pyproject.toml` | Build metadata, package discovery, schema data, and installed CLI |
-| `src/specromancy/` | Public Python entry points and shared runtime utilities |
-| `src/specromancy/_config/` | Private configuration parsing, models, and serialization |
-| `src/specromancy/_runs/` | Private run records, persistence, and visit preparation/decisions |
-| `src/specromancy/_engine/` | Private approval, validation, provenance, and response orchestration |
-| `src/specromancy/_adapters/` | Private adapter source capture, rendering, and ownership |
-| `src/specromancy/_cli/` | Private command metadata and pipeline selection |
-| `src/specromancy/schemas/` | Published JSON schemas |
+| `src/specromancy_engine/` | Public Python entry points and shared runtime utilities |
+| `src/specromancy_engine/_config/` | Private configuration parsing, models, and serialization |
+| `src/specromancy_engine/_runs/` | Private run records, persistence, and visit preparation/decisions |
+| `src/specromancy_engine/_engine/` | Private approval, validation, provenance, and response orchestration |
+| `src/specromancy_engine/_adapters/` | Private adapter source capture, rendering, and ownership |
+| `src/specromancy_engine/_cli/` | Private command metadata and pipeline selection |
+| `src/specromancy_engine/schemas/` | Published JSON schemas |
 | `bin/` | Executable launcher |
 | `workflow/` | Canonical pipeline registry, graphs, and artifact templates |
 | `.agents/skills/` | Canonical procedures and manifest-owned pipeline launch skills |
@@ -37,10 +37,11 @@ use the references and guides above for current behavior.
 | `.specromancy/runs/` | Ignored local run state and immutable visit artifacts |
 
 The underscore-prefixed Python packages are internal implementation details.
-Existing public imports, including `specromancy.config`, `specromancy.engine`,
-`specromancy.run_store`, `specromancy.adapters`, and `specromancy.cli`, retain
-their paths. Internal package initializers do not import public facades or
-eagerly load sibling components.
+Version 0.2.0 moves public imports to `specromancy_engine`, including its
+`config`, `engine`, `run_store`, `registry`, `adapters`, and `cli` facades.
+The old `specromancy` import namespace is no longer supplied. See the
+[release notes](releases/0.2.0.md). Internal package initializers do not import
+public facades or eagerly load sibling components.
 
 See the [test guide](../tests/README.md) for discovery commands and compatibility
 coverage. Generated adapters remain in harness-required locations; edit their

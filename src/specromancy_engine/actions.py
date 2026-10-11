@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import shlex
-import sys
 from pathlib import Path
 from typing import Any
 
@@ -26,8 +25,6 @@ def build_action_packet(
         pipeline.repository_root / ".specromancy" / "runs" / manifest["run_id"]
     )
     validate_command = [
-        sys.executable,
-        "-m",
         "specromancy",
         "--root",
         str(pipeline.repository_root),

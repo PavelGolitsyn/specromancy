@@ -1,30 +1,43 @@
 # Specromancy POC public contracts
 
-These contracts are stable across the POC. Breaking representation changes
+These contracts describe version 0.2.0 of the POC. Breaking stored representation changes
 require a schema-version change and updated fixtures; additive fields with
 backward-compatible defaults may extend the current version.
 
 ## Python import surface
 
-Public imports retain their existing paths: package-level exports and the
-`specromancy.config`, `specromancy.engine`, `specromancy.run_store`,
-`specromancy.registry`, `specromancy.adapters`, and `specromancy.cli` facades.
+Version 0.2.0 intentionally replaces the `specromancy` import namespace with
+`specromancy_engine`, without a legacy shim. Public imports are package-level exports and the
+`specromancy_engine.config`, `specromancy_engine.engine`, `specromancy_engine.run_store`,
+`specromancy_engine.registry`, `specromancy_engine.adapters`, and `specromancy_engine.cli` facades.
 Their existing re-exports and compatibility aliases still refer to the defining
-objects. Shared utility modules retain their import paths. The source tree now
-lives under `src/specromancy/`; its four JSON schemas are packaged under
-`specromancy/schemas/` in the installed distribution.
+objects, with unchanged constructor signatures. Shared utility modules also move
+under the new namespace. For example, replace `from specromancy import Engine`
+with `from specromancy_engine import Engine`. The source tree now
+lives under `src/specromancy_engine/`; its four JSON schemas are packaged under
+`specromancy_engine/schemas/` in the installed distribution.
 
 Extracted implementation modules now live in the private `_config`, `_runs`,
 `_engine`, `_adapters`, and `_cli` subpackages. Those modules were internal
 implementation details, not supported import contracts. Use the public facades
 for configuration records, errors, loading, execution, and run storage. This
-folder reorganization changes no CLI, schema, canonical hash, or stored-data
-format and requires no run migration.
+namespace change preserves schemas, canonical hashes, and stored-data formats
+and requires no run conversion. Import compatibility and persisted-state
+compatibility are independent: existing version-1 records remain readable even
+though old imports no longer work.
 
-The intermediate distribution is named `specromancy-engine`, remains at version
-`0.1.0`, requires Python 3.11 or newer, and has no third-party runtime
-dependencies. It installs the `specromancy = specromancy.cli:main` console entry
-point. Module invocation remains `python -m specromancy`.
+The distribution is named `specromancy-engine`, is version
+`0.2.0`, requires Python 3.11 or newer, and has no third-party runtime
+dependencies. It installs the `specromancy = specromancy_engine.cli:main` console entry
+point. Module invocation is now `python -m specromancy_engine`. See the
+[release notes](../releases/0.2.0.md) for upgrade instructions.
+
+Action packets now emit `final_validation_command` starting with `["specromancy"]`
+instead of the former Python interpreter/module prefix. All subsequent arguments
+and their order are preserved, as are the response shape and schema version.
+Execute this argv with the installed console script on `PATH`; source-export
+users can put the checkout's `bin/` on `PATH`. Consumer-configured validation
+commands and status commands are unchanged.
 
 ## Vocabulary
 
@@ -62,7 +75,7 @@ Workflow commands accept `--root PATH`, `--pipeline ID`, `--json`, and `--quiet`
 reason of the relevant kind. `validate --outcome` is required when a phase has
 multiple non-blocking outcomes and is rejected when there is only one.
 
-Both `bin/specromancy` and `python -m specromancy` invoke the same package entry point. The repository root is found by walking upward to a `.git` directory or worktree marker. `--root` supplies an explicit root for fixtures and non-Git directories.
+Both `bin/specromancy` and `python -m specromancy_engine` invoke the same package entry point. The repository root is found by walking upward to a `.git` directory or worktree marker. `--root` supplies an explicit root for fixtures and non-Git directories.
 
 `adapters generate` deterministically renders harness-native adapters from
 `AGENTS.md`, the mandatory registry, every validated registered graph and its
@@ -83,7 +96,7 @@ retains its render-only contract. `adapters.generate_adapters` still accepts
 explicit metadata; when omitted, metadata is derived from that invocation's
 validated graphs. Generation reuses captured source text and bytes for rendering
 and source hashes, without a cross-invocation cache. Adapter constants and
-`AdapterError` remain available from `specromancy.adapters`.
+`AdapterError` remain available from `specromancy_engine.adapters`.
 
 ## Pipeline registry and selection
 
@@ -103,7 +116,7 @@ IDs use lowercase kebab-case, match the graph's ID, and are unique. Resolved
 paths are unique TOML files under `workflow/pipelines/`, relative to `workflow/`.
 Segments use letters, numbers, underscores or hyphens. Unsafe, escaping,
 missing and duplicate paths are rejected with `INVALID_PIPELINE` diagnostics.
-The registry format is published in `src/specromancy/schemas/pipelines.schema.json`;
+The registry format is published in `src/specromancy_engine/schemas/pipelines.schema.json`;
 filesystem containment and cross-file identity are additionally validated by
 the loader. `load_registry(root)` returns immutable registrations; `load(id)`
 validates the selected graph and `load_all()` validates every registration.
@@ -152,7 +165,7 @@ Run IDs use a UTC timestamp and eight lowercase hexadecimal characters, for
 example `20260922T142501Z-a1b2c3d4`. Only IDs matching that form may be used to
 address `.specromancy/runs/`.
 
-The `specromancy.run_store` imports and compatibility aliases remain available,
+The `specromancy_engine.run_store` imports and compatibility aliases remain available,
 including the same exception classes re-exported from `run_errors`. Run and
 event schema versions remain 1. `RunStore` returns ordinary, defensively copied
 dictionaries; record annotations neither construct defaults nor validate

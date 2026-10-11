@@ -2,7 +2,7 @@
 
 Run `bin/specromancy` from a checkout without installation, or install with
 `python -m pip install -e .` in a dedicated environment and use `specromancy`
-or `python -m specromancy` from the consumer repository. Python 3.11 or newer
+or `python -m specromancy_engine` from the consumer repository. Python 3.11 or newer
 is required; the runtime has no third-party dependencies.
 
 Global options may appear before or after a subcommand:

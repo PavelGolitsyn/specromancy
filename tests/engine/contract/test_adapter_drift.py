@@ -9,8 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from specromancy.contracts import RESERVED_COMMANDS
-from specromancy.hashing import sha256_bytes
+from specromancy_engine.contracts import RESERVED_COMMANDS
+from specromancy_engine.hashing import sha256_bytes
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -36,7 +36,7 @@ class AdapterDriftContractTests(unittest.TestCase):
             [
                 sys.executable,
                 "-m",
-                "specromancy",
+                "specromancy_engine",
                 "--root",
                 str(self.root),
                 "adapters",

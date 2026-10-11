@@ -31,7 +31,7 @@ class LauncherContractTests(unittest.TestCase):
             outputs = []
             executable = "specromancy.exe" if sys.platform == "win32" else "specromancy"
             for command in (
-                [sys.executable, "-m", "specromancy"],
+                [sys.executable, "-m", "specromancy_engine"],
                 [str(Path(sysconfig.get_path("scripts")) / executable)],
                 [str(ROOT / "bin" / "specromancy")],
             ):

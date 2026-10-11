@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from specromancy.config import load_pipeline
+from specromancy_engine.config import load_pipeline
 from tests.engine.contract.source_scan import runtime_sources
 
 
@@ -29,10 +29,10 @@ import importlib
 import sys
 import types
 
-package = types.ModuleType('specromancy')
+package = types.ModuleType('specromancy_engine')
 package.__path__ = [sys.argv[1]]
-sys.modules['specromancy'] = package
-importlib.import_module('specromancy.' + sys.argv[2])
+sys.modules['specromancy_engine'] = package
+importlib.import_module('specromancy_engine.' + sys.argv[2])
 unexpected = set(sys.argv[3:]) & set(sys.modules)
 assert not unexpected, unexpected
 """
@@ -77,8 +77,8 @@ assert not unexpected, unexpected
                 forbidden.append("adapter_sources")
             with self.subTest(module=module):
                 result = subprocess.run(
-                    [sys.executable, "-c", script, str(ROOT / "src" / "specromancy"), module_path,
-                     *(f"specromancy.{qualified.get(name, name)}" for name in forbidden)],
+                    [sys.executable, "-c", script, str(ROOT / "src" / "specromancy_engine"), module_path,
+                     *(f"specromancy_engine.{qualified.get(name, name)}" for name in forbidden)],
                     capture_output=True, text=True, check=False,
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -87,8 +87,8 @@ assert not unexpected, unexpected
         pattern = re.compile(
             r"(?:'|\")(?:" + "|".join(EXAMPLE_PHASES) + r")(?:'|\")"
         )
-        for path in runtime_sources(ROOT / "src" / "specromancy"):
-            relative = path.relative_to(ROOT / "src" / "specromancy")
+        for path in runtime_sources(ROOT / "src" / "specromancy_engine"):
+            relative = path.relative_to(ROOT / "src" / "specromancy_engine")
             if relative in HARNESS_BOUNDARIES:
                 continue
             with self.subTest(path=relative):
@@ -156,7 +156,7 @@ assert not unexpected, unexpected
                         )
 
     def test_subprocess_calls_cannot_use_shell_strings(self) -> None:
-        for path in runtime_sources(ROOT / "src" / "specromancy"):
+        for path in runtime_sources(ROOT / "src" / "specromancy_engine"):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
                 if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):

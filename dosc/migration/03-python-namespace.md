@@ -1,6 +1,7 @@
 # Stage 03 — Python namespace migration
 
-Status: planned. Dependency: [Stage 02](02-source-layout-and-packaging.md).
+Status: complete (2026-10-11). Dependency: [Stage 02](02-source-layout-and-packaging.md).
+Verification: [Stage 03 evidence](evidence/03-python-namespace.md).
 Next: [Stage 04](04-consumer-roots-and-resources.md).
 Index: [migration plan](README.md).
 
@@ -95,12 +96,12 @@ stage; the installed-command rendering change is reserved for Stage 5.
 
 ## Acceptance criteria
 
-- [ ] Wheel exposes `specromancy_engine` and the `specromancy` command.
-- [ ] Every public facade maps to the same behavior and re-export identities.
-- [ ] No duplicate legacy implementation or accidental package remains.
-- [ ] The import break and version are documented; stored formats remain stable.
-- [ ] Original state/hash/response compatibility, focused tests, and full suite pass.
-- [ ] Generated files match their canonical sources.
+- [x] Wheel exposes `specromancy_engine` and the `specromancy` command.
+- [x] Every public facade maps to the same behavior and re-export identities.
+- [x] No duplicate legacy implementation or accidental package remains.
+- [x] The import break and version are documented; stored formats remain stable.
+- [x] Original state/hash/response compatibility, focused tests, and full suite pass.
+- [x] Generated files match their canonical sources.
 
 ## Recovery and handoff
 

@@ -8,10 +8,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from specromancy.config import load_pipeline
-from specromancy.engine import Engine
-from specromancy.exit_codes import ExitCode
-from specromancy.run_store import RunStore
+from specromancy_engine.config import load_pipeline
+from specromancy_engine.engine import Engine
+from specromancy_engine.exit_codes import ExitCode
+from specromancy_engine.run_store import RunStore
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -135,7 +135,7 @@ class ReplacementPipelineContractTests(unittest.TestCase):
             [
                 sys.executable,
                 "-m",
-                "specromancy",
+                "specromancy_engine",
                 "--json",
                 "--root",
                 str(self.root),

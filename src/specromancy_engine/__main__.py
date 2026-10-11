@@ -1,4 +1,4 @@
-"""Module entry point for ``python -m specromancy``."""
+"""Module entry point for ``python -m specromancy_engine``."""
 
 from .cli import main
 

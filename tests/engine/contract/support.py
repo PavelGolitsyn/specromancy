@@ -8,7 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from specromancy.exit_codes import ExitCode
+from specromancy_engine.exit_codes import ExitCode
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -62,7 +62,7 @@ class CliRepository:
             [
                 sys.executable,
                 "-m",
-                "specromancy",
+                "specromancy_engine",
                 "--json",
                 "--root",
                 str(self.root),

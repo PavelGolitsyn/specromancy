@@ -8,14 +8,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from specromancy.artifacts import ArtifactError
-from specromancy.config import load_pipeline
-from specromancy.engine import Engine, EngineError
-from specromancy.exit_codes import ExitCode
-from specromancy._engine import approvals
-from specromancy.hashing import sha256_file, sha256_json
-from specromancy.locking import LockHeldError
-from specromancy.run_store import RunCorruptionError, RunStore, RunStoreError
+from specromancy_engine.artifacts import ArtifactError
+from specromancy_engine.config import load_pipeline
+from specromancy_engine.engine import Engine, EngineError
+from specromancy_engine.exit_codes import ExitCode
+from specromancy_engine._engine import approvals
+from specromancy_engine.hashing import sha256_file, sha256_json
+from specromancy_engine.locking import LockHeldError
+from specromancy_engine.run_store import RunCorruptionError, RunStore, RunStoreError
 from tests.engine.unit.test_engine import EngineFixture
 from tests.engine.unit.test_run_store import PIPELINE, RUN_ID, StoreFixture
 

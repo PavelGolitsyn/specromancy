@@ -13,7 +13,7 @@ from files under `.specromancy/`, never from conversation history.
 | Phase procedure | `.agents/skills/<skill>/SKILL.md` |
 | Pipeline registrations | `workflow/pipelines.toml` |
 | Graph, policies, gates, and validators | `workflow/pipelines/<id>.toml` |
-| State transitions and persistence | `src/specromancy/` Python package |
+| State transitions and persistence | `src/specromancy_engine/` Python package |
 | Current run state | `.specromancy/runs/<run-id>/run.json` and artifacts |
 | Audit history | `.specromancy/runs/<run-id>/events.jsonl` |
 | Harness discovery surfaces | generated adapters recorded in `adapters/manifest.json` |
@@ -21,7 +21,7 @@ from files under `.specromancy/`, never from conversation history.
 The editable workflow surface is intentionally outside the Python package:
 start in `workflow/` for the graph and templates, then use `.agents/skills/`
 for phase procedures or `AGENTS.md` for always-on constraints. Files under
-`src/specromancy/` implement the generic runtime and are not changed to add,
+`src/specromancy_engine/` implement the generic runtime and are not changed to add,
 remove, reorder, or tune phases.
 
 The engine is generic. Phase identifiers such as the configured pipeline's names
@@ -36,7 +36,7 @@ canonical orchestrator.
 
 ## Runtime dependency map
 
-Internal modules are grouped under `src/specromancy/_config/`, `_runs/`, `_engine/`,
+Internal modules are grouped under `src/specromancy_engine/_config/`, `_runs/`, `_engine/`,
 `_adapters/`, and `_cli/`. Public facades and shared utilities remain at the
 package root. The [repository map](../README.md#repository-map) describes each
 directory; module names below are abbreviated to their basenames. Internal
@@ -115,7 +115,9 @@ details, not new public APIs.
 
 ## Configuration dependencies
 
-`specromancy.config` remains the public configuration entry point. Its records
+`specromancy_engine.config` is the public configuration entry point. Version 0.2.0
+replaces the former `specromancy` namespace; see the [upgrade instructions](../releases/0.2.0.md).
+Its records
 are the same frozen class objects defined in `config_models`; configuration
 diagnostics and the omitted-value sentinel live in `config_errors`.
 
@@ -158,7 +160,8 @@ false pause defaults. This encoding is deliberately separate from the generic
 `hashing.canonical_json_bytes` UTF-8 encoding used for run data. Registry
 serialization remains independent. Loading does not cache graph or dependency
 contents between commands. These internal boundaries add no public APIs or
-stored-data migrations; existing configuration imports and hashes are retained.
+stored-data migrations; configuration hashes are retained. Public imports use
+the `specromancy_engine` namespace in version 0.2.0.
 
 ## State and visit model
 

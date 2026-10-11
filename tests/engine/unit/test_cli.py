@@ -7,12 +7,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from specromancy.cli import (
+from specromancy_engine.cli import (
     RESERVED_COMMANDS, adapter_command_metadata, build_parser,
     discover_repository_root, main,
 )
-from specromancy._cli.cli_commands import COMMANDS
-from specromancy.exit_codes import ExitCode
+from specromancy_engine._cli.cli_commands import COMMANDS
+from specromancy_engine.exit_codes import ExitCode
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -49,7 +49,7 @@ class RootDiscoveryTests(unittest.TestCase):
 class ParserTests(unittest.TestCase):
     def test_metadata_uses_definitions_without_constructing_a_parser(self) -> None:
         self.assertEqual({command.name for command in COMMANDS}, RESERVED_COMMANDS)
-        with patch("specromancy.cli.CommandParser", side_effect=AssertionError("parser access")):
+        with patch("specromancy_engine.cli.CommandParser", side_effect=AssertionError("parser access")):
             metadata = adapter_command_metadata(["survey", "status"])["commands"]
         names = [item["name"] for item in metadata]
         self.assertEqual(names, sorted(RESERVED_COMMANDS | {"survey"}))

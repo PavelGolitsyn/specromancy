@@ -8,18 +8,18 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
-from specromancy.artifacts import ArtifactError, resolve_input_reference
-from specromancy.config import load_pipeline
-from specromancy.hashing import sha256_json
-from specromancy.locking import LockHeldError
-from specromancy.run_store import (
+from specromancy_engine.artifacts import ArtifactError, resolve_input_reference
+from specromancy_engine.config import load_pipeline
+from specromancy_engine.hashing import sha256_json
+from specromancy_engine.locking import LockHeldError
+from specromancy_engine.run_store import (
     RunCorruptionError,
     RunStore,
     generate_run_id,
     is_valid_run_id,
     validate_run_id,
 )
-from specromancy._runs.visit_preparation import collect_resources
+from specromancy_engine._runs.visit_preparation import collect_resources
 
 
 RUN_ID = "20260925T120000Z-01020304"
@@ -315,7 +315,7 @@ class RunStoreTests(unittest.TestCase):
         self.assertEqual(self.store.load(RUN_ID)["status"], "blocked")
 
     def test_persisted_records_match_their_published_schema_surfaces(self) -> None:
-        schemas = Path(__file__).resolve().parents[3] / "src" / "specromancy" / "schemas"
+        schemas = Path(__file__).resolve().parents[3] / "src" / "specromancy_engine" / "schemas"
         run_schema = json.loads((schemas / "run.schema.json").read_text())
         event_schema = json.loads((schemas / "event.schema.json").read_text())
         self.assertEqual(run_schema["properties"]["schema_version"]["const"], 1)

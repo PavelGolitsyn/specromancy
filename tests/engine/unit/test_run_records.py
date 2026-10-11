@@ -5,11 +5,11 @@ import json
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from specromancy._runs import run_errors, run_identity, run_records
-from specromancy import run_store
-from specromancy._runs import run_validation
-from specromancy.engine import Engine
-from specromancy.status import build_status, next_command
+from specromancy_engine._runs import run_errors, run_identity, run_records
+from specromancy_engine import run_store
+from specromancy_engine._runs import run_validation
+from specromancy_engine.engine import Engine
+from specromancy_engine.status import build_status, next_command
 from tests.engine.contract.compatibility_support import RUN_ID, read_record
 
 

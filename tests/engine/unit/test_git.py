@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from specromancy.git import (
+from specromancy_engine.git import (
     GitError,
     capture_repository_snapshot,
     compare_snapshots,

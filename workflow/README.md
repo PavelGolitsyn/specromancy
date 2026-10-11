@@ -1,7 +1,7 @@
 # Workflow customization
 
 This directory is the primary customization surface for Specromancy. Configure
-as many pipelines as needed without editing the generic engine in `src/specromancy/`.
+as many pipelines as needed without editing the generic engine in `src/specromancy_engine/`.
 Every new run explicitly chooses a registered pipeline; there is no default.
 
 ## Editable workflow sources

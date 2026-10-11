@@ -15,10 +15,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch
 
-from specromancy.cli import main
-from specromancy.config import PipelineConfigError, canonicalize_pipeline, load_pipeline
-from specromancy.engine import Engine
-from specromancy.run_store import RunStore
+from specromancy_engine.cli import main
+from specromancy_engine.config import PipelineConfigError, canonicalize_pipeline, load_pipeline
+from specromancy_engine.engine import Engine
+from specromancy_engine.run_store import RunStore
 
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures/refactoring-compatibility"
@@ -110,7 +110,7 @@ def capture_lifecycle() -> tuple[dict, dict]:
         engine, store = fixture.engine, fixture.store
         # Engine approval timestamps currently have no constructor injection.
         # Freeze that existing clock seam without normalizing persisted hashes.
-        with patch("specromancy.engine.utc_now", return_value=NOW):
+        with patch("specromancy_engine.engine.utc_now", return_value=NOW):
             responses["action-pending"] = engine.initialize("Écrire la preuve 日本語")
             states["pending"] = fixture.snapshot()
             responses["action-active"] = engine.start_phase(RUN_ID, "compose")
@@ -163,7 +163,7 @@ def capture_lifecycle() -> tuple[dict, dict]:
         states["recoverable"] = fixture.snapshot()  # Do not load/recover first.
         fixture.store.load(RUN_ID)
         states["recovered"] = fixture.snapshot()
-        with patch("specromancy.engine.utc_now", return_value=NOW):
+        with patch("specromancy_engine.engine.utc_now", return_value=NOW):
             responses["blocked"] = normalize_response(
                 fixture.engine.block(RUN_ID, reason="no-evidence", details="No source."),
                 fixture.root,
@@ -199,7 +199,7 @@ def capture_diagnostics() -> dict:
             }
         original = fixture.path.read_text(encoding="utf-8")
         fixture.store.write_visit_output(RUN_ID, 1, "Evidence.\n")
-        with patch("specromancy.engine.utc_now", return_value=NOW):
+        with patch("specromancy_engine.engine.utc_now", return_value=NOW):
             fixture.engine.request_approval(RUN_ID, reason="accept-result", outcome="z-next")
         fixture.store.write_visit_output(RUN_ID, 1, "Changed evidence.\n")
         fixture.path.write_text(original.replace("Seal the result.", "Seal carefully."), encoding="utf-8")

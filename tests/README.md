@@ -42,9 +42,14 @@ temporary repositories; `test_compatibility.py` compares against those independe
 records and continues restored pending, active, approval, paused, terminal, and
 recovery states. Tests never refresh expected records. See the
 [fixture capture and normalization policy](engine/fixtures/refactoring-compatibility/README.md).
+The separate `responses-0.2.0.json` expectation changes only the final validation
+command prefixes in pending, active, and resumed actions. A dedicated comparison
+checks those exact changes against the untouched `responses.json`; all other
+response fields and the original persisted, canonical, diagnostic, and adapter
+records remain exact comparisons.
 
 `engine/contract/source_scan.py` recursively discovers runtime Python sources
-under `src/specromancy/`, including nested package initializers, for architecture,
+under `src/specromancy_engine/`, including nested package initializers, for architecture,
 subprocess, and standard-library dependency checks. It rejects missing or empty
 source roots. Architecture tests also import extracted
 components independently of the public facades to expose reversed dependencies.

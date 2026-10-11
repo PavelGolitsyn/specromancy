@@ -4,9 +4,9 @@ import re
 import unittest
 from pathlib import Path
 
-from specromancy.config import load_pipeline
-from specromancy.contracts import RESERVED_COMMANDS
-from specromancy.validation import markdown_heading_counts
+from specromancy_engine.config import load_pipeline
+from specromancy_engine.contracts import RESERVED_COMMANDS
+from specromancy_engine.validation import markdown_heading_counts
 
 
 ROOT = Path(__file__).resolve().parents[3]

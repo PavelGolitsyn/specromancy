@@ -5,8 +5,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from specromancy.config import ValidatorConfig
-from specromancy.validation import (
+from specromancy_engine.config import ValidatorConfig
+from specromancy_engine.validation import (
     SchemaDefinitionError,
     ValidationFailure,
     markdown_heading_counts,

@@ -7,12 +7,12 @@ import unittest
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
-from specromancy.config import (
+from specromancy_engine.config import (
     PipelineConfigError,
     load_pipeline,
     require_pipeline_hash,
 )
-from specromancy.exit_codes import ExitCode
+from specromancy_engine.exit_codes import ExitCode
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -203,7 +203,7 @@ class ConfigTests(unittest.TestCase):
         self.assert_error(document(terminal), "terminal-transition-pause")
 
     def test_published_pipeline_schema_declares_transition_pause(self) -> None:
-        schema_path = ROOT / "src" / "specromancy" / "schemas" / "pipeline.schema.json"
+        schema_path = ROOT / "src" / "specromancy_engine" / "schemas" / "pipeline.schema.json"
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
         self.assertEqual(
             schema["$defs"]["transition"]["properties"]["pause"],

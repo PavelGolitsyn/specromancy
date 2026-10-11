@@ -7,11 +7,11 @@ import textwrap
 import unittest
 from pathlib import Path
 
-from specromancy.config import load_pipeline
-from specromancy.engine import Engine
-from specromancy.exit_codes import ExitCode
-from specromancy.locking import LockHeldError
-from specromancy.run_store import RunStore
+from specromancy_engine.config import load_pipeline
+from specromancy_engine.engine import Engine
+from specromancy_engine.exit_codes import ExitCode
+from specromancy_engine.locking import LockHeldError
+from specromancy_engine.run_store import RunStore
 
 from tests.engine.contract.support import CliRepository
 

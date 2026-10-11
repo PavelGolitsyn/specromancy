@@ -8,8 +8,8 @@ import textwrap
 import unittest
 from pathlib import Path
 
-from specromancy.config import load_pipeline
-from specromancy.run_store import RunStore
+from specromancy_engine.config import load_pipeline
+from specromancy_engine.run_store import RunStore
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -63,7 +63,7 @@ class RecoveryContractTests(unittest.TestCase):
 
             program = (
                 "import json,sys; "
-                "from specromancy.run_store import RunStore; "
+                "from specromancy_engine.run_store import RunStore; "
                 "print(json.dumps(RunStore(sys.argv[1]).load(sys.argv[2]), sort_keys=True))"
             )
             result = subprocess.run(

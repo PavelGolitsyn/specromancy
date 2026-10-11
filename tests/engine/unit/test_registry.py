@@ -7,8 +7,8 @@ import unittest
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
-from specromancy.config import PipelineConfigError
-from specromancy.registry import load_registry
+from specromancy_engine.config import PipelineConfigError
+from specromancy_engine.registry import load_registry
 from tests.engine.support import MultiPipelineFixture
 
 
@@ -112,7 +112,7 @@ class RegistryTests(unittest.TestCase):
             load_registry(self.root).load_all()
 
     def test_registry_schema_publishes_nonempty_registration_contract(self) -> None:
-        schema = json.loads((Path(__file__).resolve().parents[3] / "src/specromancy/schemas/pipelines.schema.json").read_text())
+        schema = json.loads((Path(__file__).resolve().parents[3] / "src/specromancy_engine/schemas/pipelines.schema.json").read_text())
         self.assertEqual(schema["properties"]["schema_version"], {"type": "integer", "const": 1})
         self.assertEqual(schema["properties"]["pipelines"]["minItems"], 1)
         self.assertFalse(schema["additionalProperties"])

@@ -7,10 +7,10 @@ import sys
 import unittest
 from pathlib import Path
 
-from specromancy.adapters import HARNESS_MODES
-from specromancy.contracts import RESERVED_COMMANDS
-from specromancy.hashing import sha256_bytes
-from specromancy.registry import load_registry
+from specromancy_engine.adapters import HARNESS_MODES
+from specromancy_engine.contracts import RESERVED_COMMANDS
+from specromancy_engine.hashing import sha256_bytes
+from specromancy_engine.registry import load_registry
 
 
 ROOT = Path(__file__).resolve().parents[2]

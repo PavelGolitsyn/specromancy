@@ -5,12 +5,12 @@ import copy
 import unittest
 from pathlib import Path
 
-from specromancy._runs import visit_transitions as decisions
-from specromancy._config.config_models import (
+from specromancy_engine._runs import visit_transitions as decisions
+from specromancy_engine._config.config_models import (
     PhaseConfig, PipelineConfig, TransitionConfig, ValidatorConfig,
 )
-from specromancy._runs.run_errors import RunCorruptionError, RunStoreError
-from specromancy._runs.run_validation import validate_manifest
+from specromancy_engine._runs.run_errors import RunCorruptionError, RunStoreError
+from specromancy_engine._runs.run_validation import validate_manifest
 
 
 STAMP = "2026-09-25T12:00:00Z"

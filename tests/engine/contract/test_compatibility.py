@@ -5,13 +5,13 @@ import tomllib
 import unittest
 from unittest.mock import patch
 
-import specromancy
-from specromancy import artifacts, config, git, hashing, run_store
-from specromancy._config import config_errors, config_fields, config_loader, config_models
-from specromancy._config import config_phase_parser
-from specromancy import schema_validation, validation, engine
-from specromancy._engine import engine_errors
-from specromancy.engine import Engine
+import specromancy_engine
+from specromancy_engine import artifacts, config, git, hashing, run_store
+from specromancy_engine._config import config_errors, config_fields, config_loader, config_models
+from specromancy_engine._config import config_phase_parser
+from specromancy_engine import schema_validation, validation, engine
+from specromancy_engine._engine import engine_errors
+from specromancy_engine.engine import Engine
 from tests.engine.contract.compatibility_support import (
     NOW, RUN_ID, CompatibilityFixture, capture_canonical, capture_diagnostics,
     capture_lifecycle, normalize_response, read_record,
@@ -63,16 +63,16 @@ class CompatibilityContractTests(unittest.TestCase):
 
     def test_public_imports_and_compatibility_aliases_remain_available(self) -> None:
         self.assertIs(engine.EngineError, engine_errors.EngineError)
-        self.assertIs(specromancy.EngineError, engine_errors.EngineError)
+        self.assertIs(specromancy_engine.EngineError, engine_errors.EngineError)
         exports = {
             "ExitCode", "Engine", "EngineError", "PipelineConfig", "PipelineConfigError",
             "PipelineRegistry", "PipelineRegistration", "RunCorruptionError",
             "RunNotFoundError", "RunStore", "generate_run_id", "load_pipeline",
             "load_registry", "validate_run_id",
         }
-        self.assertLessEqual(exports, set(specromancy.__all__))
+        self.assertLessEqual(exports, set(specromancy_engine.__all__))
         for name in exports:
-            self.assertTrue(callable(getattr(specromancy, name)), name)
+            self.assertTrue(callable(getattr(specromancy_engine, name)), name)
         for module, aliases in (
             (hashing, {"hash_bytes": "sha256_bytes", "hash_text": "sha256_text",
                        "hash_json": "sha256_json", "hash_file": "sha256_file"}),
@@ -110,9 +110,21 @@ class CompatibilityContractTests(unittest.TestCase):
         self.assertEqual(hashing.canonical_json_bytes({"text": "café 日本語"}),
                          '{"text":"café 日本語"}'.encode("utf-8"))
 
+    def test_versioned_responses_change_only_the_three_command_prefixes(self) -> None:
+        original = read_record("responses.json")
+        expected = read_record("responses-0.2.0.json")
+        for name in ("action-pending", "action-active", "resumed"):
+            with self.subTest(response=name):
+                old = original[name]["action"]["final_validation_command"]
+                new = expected[name]["action"]["final_validation_command"]
+                self.assertEqual(old[:3], ["<PYTHON>", "-m", "specromancy"])
+                self.assertEqual(new, ["specromancy", *old[3:]])
+                original[name]["action"]["final_validation_command"] = new
+        self.assertEqual(expected, original)
+
     def test_response_envelopes_and_persisted_bytes_match_baseline(self) -> None:
         states, responses = capture_lifecycle()
-        self.assertEqual(responses, read_record("responses.json"))
+        self.assertEqual(responses, read_record("responses-0.2.0.json"))
         expected = read_record("states.json")
         self.assertEqual(set(states), set(expected))
         for state, files in states.items():
@@ -121,7 +133,7 @@ class CompatibilityContractTests(unittest.TestCase):
 
     def test_version_one_records_replay_and_recovery_is_exactly_once(self) -> None:
         states = read_record("states.json")
-        responses = read_record("responses.json")
+        responses = read_record("responses-0.2.0.json")
         for name, files in states.items():
             with self.subTest(state=name):
                 fixture = CompatibilityFixture(pause=True)
@@ -148,7 +160,7 @@ class CompatibilityContractTests(unittest.TestCase):
                         self.assertEqual(normalize_response(engine.run(RUN_ID), fixture.root),
                                          responses["approval"])
                         self.assertEqual(fixture.snapshot(), files)
-                        with patch("specromancy.engine.utc_now", return_value=NOW):
+                        with patch("specromancy_engine.engine.utc_now", return_value=NOW):
                             result = engine.approve(RUN_ID, "compose")
                         self.assertEqual(normalize_response(result, fixture.root), responses["paused"])
                         self.assertEqual(fixture.snapshot(), states["paused"])
@@ -187,7 +199,7 @@ class CompatibilityContractTests(unittest.TestCase):
                 snapshots = []
 
                 def overlap(*args, **kwargs):
-                    with patch("specromancy.engine.utc_now", return_value=NOW):
+                    with patch("specromancy_engine.engine.utc_now", return_value=NOW):
                         winner.approve(RUN_ID, "compose")
                     if boundary != "paused":
                         winner.resume(RUN_ID)

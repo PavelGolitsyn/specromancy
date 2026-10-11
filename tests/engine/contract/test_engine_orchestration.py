@@ -8,10 +8,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from specromancy.config import load_pipeline
-from specromancy.engine import Engine, EngineError
-from specromancy.exit_codes import ExitCode
-from specromancy.run_store import RunStore
+from specromancy_engine.config import load_pipeline
+from specromancy_engine.engine import Engine, EngineError
+from specromancy_engine.exit_codes import ExitCode
+from specromancy_engine.run_store import RunStore
 from tests.engine.contract.compatibility_support import (
     NOW, RUN_ID, CompatibilityFixture, read_record,
 )
@@ -119,7 +119,7 @@ class EngineOrchestrationContractTests(unittest.TestCase):
 
         decision_time = NOW.replace(hour=13)
         with patch.object(fixture.store, "decide_approval", side_effect=grant_then_replace):
-            with patch("specromancy.engine.utc_now", return_value=decision_time):
+            with patch("specromancy_engine.engine.utc_now", return_value=decision_time):
                 with self.assertRaisesRegex(RuntimeError, "new validation hook interrupted"):
                     fixture.engine.approve(RUN_ID, "compose")
         granted = fixture.store.load(RUN_ID)
