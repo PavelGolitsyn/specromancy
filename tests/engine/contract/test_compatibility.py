@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import tomllib
 import unittest
 from unittest.mock import patch
@@ -12,6 +13,7 @@ from specromancy_engine._config import config_phase_parser
 from specromancy_engine import schema_validation, validation, engine
 from specromancy_engine._engine import engine_errors
 from specromancy_engine.engine import Engine
+from specromancy_engine.adapters import AdapterError
 from tests.engine.contract.compatibility_support import (
     NOW, RUN_ID, CompatibilityFixture, capture_canonical, capture_diagnostics,
     capture_lifecycle, normalize_response, read_record,
@@ -228,7 +230,7 @@ class CompatibilityContractTests(unittest.TestCase):
         fixture = AdapterFixture()
         try:
             fixture.generate()
-            expected = read_record("adapters.json")
+            expected = read_record("adapters-generator-v2.json")
             actual = fixture.snapshot()
             self.assertEqual(set(actual), set(expected))
             for path, content in actual.items():
@@ -237,6 +239,52 @@ class CompatibilityContractTests(unittest.TestCase):
                     self.assertEqual(hashlib.sha256(content).hexdigest(), expected[path]["sha256"])
         finally:
             fixture.close()
+
+    def test_adapter_v2_changes_only_invocation_provenance_and_output_hashes(self) -> None:
+        original = read_record("adapters.json")
+        expected = read_record("adapters-generator-v2.json")
+        self.assertEqual(set(original), set(expected))
+        manifest_path = "adapters/manifest.json"
+        for path in original.keys() - {manifest_path}:
+            with self.subTest(path=path):
+                text = original[path]["text"].replace("bin/specromancy", "specromancy").replace(
+                    "adapter generator v1.", "adapter generator v2.")
+                self.assertEqual(expected[path]["text"], text)
+                self.assertEqual(expected[path]["sha256"], hashlib.sha256(text.encode()).hexdigest())
+        old_manifest = json.loads(original[manifest_path]["text"])
+        old_manifest["generator"].update(version=2, command="specromancy adapters generate")
+        for entry in old_manifest["generated"]:
+            entry["sha256"] = expected[entry["path"]]["sha256"]
+        self.assertEqual(json.loads(expected[manifest_path]["text"]), old_manifest)
+
+    def test_original_owned_adapters_upgrade_with_existing_ownership_rules(self) -> None:
+        original = read_record("adapters.json")
+        expected = read_record("adapters-generator-v2.json")
+        for edited in (False, True):
+            with self.subTest(edited=edited):
+                fixture = AdapterFixture()
+                self.addCleanup(fixture.close)
+                for relative, record in original.items():
+                    path = fixture.root / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(record["text"].encode())
+                unrelated = fixture.root / "notes.md"
+                unrelated.write_text("User notes\n")
+                if edited:
+                    (fixture.root / ".claude/CLAUDE.md").write_text("User edit\n")
+                before = fixture.snapshot()
+                with self.assertRaises(AdapterError):
+                    fixture.generate(check=True)
+                self.assertEqual(fixture.snapshot(), before)
+                # Current manifest-owned output is regenerated even if edited;
+                # edited stale paths and unowned paths remain protected separately.
+                fixture.generate()
+                upgraded = fixture.snapshot()
+                self.assertEqual(upgraded, {p: r["text"].encode() for p, r in expected.items()})
+                fixture.generate()
+                fixture.generate(check=True)
+                self.assertEqual(fixture.snapshot(), upgraded)
+                self.assertEqual(unrelated.read_text(), "User notes\n")
 
 
 if __name__ == "__main__":

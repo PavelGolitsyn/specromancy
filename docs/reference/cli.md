@@ -22,11 +22,11 @@ default pipeline. See [Workflow customization](../../workflow/README.md).
 ## Workflow commands
 
 ```bash
-bin/specromancy init "describe the requested change" --pipeline implementation
-bin/specromancy status RUN_ID
-bin/specromancy resume RUN_ID
-bin/specromancy phase RUN_ID PHASE
-bin/specromancy validate RUN_ID PHASE
+specromancy init "describe the requested change" --pipeline implementation
+specromancy status RUN_ID
+specromancy resume RUN_ID
+specromancy phase RUN_ID PHASE
+specromancy validate RUN_ID PHASE
 ```
 
 - `init DESCRIPTION --pipeline ID` creates a run, immutable request artifact, and pending
@@ -41,7 +41,7 @@ bin/specromancy validate RUN_ID PHASE
   or conversation that created the run.
 - `phase RUN_ID PHASE` starts or resumes only the recorded current phase and
   emits its action packet. Each configured phase also has a dynamic alias, such
-  as `bin/specromancy research RUN_ID` when the run's graph declares that phase.
+  as `specromancy research RUN_ID` when the run's graph declares that phase.
 - `validate RUN_ID [PHASE] [--outcome OUTCOME]` validates the output, configured
   commands, and repository mutation policy before recording a transition.
   `--outcome` is required when more than one non-blocking outcome is possible.
@@ -61,9 +61,9 @@ are not loaded for an existing-run command.
 ## Approval and stop commands
 
 ```bash
-bin/specromancy request-approval RUN_ID --reason REASON --details TEXT
-bin/specromancy approve RUN_ID PHASE
-bin/specromancy block RUN_ID --reason REASON --details TEXT
+specromancy request-approval RUN_ID --reason REASON --details TEXT
+specromancy approve RUN_ID PHASE
+specromancy block RUN_ID --reason REASON --details TEXT
 ```
 
 Only reasons declared by the current phase are accepted. `--reason` may be
@@ -84,8 +84,8 @@ retry, and audit rules are in the [approval consistency contract](contracts.md#a
 ## Adapter commands
 
 ```bash
-bin/specromancy adapters generate
-bin/specromancy adapters generate --check
+specromancy adapters generate
+specromancy adapters generate --check
 ```
 
 Generation processes all registered pipelines; `--pipeline` is rejected here.

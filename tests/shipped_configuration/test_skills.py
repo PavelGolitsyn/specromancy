@@ -73,7 +73,8 @@ class ShippedSkillTests(unittest.TestCase):
         for path in self.paths:
             text = path.read_text(encoding="utf-8")
             with self.subTest(skill=path.parent.name):
-                commands = re.findall(r"bin/specromancy\s+([a-z-]+)", text)
+                self.assertNotIn("bin/specromancy", text)
+                commands = re.findall(r"(?<![\w/-])specromancy\s+([a-z-]+)", text)
                 self.assertTrue(commands)
                 self.assertTrue(set(commands).issubset(RESERVED_COMMANDS))
                 for relative in re.findall(

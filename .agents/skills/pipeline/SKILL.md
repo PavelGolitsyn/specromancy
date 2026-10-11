@@ -9,19 +9,24 @@ metadata:
 
 # Pipeline
 
+Run commands from the consumer project root with the installed `specromancy`
+on the harness process's `PATH`. Terminal activation alone does not update an
+already-running GUI harness; launch it with the environment or configure its
+command environment before continuing.
+
 Treat the CLI's persisted state and action packets as authoritative. Do not
 reconstruct state from conversation and never edit `run.json` or `events.jsonl`.
 
 For a new request, require a pipeline ID from the invocation or the user, using
 the registrations in `workflow/pipelines.toml`. Never select a default or the
-first registration. Run `bin/specromancy init DESCRIPTION --pipeline ID --json`
+first registration. Run `specromancy init DESCRIPTION --pipeline ID --json`
 and retain the emitted `RUN_ID`. A generated `specromancy-<id>` skill supplies
 its registered ID and initializes the run before delegating here.
 For an existing invocation, use its supplied `RUN_ID`, or obtain it from the
 user; do not guess it or initialize a second run. Existing-run commands resolve
 the pipeline from persisted provenance and need no pipeline selector.
 
-1. Run `bin/specromancy status RUN_ID --json`.
+1. Run `specromancy status RUN_ID --json`.
 2. If the run is awaiting agent work, use its recorded phase and next command to
    start or resume that visit, then load and follow the canonical skill named by
    the emitted action packet.
@@ -32,7 +37,7 @@ the pipeline from persisted provenance and need no pipeline selector.
    agent action.
 5. Stop immediately for a configured pause, approval, block, validation failure,
    or completion, and report the CLI's recorded state and required user action.
-   A paused run continues only through `bin/specromancy resume RUN_ID --json`.
+   A paused run continues only through `specromancy resume RUN_ID --json`.
 
 Never assume phase names, their order, or their outcomes. Never bypass approval
 or validation, invent an output path, or continue from memory after a process

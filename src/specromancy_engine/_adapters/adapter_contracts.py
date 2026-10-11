@@ -11,9 +11,9 @@ from ..exit_codes import ExitCode
 
 
 ADAPTER_SCHEMA_VERSION = 1
-GENERATOR_VERSION = 1
+GENERATOR_VERSION = 2
 MANIFEST_PATH = "adapters/manifest.json"
-REGENERATION_COMMAND = "bin/specromancy adapters generate"
+REGENERATION_COMMAND = "specromancy adapters generate"
 
 
 @dataclass(frozen=True, slots=True)

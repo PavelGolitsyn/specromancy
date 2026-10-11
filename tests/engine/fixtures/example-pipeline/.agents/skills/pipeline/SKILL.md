@@ -12,11 +12,11 @@ metadata:
 Treat the CLI's persisted state and action packets as authoritative. Do not
 reconstruct state from conversation and never edit `run.json` or `events.jsonl`.
 
-For a new request, run `bin/specromancy init DESCRIPTION --pipeline engine-example --json` and retain the
+For a new request, run `specromancy init DESCRIPTION --pipeline engine-example --json` and retain the
 emitted `RUN_ID`. For an existing invocation, obtain `RUN_ID` from the user; do
 not guess it.
 
-1. Run `bin/specromancy status RUN_ID --json`.
+1. Run `specromancy status RUN_ID --json`.
 2. If the run is awaiting agent work, use its recorded phase and next command to
    start or resume that visit, then load and follow the canonical skill named by
    the emitted action packet.
@@ -27,7 +27,7 @@ not guess it.
    agent action.
 5. Stop immediately for a configured pause, approval, block, validation failure,
    or completion, and report the CLI's recorded state and required user action.
-   A paused run continues only through `bin/specromancy resume RUN_ID --json`.
+   A paused run continues only through `specromancy resume RUN_ID --json`.
 
 Never assume phase names, their order, or their outcomes. Never bypass approval
 or validation, invent an output path, or continue from memory after a process

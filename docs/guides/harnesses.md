@@ -5,11 +5,27 @@ help a harness discover instructions and invoke the CLI; they do not own phase
 order, validation, approval, or run state. Always use the returned run ID and
 load the exact skill path in the current action packet.
 
+Install `specromancy-engine` in an environment inherited by the harness, with
+`specromancy` on that process's `PATH`. Activating an environment in a terminal
+does not update an already-running GUI harness. Launch the harness from the
+configured environment or configure its command environment, then verify
+`specromancy --help` there. Run wrappers from the consumer project root.
+`python -m specromancy_engine --help` is a diagnostic alternative using the
+selected Python interpreter; it invokes the same CLI and workflow semantics.
+
+The consumer must supply `AGENTS.md`, its registry, graphs, and canonical skills.
+In particular, installation does not create `.agents/skills/pipeline/SKILL.md`;
+adapter generation requires that project-owned procedure. Explicitly copy the
+generic [pipeline procedure](../../.agents/skills/pipeline/SKILL.md) to that same
+path in the consumer, reviewing any existing file before replacing it. It has
+no built-in phase names or order. Add the consumer's own phase skills and
+resources as described in [Authoring pipelines](authoring-pipelines.md).
+
 Generate or verify adapters with:
 
 ```bash
-bin/specromancy adapters generate
-bin/specromancy adapters generate --check
+specromancy adapters generate
+specromancy adapters generate --check
 ```
 
 ## Codex
@@ -81,11 +97,18 @@ bin/specromancy adapters generate --check
 ## Recovery across harnesses
 
 Any harness may stop after any visit. A later process—or a different supported
-harness—can run `bin/specromancy status RUN_ID --json` and continue from the
+harness—can run `specromancy status RUN_ID --json` and continue from the
 recorded next command. A configured pause reports `resume` as that command and
 cannot be bypassed by invoking its pending phase directly. Conversation
 transcripts, harness task identifiers, and adapter-local state are never
 required for recovery.
+
+Recorded `next_command` argv relies on the consumer working directory. From
+elsewhere, add `--root /absolute/path/to/consumer`. The action packet's
+`final_validation_command` already includes the absolute root and can be
+executed unchanged from another directory. Preserve argv boundaries, including
+descriptions containing spaces; prompt placeholders must be substituted as
+arguments, not evaluated as shell code.
 
 See [harness-compatibility.md](../reference/harness-compatibility.md) for the compact matrix
 and generated-file ownership policy.

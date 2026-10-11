@@ -5,16 +5,34 @@ Specromancy keeps workflow ownership in `AGENTS.md`, `workflow/pipelines.toml`, 
 Generate adapters after changing any canonical source:
 
 ```text
-bin/specromancy adapters generate
+specromancy adapters generate
 ```
 
 CI and local verification can detect missing, modified, extra, or source-stale adapter output without writing files:
 
 ```text
-bin/specromancy adapters generate --check
+specromancy adapters generate --check
 ```
 
-The ownership record is `adapters/manifest.json`. Generation uses normalized UTF-8 input, stable ordering and newlines, no timestamps or absolute paths, and atomic per-file replacement. A file may be removed as stale only when the previous manifest owns it and its current hash still matches. Unowned and modified stale files are preserved and reported as conflicts.
+The ownership record is `adapters/manifest.json`, schema version 1. Generator
+version 2 emits the installed `specromancy` command, including regeneration
+instructions, and derives provenance comments from that version. Generation
+uses normalized UTF-8 input, stable ordering and newlines, no timestamps or
+absolute paths, and atomic per-file replacement with the manifest written last.
+It is not a transaction across all generated files. A file may be removed as
+stale only when the previous manifest owns it and its current hash still
+matches. Unowned and edited stale files are preserved and reported as conflicts.
+Generation restores current manifest-owned output even if edited; `--check`
+reports those edits without writing. Preserve intentional edits before
+regenerating and incorporate their intended changes into canonical sources.
+An unchanged version-1 owned adapter tree can be upgraded by normal generation.
+
+All harnesses need the installed command on their process's `PATH`; terminal
+activation does not update an already-running GUI harness. See
+[Harness usage](../guides/harnesses.md) for environment setup and explicit
+copying of the required project-owned generic pipeline procedure. Installation
+does not supply consumer skills. Deterministic wrapper/argv tests cover the
+adapter contract; they do not prove behavior in a hosted harness.
 
 ## Harness matrix
 
@@ -28,7 +46,7 @@ The ownership record is `adapters/manifest.json`. Generation uses normalized UTF
 
 ## Persisted-state workflow
 
-Initialize a run with `bin/specromancy init DESCRIPTION --pipeline ID --json` and retain its returned run ID. For an existing run, use `bin/specromancy status RUN_ID --json` or `bin/specromancy resume RUN_ID --json`. When the CLI emits an action packet, load the exact `skill.absolute_path` it records, honor its mutation policy, and execute its recorded final validation command. Conversation history is never run state.
+Initialize a run with `specromancy init DESCRIPTION --pipeline ID --json` and retain its returned run ID. For an existing run, use `specromancy status RUN_ID --json` or `specromancy resume RUN_ID --json`. When the CLI emits an action packet, load the exact `skill.absolute_path` it records, honor its mutation policy, and execute its recorded final validation command. Conversation history is never run state.
 
 ## Hermes repository trust
 

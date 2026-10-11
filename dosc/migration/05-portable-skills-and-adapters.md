@@ -1,6 +1,7 @@
 # Stage 05 — Portable skills and adapters
 
-Status: planned. Dependency: [Stage 04](04-consumer-roots-and-resources.md).
+Status: complete (2026-10-11). Dependency: [Stage 04](04-consumer-roots-and-resources.md).
+Verification: [Stage 05 evidence](evidence/05-portable-skills-and-adapters.md).
 Next: [Stage 06](06-consumer-example-and-docs.md).
 Index: [migration plan](README.md).
 
@@ -91,12 +92,12 @@ behavior remains separate from deterministic adapter contract coverage.
 
 ## Acceptance criteria
 
-- [ ] Generated commands run without a producer launcher or source checkout.
-- [ ] Canonical skills and generated mirrors agree and contain no unique policy.
-- [ ] New rendering is versioned and original compatibility evidence is retained.
-- [ ] Old-owned-adapter upgrade and collision protections pass.
-- [ ] Repeat generation is deterministic; check mode is read-only.
-- [ ] Focused tests, full suite, and final adapter check pass.
+- [x] Generated commands run without a producer launcher or source checkout.
+- [x] Canonical skills and generated mirrors agree and contain no unique policy.
+- [x] New rendering is versioned and original compatibility evidence is retained.
+- [x] Old-owned-adapter upgrade and collision protections pass.
+- [x] Repeat generation is deterministic; check mode is read-only.
+- [x] Focused tests, full suite, and final adapter check pass.
 
 ## Recovery and handoff
 

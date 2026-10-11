@@ -194,7 +194,7 @@ class AdapterGenerationTests(unittest.TestCase):
         self.assertEqual(caught.exception.details, {"path": ".agents/skills/pipeline/SKILL.md"})
 
     def test_check_detects_changes_without_writing_generated_output(self) -> None:
-        cases = ("modified", "missing", "unexpected", "canonical")
+        cases = ("modified", "missing", "unexpected", "canonical", "no-manifest")
         for case in cases:
             with self.subTest(case=case):
                 fixture = AdapterFixture()
@@ -209,6 +209,8 @@ class AdapterGenerationTests(unittest.TestCase):
                     elif case == "unexpected":
                         path = fixture.root / ".opencode" / "commands" / "specromancy-extra.md"
                         path.write_text("extra\n", encoding="utf-8")
+                    elif case == "no-manifest":
+                        (fixture.root / MANIFEST_PATH).unlink()
                     else:
                         with (fixture.root / "AGENTS.md").open("a", encoding="utf-8") as stream:
                             stream.write("- A new canonical rule.\n")
@@ -217,7 +219,7 @@ class AdapterGenerationTests(unittest.TestCase):
                         for path in before
                         if (fixture.root / path).is_file()
                     }
-                    with self.assertRaises(AdapterError) as caught:
+                    with patch.object(adapter_ownership.tempfile, "mkstemp", side_effect=AssertionError("write")), self.assertRaises(AdapterError) as caught:
                         fixture.generate(check=True)
                     self.assertEqual(caught.exception.code, ExitCode.ADAPTER_DRIFT)
                     changed_after_check = {
@@ -225,8 +227,30 @@ class AdapterGenerationTests(unittest.TestCase):
                         for path in changed_before_check
                     }
                     self.assertEqual(changed_after_check, changed_before_check)
+                    if case == "no-manifest":
+                        self.assertFalse((fixture.root / MANIFEST_PATH).exists())
                 finally:
                     fixture.close()
+
+    def test_check_without_any_outputs_does_not_create_files(self) -> None:
+        before = {path.relative_to(self.fixture.root): path.read_bytes()
+                  for path in self.fixture.root.rglob("*") if path.is_file()}
+        with patch.object(adapter_ownership.tempfile, "mkstemp", side_effect=AssertionError("write")), self.assertRaises(AdapterError):
+            self.fixture.generate(check=True)
+        self.assertEqual({path.relative_to(self.fixture.root): path.read_bytes()
+                          for path in self.fixture.root.rglob("*") if path.is_file()}, before)
+
+    def test_generation_restores_edited_current_owned_output(self) -> None:
+        self.fixture.generate()
+        original = self.fixture.snapshot()
+        path = self.fixture.root / ".claude/CLAUDE.md"
+        path.write_text("User edit\n")
+        before = self.fixture.snapshot()
+        with self.assertRaises(AdapterError):
+            self.fixture.generate(check=True)
+        self.assertEqual(self.fixture.snapshot(), before)
+        self.fixture.generate()
+        self.assertEqual(self.fixture.snapshot(), original)
 
     def test_generation_never_overwrites_an_unowned_destination(self) -> None:
         path = self.fixture.root / ".claude" / "CLAUDE.md"
@@ -268,6 +292,10 @@ class AdapterGenerationTests(unittest.TestCase):
             (self.fixture.root / MANIFEST_PATH).read_text(encoding="utf-8")
         )
         self.assertEqual(manifest["schema_version"], 1)
+        self.assertEqual(manifest["generator"], {
+            "name": "specromancy", "version": 2,
+            "command": "specromancy adapters generate",
+        })
         modes = {entry["name"]: entry["mode"] for entry in manifest["targets"]}
         self.assertEqual(
             modes,

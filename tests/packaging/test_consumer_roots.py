@@ -10,6 +10,8 @@ import hashlib
 import io
 import json
 import os
+import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -244,6 +246,127 @@ class ConsumerRootTests(unittest.TestCase):
             self.assertEqual(payload["details"]["error_code"], "invalid-registry")
             self.assertEqual(payload["details"]["path"], str(registry))
         self.assertEqual(snapshot(self.base), before)
+
+
+    def prepare_adapters(self) -> dict:
+        root = self.first
+        (root / "AGENTS.md").write_text("# Consumer instructions\nKeep procedures canonical.\n")
+        orchestrator = root / ".agents/skills/pipeline/SKILL.md"
+        orchestrator.parent.mkdir(parents=True)
+        orchestrator.write_text(
+            "---\nname: pipeline\ndescription: Follow configured phases.\n---\n"
+            "Run `specromancy status RUN_ID --json` and follow persisted action packets.\n"
+        )
+        self.assertFalse((root / "bin/specromancy").exists())
+        self.assertFalse((root / "src").exists())
+        self.command(root, "adapters", "generate")
+        before = snapshot(root)
+        self.command(root, "adapters", "generate")
+        self.command(root / "nested/deeper", "adapters", "generate", "--check")
+        self.assertEqual(snapshot(root), before)
+        manifest = json.loads((root / "adapters/manifest.json").read_text())
+        self.assertEqual(manifest["generator"], {
+            "name": "specromancy", "version": 2, "command": "specromancy adapters generate",
+        })
+        self.assertEqual(manifest["schema_version"], 1)
+        for entry in manifest["generated"]:
+            content = (root / entry["path"]).read_bytes()
+            self.assertEqual(hashlib.sha256(content).hexdigest(), entry["sha256"])
+        mirror = (root / ".claude/skills/pipeline/SKILL.md").read_text()
+        self.assertEqual("\n".join(line for line in mirror.splitlines()
+                                  if not line.startswith("# ")) + "\n", orchestrator.read_text())
+        return manifest
+
+    def run_rendered(self, argv: list[str], *, cwd: Path, expected: int = 8) -> dict:
+        self.assertEqual(argv[0], "specromancy")
+        result = subprocess.run(argv, cwd=cwd, env=self.env, capture_output=True, text=True)
+        self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+        self.assertFalse(result.stderr, result.stderr)
+        return json.loads(result.stdout)
+
+    def test_consumer_executes_every_wrapper_and_launch_skill(self) -> None:
+        manifest = self.prepare_adapters()
+        root = self.first
+        description = 'A request with spaces, "quotes", $HOME, $(echo never), and café'
+        conventions = {
+            "claude": (".claude/commands/specromancy/{name}.md", {
+                "init": '"$1" --pipeline "$0"', "status": '"$0"',
+                "resume": '"$0"', "phase": '"$0" "$1"',
+            }),
+            "opencode": (".opencode/commands/specromancy-{name}.md", {
+                "init": '"$2" --pipeline "$1"', "status": '"$1"',
+                "resume": '"$1"', "phase": '"$1" "$2"',
+            }),
+            "copilot": (".github/prompts/specromancy-{name}.prompt.md", {
+                "init": "DESCRIPTION --pipeline PIPELINE_ID", "status": "RUN_ID",
+                "resume": "RUN_ID", "phase": "RUN_ID PHASE",
+            }),
+        }
+        wrappers = {entry["path"] for entry in manifest["generated"]
+                    if "commands/" in entry["path"] or entry["path"].endswith(".prompt.md")}
+        self.assertEqual(wrappers, {pattern.format(name=name)
+                                   for pattern, commands in conventions.values() for name in commands})
+        for harness, (pattern, commands) in conventions.items():
+            run_id = None
+            for name in ("init", "status", "resume", "phase"):
+                with self.subTest(harness=harness, command=name):
+                    text = (root / pattern.format(name=name)).read_text()
+                    self.assertNotIn("bin/specromancy", text)
+                    invocations = re.findall(r"`(specromancy [^`]+)`", text)
+                    self.assertEqual(invocations, [f"specromancy {name} {commands[name]} --json"])
+                    values = (["shared", description] if name == "init" else
+                              [run_id, "amber"] if name == "phase" else [run_id])
+                    tokens = shlex.split(invocations[0])
+                    if harness == "copilot":
+                        placeholders = dict(zip(("PIPELINE_ID", "DESCRIPTION") if name == "init" else
+                                                ("RUN_ID", "PHASE"), values))
+                    else:
+                        start = 0 if harness == "claude" else 1
+                        placeholders = {f"${index}": value for index, value in enumerate(values, start)}
+                    argv = [placeholders.get(token, token) for token in tokens]
+                    arguments = ([description, "--pipeline", "shared"] if name == "init" else values)
+                    self.assertEqual(argv, ["specromancy", name, *arguments, "--json"])
+                    result = self.run_rendered(argv, cwd=root / "nested/deeper",
+                                               expected=0 if name == "status" else 8)
+                    if name == "init":
+                        action = result["action"]
+                        run_id = action["run_id"]
+                        self.assertIn(description, Path(action["inputs"][0]["absolute_path"]).read_text())
+            # Status argv uses cwd; validation argv independently carries the root.
+            status = self.command(root, "status", run_id)["status"]
+            self.assertEqual(status["next_command"], ["specromancy", "validate", run_id, "amber"])
+            Path(action["output"]["absolute_path"]).write_text('{"consumer":"amber"}\n')
+            self.run_rendered([*status["next_command"], "--json"], cwd=root / "nested/deeper", expected=0)
+
+        launches = [entry["path"] for entry in manifest["generated"]
+                    if entry["path"].endswith("skills/specromancy-shared/SKILL.md")]
+        self.assertEqual(set(launches), {".agents/skills/specromancy-shared/SKILL.md",
+                                        ".claude/skills/specromancy-shared/SKILL.md"})
+        for relative in launches:
+            with self.subTest(launch=relative):
+                text = (root / relative).read_text()
+                invocations = re.findall(r"`(specromancy [^`]+)`", text)
+                self.assertEqual(invocations, ["specromancy init DESCRIPTION --pipeline shared --json"])
+                argv = [description if token == "DESCRIPTION" else token for token in shlex.split(invocations[0])]
+                action = self.run_rendered(argv, cwd=root)["action"]
+                self.assertEqual(action["phase"], "amber")
+                self.assertEqual(action["final_validation_command"][:3], ["specromancy", "--root", str(root)])
+                self.assertIn(description, Path(action["inputs"][0]["absolute_path"]).read_text())
+                status = self.command(root, "status", action["run_id"])["status"]
+                self.assertEqual(status["next_command"], ["specromancy", "phase", action["run_id"], "amber"])
+                self.run_rendered([*status["next_command"], "--json"], cwd=root)
+                Path(action["output"]["absolute_path"]).write_text('{"consumer":"amber"}\n')
+                result = subprocess.run(action["final_validation_command"], cwd=self.outside,
+                                        env=self.env, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_adapter_generation_requires_project_owned_orchestrator(self) -> None:
+        root = self.first
+        (root / "AGENTS.md").write_text("# Consumer instructions\n")
+        before = snapshot(root)
+        result = self.command(root, "adapters", "generate", expected=ExitCode.ADAPTER_DRIFT)
+        self.assertEqual(result["message"], "canonical pipeline orchestrator skill is missing")
+        self.assertEqual(snapshot(root), before)
 
 
 class PackageResourceTests(unittest.TestCase):

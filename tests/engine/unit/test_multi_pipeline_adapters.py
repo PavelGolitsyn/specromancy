@@ -42,7 +42,8 @@ class MultiPipelineAdapterTests(unittest.TestCase):
         for pipeline_id in ("alpha", "beta"):
             relative = f".agents/skills/specromancy-{pipeline_id}/SKILL.md"
             text = first[relative].decode()
-            self.assertIn(f"--pipeline {pipeline_id}", text)
+            self.assertIn(f"`specromancy init DESCRIPTION --pipeline {pipeline_id} --json`", text)
+            self.assertNotIn("bin/specromancy", text)
             self.assertIn(".agents/skills/pipeline/SKILL.md", text)
             self.assertEqual(first[f".claude/skills/specromancy-{pipeline_id}/SKILL.md"], first[relative])
         native = {item["name"]: item for item in manifest["targets"] if item["mode"] == "native"}

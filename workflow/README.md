@@ -56,8 +56,8 @@ is removed. Moving or changing that graph does not migrate an existing run.
 After customization, run:
 
 ```sh
-bin/specromancy adapters generate
-bin/specromancy adapters generate --check
+specromancy adapters generate
+specromancy adapters generate --check
 python -m pip install -e .  # in an activated development environment
 python -m unittest discover
 ```
@@ -69,7 +69,7 @@ The mandatory registry itself must remain valid for workflow commands.
 ## Start a run
 
 ```sh
-bin/specromancy init "describe the requested change" --pipeline implementation
+specromancy init "describe the requested change" --pipeline implementation
 ```
 
 Alternatively, invoke the generated `specromancy-implementation` skill. The

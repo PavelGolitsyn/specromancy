@@ -123,7 +123,15 @@ Workflow commands accept `--root PATH`, `--pipeline ID`, `--json`, and `--quiet`
 reason of the relevant kind. `validate --outcome` is required when a phase has
 multiple non-blocking outcomes and is rejected when there is only one.
 
-Both `bin/specromancy` and `python -m specromancy_engine` invoke the same package entry point. The repository root is found by walking upward to a `.git` directory or worktree marker. `--root` supplies an explicit root for fixtures and non-Git directories.
+The installed `specromancy` command, diagnostic `python -m specromancy_engine`
+invocation, and optional checkout-only `bin/specromancy` launcher share the same
+package entry point. Generated instructions use `specromancy`; the harness
+process must inherit its environment on `PATH`. Activating a terminal does not
+update an already-running GUI harness. The repository root is found by walking
+upward to a `.git` directory or worktree marker. `--root` supplies an explicit
+root for fixtures and non-Git directories. Status `next_command` argv relies on
+the consumer cwd (or an added `--root`); action `final_validation_command` argv
+already carries the absolute consumer root.
 
 `adapters generate` deterministically renders harness-native adapters from
 `AGENTS.md`, the mandatory registry, every validated registered graph and its
@@ -136,6 +144,17 @@ source hashing. Their prefix is reserved; canonical skills outside that namespac
 are never owned or removed by the generator. `--check` performs no writes and exits with
 `ADAPTER_DRIFT` when the manifest or managed tree differs from the expected
 rendering.
+
+The canonical `.agents/skills/pipeline/SKILL.md` is required, project-owned,
+and never created by package installation or adapter generation. Onboarding
+explicitly copies the [generic procedure](../../.agents/skills/pipeline/SKILL.md)
+into the consumer; it assumes no phase names or order. Generator version 2
+changes invocation and provenance text while preserving manifest schema version
+1 and generator name `specromancy`. Unchanged owned version-1 output upgrades
+through normal generation. Generation restores current manifest-owned output
+even if edited; check mode reports those edits without writing. Unowned paths
+and edited stale paths remain conflicts. Save any intentional edits before
+regenerating and move their intended changes into canonical sources.
 
 The Python `cli.adapter_command_metadata` facade shares explicit descriptions
 with parser construction and returns the same sorted command metadata without

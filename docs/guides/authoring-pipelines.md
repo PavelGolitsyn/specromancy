@@ -8,7 +8,7 @@ implementation pipeline for richer approval and repair examples.
 
 Register each graph in mandatory `workflow/pipelines.toml`, with a unique ID
 and a path under `workflow/pipelines/`. There is no default; use
-`bin/specromancy init DESCRIPTION --pipeline ID`. See
+`specromancy init DESCRIPTION --pipeline ID`. See
 [Workflow customization](../../workflow/README.md) for add/edit/remove steps.
 
 With the package installed in your environment, use `specromancy init DESCRIPTION
@@ -19,6 +19,14 @@ A non-Git consumer needs both `--root` and `allow_non_git = true` in its graph.
 Installation supplies the engine and its four published schemas; author the
 registry, graph, skills, templates, and validator schemas in the consumer project.
 Nothing is implicitly loaded from the engine's source checkout or home directory.
+
+Adapter generation also requires the project-owned generic
+`.agents/skills/pipeline/SKILL.md`. Explicitly copy the
+[reusable procedure](../../.agents/skills/pipeline/SKILL.md) to that path in the
+consumer; review existing content before replacing it. Installation does not
+create it. The procedure resolves phases from persisted CLI packets and needs
+no example phase names. See [Harness usage](harnesses.md) for command environment
+setup, including GUI harnesses.
 
 Pipeline files use TOML so Python 3.11 can load them without a dependency. A
 pipeline declares schema version, identity, start phase, terminal outcomes,
@@ -190,8 +198,8 @@ referenced templates/schemas, or CLI help
 metadata, run:
 
 ```bash
-bin/specromancy adapters generate
-bin/specromancy adapters generate --check
+specromancy adapters generate
+specromancy adapters generate --check
 python -m unittest discover
 ```
 
