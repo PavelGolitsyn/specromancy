@@ -1,6 +1,7 @@
 # Stage 04 — Consumer roots and package resources
 
-Status: planned. Dependency: [Stage 03](03-python-namespace.md).
+Status: complete (2026-10-11). Dependency: [Stage 03](03-python-namespace.md).
+Verification: [Stage 04 evidence](evidence/04-consumer-roots-and-resources.md).
 Next: [Stage 05](05-portable-skills-and-adapters.md).
 Index: [migration plan](README.md).
 
@@ -75,13 +76,13 @@ installed package tree read-only during the smoke test.
 
 ## Acceptance criteria
 
-- [ ] Installed engine works from consumer roots and nested directories.
-- [ ] Explicit-root behavior and failure diagnostics remain compatible.
-- [ ] Two projects using the same package cannot contaminate each other's state.
-- [ ] All four schemas are present and readable in the installed package.
-- [ ] Project-owned schemas, skills, and templates remain project-owned.
-- [ ] No producer-checkout lookup or runtime package write is required.
-- [ ] Public API smoke checks, focused tests, full suite, and adapter check pass.
+- [x] Installed engine works from consumer roots and nested directories.
+- [x] Explicit-root behavior and failure diagnostics remain compatible.
+- [x] Two projects using the same package cannot contaminate each other's state.
+- [x] All four schemas are present and readable in the installed package.
+- [x] Project-owned schemas, skills, and templates remain project-owned.
+- [x] No producer-checkout lookup or runtime package write is required.
+- [x] Public API smoke checks, focused tests, full suite, and adapter check pass.
 
 ## Recovery and handoff
 

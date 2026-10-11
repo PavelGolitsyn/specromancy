@@ -12,6 +12,11 @@ The suite is split by the source of its test data:
   validity and consistency without requiring specific configuration values.
   They must tolerate changes to the shipped configuration as long as it remains
   valid and consistent.
+- `packaging/` exercises installed consumer roots and package resources without
+  producer fixtures. Its self-contained smoke module can also be copied outside
+  the checkout and run with a regular wheel installation; no test downloads or
+  builds dependencies. It covers two consumers sharing a pipeline ID, real Git
+  worktree markers, explicit/non-Git roots, public facades, and filesystem ownership.
 
 Create and activate a dedicated environment before testing:
 
@@ -26,6 +31,7 @@ Run the groups independently:
 ```sh
 python -m unittest discover -s tests/engine -t .
 python -m unittest discover -s tests/shipped_configuration -t .
+python -m unittest discover -s tests/packaging -t .
 ```
 
 Run everything with:

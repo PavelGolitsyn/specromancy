@@ -4,6 +4,7 @@ import json
 import tempfile
 import textwrap
 import unittest
+from importlib.resources import files
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
@@ -203,8 +204,7 @@ class ConfigTests(unittest.TestCase):
         self.assert_error(document(terminal), "terminal-transition-pause")
 
     def test_published_pipeline_schema_declares_transition_pause(self) -> None:
-        schema_path = ROOT / "src" / "specromancy_engine" / "schemas" / "pipeline.schema.json"
-        schema = json.loads(schema_path.read_text(encoding="utf-8"))
+        schema = json.loads(files("specromancy_engine").joinpath("schemas", "pipeline.schema.json").read_text(encoding="utf-8"))
         self.assertEqual(
             schema["$defs"]["transition"]["properties"]["pause"],
             {"type": "boolean"},

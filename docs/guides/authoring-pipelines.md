@@ -11,6 +11,15 @@ and a path under `workflow/pipelines/`. There is no default; use
 `bin/specromancy init DESCRIPTION --pipeline ID`. See
 [Workflow customization](../../workflow/README.md) for add/edit/remove steps.
 
+With the package installed in your environment, use `specromancy init DESCRIPTION
+--pipeline ID` from the consumer root or a nested directory. Discovery recognizes
+both `.git` directories and worktree marker files. From an unrelated directory,
+use `specromancy --root /absolute/path/to/consumer init DESCRIPTION --pipeline ID`.
+A non-Git consumer needs both `--root` and `allow_non_git = true` in its graph.
+Installation supplies the engine and its four published schemas; author the
+registry, graph, skills, templates, and validator schemas in the consumer project.
+Nothing is implicitly loaded from the engine's source checkout or home directory.
+
 Pipeline files use TOML so Python 3.11 can load them without a dependency. A
 pipeline declares schema version, identity, start phase, terminal outcomes,
 artifact naming, Git policy, and an ordered `[[phases]]` array. Every phase
@@ -87,6 +96,52 @@ declare `required_headings` and `heading_occurrence`; a JSON validator may use
 the documented project-owned schema subset. Templates should contain every
 required heading exactly once and meaningful placeholder content that a valid
 artifact must replace.
+
+JSON validator `path` (or `schema`) resolves relative to the pipeline file and
+must stay inside the consumer root, including after symlink resolution. The
+`load_json_schema(path)` API still reads these project-owned files and rejects
+unsupported keywords. The four published engine schemas are a separate package
+resource contract, not artifact validators for that subset; see
+[installed resources](../reference/contracts.md#installed-resources-and-consumer-roots).
+
+## Embed the installed engine
+
+Use an explicit absolute consumer root so the caller's working directory does
+not select the project. Given a registered `shared` pipeline, this initializes a
+run and reads its durable status through the public facades:
+
+```python
+from pathlib import Path
+from specromancy_engine import Engine, RunStore, load_registry
+
+root = Path("/absolute/path/to/consumer").resolve()
+pipeline = load_registry(root).load("shared")
+store = RunStore(root)
+engine = Engine(pipeline, store)
+response = engine.initialize("Record the consumer result.")
+run_id = response["action"]["run_id"]
+status = engine.status(run_id)
+manifest = store.load(run_id)
+```
+
+`Engine(pipeline)` also constructs a store at `pipeline.repository_root` when
+one is not supplied. For an existing run, load its recorded graph rather than
+selecting today's registration, which might point somewhere else:
+
+```python
+from specromancy_engine import load_pipeline
+
+saved = store.load(run_id, verify_artifacts=False)["pipeline"]
+pipeline = load_pipeline(root / saved["path"], repository_root=root)
+engine = Engine(pipeline, store)
+status = engine.status(run_id)
+```
+
+The low-level `load_pipeline(path, repository_root=...)` API does not require a
+registry. CLI commands continue to require one. Neither API executes a phase's
+agent procedure: call `start_phase(run_id, phase_id)`, use its action packet to
+produce the artifact, then call `validate(run_id, phase_id)`. Construct a
+separate pipeline and store for each consumer; no new builder API is required.
 
 ## Approvals and stops
 

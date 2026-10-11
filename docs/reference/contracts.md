@@ -39,6 +39,54 @@ Execute this argv with the installed console script on `PATH`; source-export
 users can put the checkout's `bin/` on `PATH`. Consumer-configured validation
 commands and status commands are unchanged.
 
+## Installed resources and consumer roots
+
+The installed engine has no implicit pipeline or producer-checkout fallback.
+CLI discovery starts at the working directory and walks upward to a `.git`
+directory or worktree marker file. An explicit `--root PATH` overrides discovery,
+including from an unrelated directory, and must name an existing directory.
+Without a Git marker, pass `--root`; initialization additionally requires
+`allow_non_git = true` in the selected graph to permit a non-Git project.
+`workflow/pipelines.toml` remains mandatory and initialization requires an
+explicit registered ID. Existing runs load the saved project-relative pipeline
+path and ID, even if the registry now registers that ID at another path.
+
+Each root owns its registry, graphs, skills, templates, validator schemas, and
+`.specromancy/runs/`. Graph and resource resolution is scoped to that root on
+each load; identical pipeline IDs in different projects do not share state.
+Skills resolve from the root; templates and validator schemas resolve from the
+graph's directory, with repository containment checks. No installed command
+requires writes to the package, the producer checkout, or home-directory
+configuration. Python bytecode caching can be disabled independently with
+`PYTHONDONTWRITEBYTECODE=1` when testing a read-only installation.
+
+The four published package resources are `pipeline.schema.json` (graph),
+`pipelines.schema.json` (registry), `run.schema.json` (manifest), and
+`event.schema.json` (event). Read them using Python 3.11-compatible resource APIs:
+
+```python
+import json
+from importlib.resources import files
+
+schema = json.loads(
+    files("specromancy_engine").joinpath("schemas", "run.schema.json")
+    .read_text(encoding="utf-8")
+)
+```
+
+These published JSON Schema documents describe engine formats for external
+tools; the runtime's loaders and record validators enforce those contracts.
+They are separate from `schema_validation.load_json_schema(path)`, which loads
+a **project-owned** artifact validator using the limited subset documented
+below. Published schemas use keywords outside that subset and must not be
+passed to its loader as an availability check. No schema subset is expanded by
+packaging. When an external tool needs a filesystem path to a package resource,
+use `importlib.resources.as_file(resource)` only for the duration of its context;
+never persist the temporary path in run records.
+
+For Python embedding, use the existing public facades and explicit consumer
+roots; see the [executable examples](../guides/authoring-pipelines.md#embed-the-installed-engine).
+
 ## Vocabulary
 
 - **Pipeline:** a versioned directed graph of phases.

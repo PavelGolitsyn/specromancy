@@ -13,6 +13,7 @@ from specromancy_engine.cli import (
 )
 from specromancy_engine._cli.cli_commands import COMMANDS
 from specromancy_engine.exit_codes import ExitCode
+from specromancy_engine.errors import UsageError
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -30,6 +31,35 @@ def fixture_arguments(*arguments: str) -> list[str]:
 
 
 class RootDiscoveryTests(unittest.TestCase):
+    def test_discovers_directory_marker_from_root_nested_directory_and_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            (root / ".git").mkdir()
+            nested = root / "one" / "two"
+            nested.mkdir(parents=True)
+            file = nested / "request.md"
+            file.touch()
+            for start in (root, nested, file):
+                with self.subTest(start=start):
+                    self.assertEqual(discover_repository_root(start), root)
+            with patch("specromancy_engine.cli.Path.cwd", return_value=nested):
+                self.assertEqual(discover_repository_root(), root)
+
+    def test_explicit_root_overrides_discovery_and_rejects_invalid_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            (root / ".git").mkdir()
+            consumer = root / "consumer"
+            consumer.mkdir()
+            self.assertEqual(discover_repository_root(root, consumer), consumer)
+            file = root / "file"
+            file.touch()
+            for path, message in ((root / "absent", "does not exist"), (file, "is not a directory")):
+                with self.subTest(path=path), self.assertRaises(UsageError) as raised:
+                    discover_repository_root(root, path)
+                self.assertIn(message, raised.exception.message)
+                self.assertEqual(raised.exception.details, {"root": str(path)})
+
     def test_discovers_worktree_marker_file(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

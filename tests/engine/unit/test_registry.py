@@ -4,6 +4,7 @@ import json
 import re
 import tempfile
 import unittest
+from importlib.resources import files
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
@@ -112,7 +113,7 @@ class RegistryTests(unittest.TestCase):
             load_registry(self.root).load_all()
 
     def test_registry_schema_publishes_nonempty_registration_contract(self) -> None:
-        schema = json.loads((Path(__file__).resolve().parents[3] / "src/specromancy_engine/schemas/pipelines.schema.json").read_text())
+        schema = json.loads(files("specromancy_engine").joinpath("schemas", "pipelines.schema.json").read_text(encoding="utf-8"))
         self.assertEqual(schema["properties"]["schema_version"], {"type": "integer", "const": 1})
         self.assertEqual(schema["properties"]["pipelines"]["minItems"], 1)
         self.assertFalse(schema["additionalProperties"])
