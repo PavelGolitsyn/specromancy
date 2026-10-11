@@ -10,7 +10,9 @@ Public imports retain their existing paths: package-level exports and the
 `specromancy.config`, `specromancy.engine`, `specromancy.run_store`,
 `specromancy.registry`, `specromancy.adapters`, and `specromancy.cli` facades.
 Their existing re-exports and compatibility aliases still refer to the defining
-objects. Shared utility modules and `specromancy/schemas/` also retain their paths.
+objects. Shared utility modules retain their import paths. The source tree now
+lives under `src/specromancy/`; its four JSON schemas are packaged under
+`specromancy/schemas/` in the installed distribution.
 
 Extracted implementation modules now live in the private `_config`, `_runs`,
 `_engine`, `_adapters`, and `_cli` subpackages. Those modules were internal
@@ -18,6 +20,11 @@ implementation details, not supported import contracts. Use the public facades
 for configuration records, errors, loading, execution, and run storage. This
 folder reorganization changes no CLI, schema, canonical hash, or stored-data
 format and requires no run migration.
+
+The intermediate distribution is named `specromancy-engine`, remains at version
+`0.1.0`, requires Python 3.11 or newer, and has no third-party runtime
+dependencies. It installs the `specromancy = specromancy.cli:main` console entry
+point. Module invocation remains `python -m specromancy`.
 
 ## Vocabulary
 
@@ -96,7 +103,7 @@ IDs use lowercase kebab-case, match the graph's ID, and are unique. Resolved
 paths are unique TOML files under `workflow/pipelines/`, relative to `workflow/`.
 Segments use letters, numbers, underscores or hyphens. Unsafe, escaping,
 missing and duplicate paths are rejected with `INVALID_PIPELINE` diagnostics.
-The registry format is published in `specromancy/schemas/pipelines.schema.json`;
+The registry format is published in `src/specromancy/schemas/pipelines.schema.json`;
 filesystem containment and cross-file identity are additionally validated by
 the loader. `load_registry(root)` returns immutable registrations; `load(id)`
 validates the selected graph and `load_all()` validates every registration.

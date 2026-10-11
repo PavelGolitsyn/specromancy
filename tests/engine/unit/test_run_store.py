@@ -315,7 +315,7 @@ class RunStoreTests(unittest.TestCase):
         self.assertEqual(self.store.load(RUN_ID)["status"], "blocked")
 
     def test_persisted_records_match_their_published_schema_surfaces(self) -> None:
-        schemas = Path(__file__).resolve().parents[3] / "specromancy" / "schemas"
+        schemas = Path(__file__).resolve().parents[3] / "src" / "specromancy" / "schemas"
         run_schema = json.loads((schemas / "run.schema.json").read_text())
         event_schema = json.loads((schemas / "event.schema.json").read_text())
         self.assertEqual(run_schema["properties"]["schema_version"]["const"], 1)

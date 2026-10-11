@@ -13,7 +13,7 @@ from files under `.specromancy/`, never from conversation history.
 | Phase procedure | `.agents/skills/<skill>/SKILL.md` |
 | Pipeline registrations | `workflow/pipelines.toml` |
 | Graph, policies, gates, and validators | `workflow/pipelines/<id>.toml` |
-| State transitions and persistence | `specromancy/` Python package |
+| State transitions and persistence | `src/specromancy/` Python package |
 | Current run state | `.specromancy/runs/<run-id>/run.json` and artifacts |
 | Audit history | `.specromancy/runs/<run-id>/events.jsonl` |
 | Harness discovery surfaces | generated adapters recorded in `adapters/manifest.json` |
@@ -21,7 +21,7 @@ from files under `.specromancy/`, never from conversation history.
 The editable workflow surface is intentionally outside the Python package:
 start in `workflow/` for the graph and templates, then use `.agents/skills/`
 for phase procedures or `AGENTS.md` for always-on constraints. Files under
-`specromancy/` implement the generic runtime and are not changed to add,
+`src/specromancy/` implement the generic runtime and are not changed to add,
 remove, reorder, or tune phases.
 
 The engine is generic. Phase identifiers such as the configured pipeline's names
@@ -36,7 +36,7 @@ canonical orchestrator.
 
 ## Runtime dependency map
 
-Internal modules are grouped under `specromancy/_config/`, `_runs/`, `_engine/`,
+Internal modules are grouped under `src/specromancy/_config/`, `_runs/`, `_engine/`,
 `_adapters/`, and `_cli/`. Public facades and shared utilities remain at the
 package root. The [repository map](../README.md#repository-map) describes each
 directory; module names below are abbreviated to their basenames. Internal

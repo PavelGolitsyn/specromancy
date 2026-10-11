@@ -17,13 +17,14 @@ use the references and guides above for current behavior.
 
 | Location | Purpose |
 | --- | --- |
-| `specromancy/` | Public Python entry points and shared runtime utilities |
-| `specromancy/_config/` | Private configuration parsing, models, and serialization |
-| `specromancy/_runs/` | Private run records, persistence, and visit preparation/decisions |
-| `specromancy/_engine/` | Private approval, validation, provenance, and response orchestration |
-| `specromancy/_adapters/` | Private adapter source capture, rendering, and ownership |
-| `specromancy/_cli/` | Private command metadata and pipeline selection |
-| `specromancy/schemas/` | Published JSON schemas |
+| `pyproject.toml` | Build metadata, package discovery, schema data, and installed CLI |
+| `src/specromancy/` | Public Python entry points and shared runtime utilities |
+| `src/specromancy/_config/` | Private configuration parsing, models, and serialization |
+| `src/specromancy/_runs/` | Private run records, persistence, and visit preparation/decisions |
+| `src/specromancy/_engine/` | Private approval, validation, provenance, and response orchestration |
+| `src/specromancy/_adapters/` | Private adapter source capture, rendering, and ownership |
+| `src/specromancy/_cli/` | Private command metadata and pipeline selection |
+| `src/specromancy/schemas/` | Published JSON schemas |
 | `bin/` | Executable launcher |
 | `workflow/` | Canonical pipeline registry, graphs, and artifact templates |
 | `.agents/skills/` | Canonical procedures and manifest-owned pipeline launch skills |

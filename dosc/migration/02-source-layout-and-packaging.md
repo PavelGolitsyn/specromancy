@@ -1,7 +1,8 @@
 # Stage 02 — Source layout and packaging
 
-Status: planned. Dependency: [Stage 01](01-contracts-and-baseline.md).
+Status: complete (2026-10-11). Dependency: [Stage 01](01-contracts-and-baseline.md).
 Next: [Stage 03](03-python-namespace.md). Index: [migration plan](README.md).
+Evidence: [build, installation, and test results](evidence/02-packaging.md).
 
 ## Objective
 
@@ -84,12 +85,12 @@ artifact paths, and do not commit `.venv`, archives, or package metadata outputs
 
 ## Acceptance criteria
 
-- [ ] The source tree resides under `src/specromancy/` with no duplicate runtime.
-- [ ] Editable installation and a regular wheel installation both work.
-- [ ] All schemas are packaged; no third-party runtime requirements appear.
-- [ ] Source-export launcher behavior and existing compatibility tests pass.
-- [ ] Full suite and adapter drift checks pass.
-- [ ] Documentation and repository instructions reflect the current layout.
+- [x] The source tree resides under `src/specromancy/` with no duplicate runtime.
+- [x] Editable installation and a regular wheel installation both work.
+- [x] All schemas are packaged; no third-party runtime requirements appear.
+- [x] Source-export launcher behavior and existing compatibility tests pass.
+- [x] Full suite and adapter drift checks pass.
+- [x] Documentation and repository instructions reflect the current layout.
 
 ## Recovery and handoff
 

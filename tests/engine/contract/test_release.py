@@ -1,14 +1,17 @@
 from __future__ import annotations
 
 import ast
+import importlib.metadata
 import json
 import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
+import specromancy
 from tests.engine.contract.source_scan import runtime_sources
 
 
@@ -17,6 +20,23 @@ WORKFLOW_FIXTURE = Path("tests/engine/fixtures/example-pipeline")
 
 
 class ReleaseContractTests(unittest.TestCase):
+    def test_package_and_installed_metadata_agree(self) -> None:
+        project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
+        distribution = importlib.metadata.distribution("specromancy-engine")
+        self.assertEqual(project["version"], specromancy.__version__)
+        self.assertEqual(distribution.version, specromancy.__version__)
+        self.assertEqual(distribution.metadata["Name"], project["name"])
+        self.assertEqual(distribution.metadata["Requires-Python"], ">=3.11")
+        self.assertEqual(distribution.metadata["License-Expression"], "MIT")
+        self.assertEqual(project["dependencies"], [])
+        self.assertEqual(distribution.requires or [], [])
+        scripts = {
+            entry.name: entry.value
+            for entry in distribution.entry_points
+            if entry.group == "console_scripts"
+        }
+        self.assertEqual(scripts, {"specromancy": "specromancy.cli:main"})
+
     def test_fresh_source_export_runs_without_installation(self) -> None:
         self.assertGreaterEqual(sys.version_info, (3, 11))
         with tempfile.TemporaryDirectory() as temporary:
@@ -26,8 +46,8 @@ class ReleaseContractTests(unittest.TestCase):
                 return {
                     name
                     for name in names
-                    if name in {".git", ".specromancy", "__pycache__"}
-                    or name.endswith((".pyc", ".pyo"))
+                    if name in {".git", ".specromancy", "__pycache__", ".venv", "build", "dist"}
+                    or name.endswith((".pyc", ".pyo", ".egg-info"))
                 }
 
             shutil.copytree(ROOT, checkout, ignore=ignore)
@@ -37,7 +57,7 @@ class ReleaseContractTests(unittest.TestCase):
                 capture_output=True,
             )
             help_result = subprocess.run(
-                [str(checkout / "bin" / "specromancy"), "--help"],
+                [sys.executable, "-S", str(checkout / "bin" / "specromancy"), "--help"],
                 cwd=checkout / "docs",
                 check=False,
                 capture_output=True,
@@ -46,6 +66,8 @@ class ReleaseContractTests(unittest.TestCase):
             self.assertEqual(help_result.returncode, 0, help_result.stderr)
             initialized = subprocess.run(
                 [
+                    sys.executable,
+                    "-S",
                     str(checkout / "bin" / "specromancy"),
                     "--json",
                     "--root",
@@ -65,7 +87,7 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_runtime_package_imports_only_standard_library_modules(self) -> None:
         imported: set[str] = set()
-        for path in runtime_sources(ROOT / "specromancy"):
+        for path in runtime_sources(ROOT / "src" / "specromancy"):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):

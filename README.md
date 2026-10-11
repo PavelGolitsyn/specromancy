@@ -7,19 +7,28 @@ state independently of any harness conversation.
 
 ## Quickstart
 
-From a Git checkout:
+From a Git checkout, create a dedicated development environment and install
+the package in editable mode:
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
 bin/specromancy init "describe the requested change" --pipeline implementation
 bin/specromancy status RUN_ID
 bin/specromancy resume RUN_ID
-python3 -m unittest discover
+python -m unittest discover
 bin/specromancy adapters generate --check
 ```
 
 `init` returns the run ID and next action. Follow the emitted action packet and
 use its exact output path, skill, mutation policy, and final validation command.
 Runtime data is written only under ignored `.specromancy/runs/` storage.
+
+The intermediate distribution is `specromancy-engine` version `0.1.0`. It
+provides the `specromancy` console command and `python -m specromancy`. This
+build is for local verification, not publication. The checkout wrappers
+`bin/specromancy` and `adapters/generate.py` also work without installation.
 
 ## Customize the workflow
 
@@ -29,7 +38,7 @@ Adapters generate a `specromancy-<id>` launch skill for each registration.
 The editable graphs and shared artifact templates live in [`workflow/`](workflow/).
 Phase procedures live in [`.agents/skills/`](.agents/skills/) for native harness
 discovery, and repository-wide agent constraints live in [`AGENTS.md`](AGENTS.md).
-The Python package under `specromancy/` is the generic engine, not a workflow
+The Python package under `src/specromancy/` is the generic engine, not a workflow
 customization surface. Start with the
 [`workflow/README.md`](workflow/README.md) customization map.
 

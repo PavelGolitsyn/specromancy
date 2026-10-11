@@ -1,7 +1,9 @@
 # Specromancy Engine package migration
 
-Status: Stage 01 complete; Stage 02 is next. Runtime implementation has not
-started. Prepared on 2026-10-10 against commit
+Status: Stages 01–02 complete; Stage 03 is next. The installable intermediate
+layout retains the `specromancy` import name and version `0.1.0`.
+See the [Stage 02 verification](evidence/02-packaging.md).
+Prepared on 2026-10-10 against commit
 `040d84debfdc0ebb44c64f4abd3c271c606d211d`; the Stage 01 baseline was executed
 on 2026-10-11 at `767a417850499bbe13d32cf2a6360a2f9bf04904`.
 See the [baseline results](evidence/01-baseline.md) and
@@ -90,7 +92,10 @@ reviewable tree; Stage 2 intentionally uses the old import name temporarily.
 | [07 — Distribution verification and CI](07-distribution-verification.md) | Isolated wheel/sdist checks and repeatable CI | 06 |
 | [08 — Migration rehearsal and release readiness](08-release-readiness.md) | Completed evidence, upgrade rehearsal, distributable artifacts | 07 |
 
-## Evidence informing the plan
+## Original evidence informing the plan
+
+These observations describe the pre-migration checkout. Stage 02 has since
+introduced packaging and moved the runtime to `src/specromancy/`.
 
 - `specromancy/__init__.py` exports the engine, configuration, registry, run
   store, errors, and `__version__ = "0.1.0"`.

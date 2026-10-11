@@ -3,6 +3,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import unittest
 from pathlib import Path
@@ -26,15 +27,24 @@ class LauncherContractTests(unittest.TestCase):
         self.assertIn("12  Internal or corrupt-state error", result.stdout)
 
     def test_module_entry_point_uses_the_same_help(self) -> None:
-        result = subprocess.run(
-            [sys.executable, "-m", "specromancy", "--help"],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("adapters", result.stdout)
+        with tempfile.TemporaryDirectory() as temporary:
+            outputs = []
+            executable = "specromancy.exe" if sys.platform == "win32" else "specromancy"
+            for command in (
+                [sys.executable, "-m", "specromancy"],
+                [str(Path(sysconfig.get_path("scripts")) / executable)],
+                [str(ROOT / "bin" / "specromancy")],
+            ):
+                with self.subTest(command=command):
+                    result = subprocess.run(
+                        [*command, "--help"], cwd=temporary, check=False,
+                        capture_output=True, text=True,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertIn("adapters", result.stdout)
+                    outputs.append(result.stdout)
+            self.assertEqual(outputs[0], outputs[1])
+            self.assertEqual(outputs[0], outputs[2])
 
     def test_adapter_entry_point_imports_local_package(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -43,6 +53,7 @@ class LauncherContractTests(unittest.TestCase):
             result = subprocess.run(
                 [
                     sys.executable,
+                    "-S",
                     str(ROOT / "adapters" / "generate.py"),
                     "--root",
                     str(fixture),

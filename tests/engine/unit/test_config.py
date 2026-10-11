@@ -203,7 +203,7 @@ class ConfigTests(unittest.TestCase):
         self.assert_error(document(terminal), "terminal-transition-pause")
 
     def test_published_pipeline_schema_declares_transition_pause(self) -> None:
-        schema_path = ROOT / "specromancy" / "schemas" / "pipeline.schema.json"
+        schema_path = ROOT / "src" / "specromancy" / "schemas" / "pipeline.schema.json"
         schema = json.loads(schema_path.read_text(encoding="utf-8"))
         self.assertEqual(
             schema["$defs"]["transition"]["properties"]["pause"],

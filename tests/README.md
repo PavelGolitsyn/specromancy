@@ -13,17 +13,25 @@ The suite is split by the source of its test data:
   They must tolerate changes to the shipped configuration as long as it remains
   valid and consistent.
 
+Create and activate a dedicated environment before testing:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+```
+
 Run the groups independently:
 
 ```sh
-python3 -m unittest discover -s tests/engine -t .
-python3 -m unittest discover -s tests/shipped_configuration -t .
+python -m unittest discover -s tests/engine -t .
+python -m unittest discover -s tests/shipped_configuration -t .
 ```
 
 Run everything with:
 
 ```sh
-python3 -m unittest discover
+python -m unittest discover
 ```
 
 `engine/fixtures/refactoring-compatibility/` retains pre-extraction version-1
@@ -35,9 +43,10 @@ records and continues restored pending, active, approval, paused, terminal, and
 recovery states. Tests never refresh expected records. See the
 [fixture capture and normalization policy](engine/fixtures/refactoring-compatibility/README.md).
 
-`engine/contract/source_scan.py` recursively discovers runtime Python sources,
-including nested package initializers, for architecture, subprocess, and
-standard-library dependency checks. Architecture tests also import extracted
+`engine/contract/source_scan.py` recursively discovers runtime Python sources
+under `src/specromancy/`, including nested package initializers, for architecture,
+subprocess, and standard-library dependency checks. It rejects missing or empty
+source roots. Architecture tests also import extracted
 components independently of the public facades to expose reversed dependencies.
 Pure visit decisions have table-driven tests in `unit/test_visit_transitions.py`;
 store interleavings and durable fault boundaries live in
@@ -48,7 +57,9 @@ recovery through observable responses and stored evidence.
 For minimum-version verification, run the full suite with Python 3.11 and put
 that interpreter's `bin` directory first on `PATH`, so subprocess launcher tests
 using `#!/usr/bin/env python3` also exercise it. Repeat on the development Python.
-The source-export tests require no package installation or runtime dependencies.
+Install the checkout into each test environment first. The source-export
+subprocesses disable site packages and exercise the wrappers without installation.
+Build tools are acquired separately, never by unit tests.
 
 Follow-on integration evidence is recorded in
 [Stage 15](../docs/history/refactoring/15-follow-on-integration.md), including the exact
@@ -65,7 +76,7 @@ The regression coverage for the final module boundaries and corrections is:
 | Deliberately retained weak version-1 acceptance | `unit/test_run_records.py`, status and nested compatibility tables |
 | Fault points, clocks, recovery, ownership, immutable outputs, read-only policy | `unit/test_run_persistence.py`, `unit/test_run_store.py`, `contract/test_interruptions.py`, `contract/test_recovery.py`, `contract/test_safety.py` |
 | Deterministic generation and adapter ownership in temporary repositories | `unit/test_adapters.py`, `contract/test_adapter_drift.py`, `contract/test_compatibility.py` |
-| Installation-free source exports, launchers, standard-library imports | `contract/test_release.py`, `contract/test_launcher.py` |
+| Installation-free source exports, launchers, metadata/version agreement, standard-library imports | `contract/test_release.py`, `contract/test_launcher.py` |
 
 Overlap tests deterministically inject a second engine at selected operation
 boundaries. They establish the specified approval outcomes, not safety for every

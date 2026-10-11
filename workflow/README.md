@@ -1,7 +1,7 @@
 # Workflow customization
 
 This directory is the primary customization surface for Specromancy. Configure
-as many pipelines as needed without editing the generic engine in `specromancy/`.
+as many pipelines as needed without editing the generic engine in `src/specromancy/`.
 Every new run explicitly chooses a registered pipeline; there is no default.
 
 ## Editable workflow sources
@@ -58,7 +58,8 @@ After customization, run:
 ```sh
 bin/specromancy adapters generate
 bin/specromancy adapters generate --check
-python3 -m unittest discover
+python -m pip install -e .  # in an activated development environment
+python -m unittest discover
 ```
 
 Generation validates every registered graph. CLI execution loads the selected

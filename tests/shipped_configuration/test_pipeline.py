@@ -71,8 +71,8 @@ class ShippedPipelineTests(unittest.TestCase):
                     return {
                         name
                         for name in names
-                        if name in {".git", ".specromancy", "__pycache__"}
-                        or name.endswith((".pyc", ".pyo"))
+                        if name in {".git", ".specromancy", "__pycache__", ".venv", "build", "dist"}
+                        or name.endswith((".pyc", ".pyo", ".egg-info"))
                     }
 
                 shutil.copytree(ROOT, checkout, ignore=ignore)

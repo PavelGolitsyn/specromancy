@@ -77,7 +77,7 @@ assert not unexpected, unexpected
                 forbidden.append("adapter_sources")
             with self.subTest(module=module):
                 result = subprocess.run(
-                    [sys.executable, "-c", script, str(ROOT / "specromancy"), module_path,
+                    [sys.executable, "-c", script, str(ROOT / "src" / "specromancy"), module_path,
                      *(f"specromancy.{qualified.get(name, name)}" for name in forbidden)],
                     capture_output=True, text=True, check=False,
                 )
@@ -87,8 +87,8 @@ assert not unexpected, unexpected
         pattern = re.compile(
             r"(?:'|\")(?:" + "|".join(EXAMPLE_PHASES) + r")(?:'|\")"
         )
-        for path in runtime_sources(ROOT / "specromancy"):
-            relative = path.relative_to(ROOT / "specromancy")
+        for path in runtime_sources(ROOT / "src" / "specromancy"):
+            relative = path.relative_to(ROOT / "src" / "specromancy")
             if relative in HARNESS_BOUNDARIES:
                 continue
             with self.subTest(path=relative):
@@ -106,6 +106,13 @@ assert not unexpected, unexpected
                 [path.relative_to(root).as_posix() for path in runtime_sources(root)],
                 sorted(names),
             )
+
+    def test_source_discovery_rejects_missing_or_empty_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for package in (root, root / "missing"):
+                with self.subTest(package=package), self.assertRaises(AssertionError):
+                    runtime_sources(package)
 
     def test_canonical_skill_frontmatter_has_no_vendor_only_fields(self) -> None:
         forbidden = {
@@ -149,7 +156,7 @@ assert not unexpected, unexpected
                         )
 
     def test_subprocess_calls_cannot_use_shell_strings(self) -> None:
-        for path in runtime_sources(ROOT / "specromancy"):
+        for path in runtime_sources(ROOT / "src" / "specromancy"):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
             for node in ast.walk(tree):
                 if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
