@@ -30,7 +30,8 @@ Preserve canonical procedures and manifest-based ownership.
    launch skills and harness wrappers with `specromancy`, retaining argument
    order, quoting, harness placeholder conventions, and `--json` behavior.
 2. Keep the installed executable identity consistent with `actions.py` and
-   `status.py`; these already use `specromancy`. Verify execution context for
+   `status.py`; both use `specromancy` after Stage 03's action-prefix correction.
+   Verify execution context for
    `next_command` and validation argv rather than rewriting them unnecessarily.
 3. Update canonical procedure instructions to use the installed command.
    Document that harnesses must inherit an environment with that command on
@@ -47,7 +48,8 @@ Preserve canonical procedures and manifest-based ownership.
    Stage 1 matrix explicitly selects another identity.
 6. Preserve old `adapters.json` as historical evidence. Add a versioned expected
    rendering for the new generator and update comparisons intentionally. Continue
-   exact comparison of unchanged canonical/state/response/diagnostic records.
+   exact comparison of unchanged canonical/state/diagnostic records and the
+   separately versioned response expectations established in Stage 03.
    Add an upgrade test using the old manifest and its old generated files as
    inputs to the new generator. Do not relabel the old bytes as new expectations.
 7. Update command-extraction tests that currently match only

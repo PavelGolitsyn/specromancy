@@ -1,7 +1,11 @@
 # Specromancy Engine package migration
 
-Status: planned; implementation has not started. Prepared on 2026-10-10 against
-commit `040d84debfdc0ebb44c64f4abd3c271c606d211d`.
+Status: Stage 01 complete; Stage 02 is next. Runtime implementation has not
+started. Prepared on 2026-10-10 against commit
+`040d84debfdc0ebb44c64f4abd3c271c606d211d`; the Stage 01 baseline was executed
+on 2026-10-11 at `767a417850499bbe13d32cf2a6360a2f9bf04904`.
+See the [baseline results](evidence/01-baseline.md) and
+[accepted contract decisions](evidence/contracts.md).
 
 This plan turns the checkout-based POC into an installable engine that another
 project can depend on while owning its own pipeline specifications, skills, and
@@ -22,13 +26,13 @@ documentation remains in `docs/`.
 | Consumer runtime state | `.specromancy/runs/` | Preserve paths, schemas, hashes, and recovery behavior |
 | Generated adapters | Existing harness paths and `adapters/manifest.json` | Preserve ownership rules; deliberately update invocation text |
 
-The proposed import migration is a direct pre-1.0 break, with no legacy import
+The accepted import migration is a direct pre-1.0 break, with no legacy import
 shim. The current documented import guarantees make this a real contract
-change, not a cosmetic rename. Stage 1 must check whether known consumers need
-a transition period; if so, revise the compatibility decision before Stage 3.
-This is an implementation decision checkpoint, not a request to stop writing
-this plan. The proposed next version is `0.2.0`, subject to checking release
-history; neither package-name availability nor publication rights are assumed.
+change, not a cosmetic rename. Stage 01 found no known consumer requiring a
+transition period in the inspected repository. Revisit the decision if a
+concrete external consumer is identified before Stage 03. The chosen next
+version is `0.2.0`; Stage 02 retains `0.1.0` for its intermediate build.
+Neither package-name availability nor publication rights are assumed.
 
 ```text
 specromancy-engine/
@@ -95,8 +99,11 @@ reviewable tree; Stage 2 intentionally uses the old import name temporarily.
   root into `sys.path`.
 - `specromancy/cli.py` already discovers the consumer root from the working
   directory or `--root`; installation should preserve this behavior.
-- `specromancy/actions.py` and `status.py` already emit `specromancy` commands,
-  while adapter rendering and canonical skills still use `bin/specromancy`.
+- `specromancy/status.py` emits `specromancy` commands, but `actions.py` emits
+  `[sys.executable, "-m", "specromancy", ...]`. Stage 03 deliberately changes the
+  action command prefix to the installed CLI and adds versioned response
+  expectations while preserving the original capture. Adapter rendering and
+  canonical skills still use `bin/specromancy` until Stage 05.
 - Adapter generation requires a consumer `AGENTS.md`, registry, skills, and
   `.agents/skills/pipeline/SKILL.md`; installation alone does not supply them.
 - The published JSON schemas are inside the package. The general
@@ -145,8 +152,8 @@ the checkout launcher remains, and also with installed
 `specromancy adapters generate --check` after packaging exists. Regenerate only
 through canonical sources when their inputs change. Record command, interpreter,
 exit code, test count, and any skips; do not label a stage complete from an
-intended command list. Baseline tests have not been executed as part of writing
-this plan.
+intended command list. Stage 01 executed the baseline successfully on Python
+3.11.15 and 3.14.4; its evidence records commands, counts, exits, and limitations.
 
 The final distribution gate uses a fresh environment, a non-editable install,
 and a separate consumer directory without producer source on `PYTHONPATH`.

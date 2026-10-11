@@ -1,7 +1,11 @@
 # Stage 01 — Contracts and baseline
 
-Status: planned. Dependency: none. Next: [Stage 02](02-source-layout-and-packaging.md).
+Status: complete (2026-10-11). Dependency: none. Next: [Stage 02](02-source-layout-and-packaging.md).
 Index: [migration plan](README.md).
+
+Execution: [baseline results](evidence/01-baseline.md),
+[contract decisions](evidence/contracts.md), and
+[classified occurrence inventory](evidence/inventory.tsv).
 
 ## Objective
 
@@ -81,12 +85,19 @@ fixtures or adapters just to make a baseline appear clean.
 
 ## Acceptance criteria
 
-- [ ] Baseline commands, versions, counts, exit codes, and failures are recorded.
-- [ ] Every naming surface has a keep/change decision.
-- [ ] The existing Python import guarantee is explicitly accounted for.
-- [ ] Legacy records are identified and preserved.
-- [ ] Source-export support, supported platforms, version, and import transition
+- [x] Baseline commands, versions, counts, exit codes, and failures are recorded.
+- [x] Every naming surface has a keep/change decision.
+- [x] The existing Python import guarantee is explicitly accounted for.
+- [x] Legacy records are identified and preserved.
+- [x] Source-export support, supported platforms, version, and import transition
   decisions are clear enough for implementation.
+
+Both Python 3.11.15 and 3.14.4 passed 9 compatibility tests, 7 launcher/release
+tests, the full 249-test suite, and the adapter drift check. The decision is a
+direct import break at `0.2.0`, with no legacy shim; Stage 02 retains `0.1.0`.
+Stage 01 also found that action packets currently emit Python module argv,
+unlike status commands. The contract evidence and Stage 03 now identify the
+deliberate command-value change and require separate versioned expectations.
 
 ## Recovery and handoff
 

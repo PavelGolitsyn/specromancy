@@ -16,6 +16,8 @@ and making the intentional Python API break explicit.
   point; update the package version consistently.
 - Update imports and qualified strings throughout `tests/`, both checkout
   wrappers, current documentation, and repository instructions.
+- Update `actions.py` and add separately versioned response expectations for
+  its emitted command prefix, as identified by Stage 01.
 - Inspect `tests/engine/contract/compatibility_support.py`, `test_compatibility.py`,
   `test_architecture.py`, `test_release.py`, and all `unittest.mock.patch` targets.
 - Regenerate canonical-instruction mirrors and `adapters/manifest.json` when
@@ -38,8 +40,14 @@ and making the intentional Python API break explicit.
    ```
 
 4. Change module invocations to `python -m specromancy_engine`. Update package
-   docstrings and usage references as appropriate, but keep argparse's program
-   name, action packet argv, and status commands as `specromancy`.
+   docstrings and usage references as appropriate. Keep argparse's program
+   name and status commands as `specromancy`. Stage 01 found that action packet
+   `final_validation_command` currently starts with
+   `[sys.executable, "-m", "specromancy"]`: deliberately replace that prefix
+   with `["specromancy"]`, preserving all remaining arguments and their order.
+   Do not rewrite consumer-configured validation commands. Execute emitted
+   argv with the installed console script on PATH. Follow the
+   [Stage 01 command-value decision](evidence/contracts.md#correction-action-commands-are-module-invocations-today).
 5. Update test imports, string patch targets such as
    `specromancy.engine.utc_now`, synthetic `types.ModuleType` setup,
    `sys.modules` assertions, AST standard-library allowlists, schema paths, and
@@ -77,7 +85,10 @@ Search tracked current sources for old imports, dotted patch targets, module
 invocations, and physical source paths. Review remaining hits individually:
 history, preserved old fixtures, and upgrade documentation are allowed.
 
-Replay old state/canonical/response/diagnostic fixtures without refreshing them.
+Replay old state/canonical/diagnostic fixtures without refreshing them. Preserve
+the original response capture and add separately reviewed versioned expectations
+whose only differences are the action command prefixes in `action-pending`,
+`action-active`, and `resumed`. Compare all other response fields exactly.
 Namespace-dependent test machinery may change; persisted records may not.
 Adapter bytes should remain unchanged for identical test-owned input at this
 stage; the installed-command rendering change is reserved for Stage 5.
