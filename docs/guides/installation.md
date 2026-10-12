@@ -15,15 +15,16 @@ maintainer builds the wheel in a dedicated build environment:
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip wheel --no-deps . --wheel-dir dist
+python -m pip install -r tools/requirements-build.txt
+python -m build --sdist --wheel --no-isolation --outdir dist
 ```
 
-Build isolation obtains the pinned build backend declared in `pyproject.toml`;
-that is a build dependency, not an engine runtime dependency. The result is
+The separately provisioned toolchain includes the pinned build backend declared
+in `pyproject.toml`; these are build dependencies, not engine runtime dependencies. The result is
 `dist/specromancy_engine-0.2.0-py3-none-any.whl`. Transfer that wheel to the
 consumer. The consumer needs no engine source or editable install. The
-[Stage 06 evidence](../../dosc/migration/evidence/06-consumer-example-and-docs.md)
-records the concrete wheel build and isolated lifecycle verification.
+[distribution verification guide](distribution-verification.md) documents the
+repeatable wheel and sdist gates and links their executed evidence.
 
 ## CLI-only project environment
 

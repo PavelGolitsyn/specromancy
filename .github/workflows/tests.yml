@@ -1,0 +1,55 @@
+name: Tests and distributions
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15]
+        python: ['3.11.15', '3.14.4']
+    runs-on: ${{ matrix.os }}
+    steps:
+      # v6 refs resolved against the upstream GitHub API on 2026-10-12.
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Provision dedicated environment and build tools
+        shell: bash
+        run: |
+          python -m venv .venv
+          echo "$GITHUB_WORKSPACE/.venv/bin" >> "$GITHUB_PATH"
+          .venv/bin/python -m pip install -r tools/requirements-build.txt
+          .venv/bin/python -m pip install --no-index --no-build-isolation -e .
+          .venv/bin/python -m pip list
+      - name: Unit, contract, configuration, and source-export tests
+        run: python -m unittest discover
+      - name: Generated adapters
+        run: |
+          specromancy adapters generate --check
+          bin/specromancy adapters generate --check
+      - name: Build exact artifact set
+        run: python -m build --sdist --wheel --no-isolation --outdir "$RUNNER_TEMP/distributions"
+      - name: Verify direct wheel and sdist rebuild offline
+        run: >-
+          python tools/verify_distribution.py
+          --wheel "$RUNNER_TEMP/distributions/specromancy_engine-0.2.0-py3-none-any.whl"
+          --sdist "$RUNNER_TEMP/distributions/specromancy_engine-0.2.0.tar.gz"
+          --log "$RUNNER_TEMP/distribution-verification.log"
+      - name: Show retained verification log
+        if: always()
+        shell: bash
+        run: |
+          if test -f "$RUNNER_TEMP/distribution-verification.log"; then
+            cat "$RUNNER_TEMP/distribution-verification.log"
+          fi

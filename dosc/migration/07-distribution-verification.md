@@ -1,6 +1,7 @@
 # Stage 07 — Distribution verification and CI
 
-Status: planned. Dependency: [Stage 06](06-consumer-example-and-docs.md).
+Status: complete (2026-10-12). Dependency: [Stage 06](06-consumer-example-and-docs.md).
+Verification: [Stage 07 evidence](evidence/07-distribution-verification.md).
 Next: [Stage 08](08-release-readiness.md). Index: [migration plan](README.md).
 
 ## Objective
@@ -97,13 +98,13 @@ archive reproducibility without controlling timestamps and build tooling.
 
 ## Acceptance criteria
 
-- [ ] Full suite remains runnable with the documented editable setup.
-- [ ] Wheel and sdist-rebuilt wheel pass isolated consumer verification.
-- [ ] Missing schemas or a stale old namespace cause clear verification failures.
-- [ ] No runtime dependency or consumer configuration leaks into the wheel.
-- [ ] Example hidden skills survive the intended sdist inclusion rules.
-- [ ] Minimum Python version and claimed platform coverage are recorded.
-- [ ] CI can repeat the gates without publication credentials.
+- [x] Full suite remains runnable with the documented editable setup.
+- [x] Wheel and sdist-rebuilt wheel pass isolated consumer verification.
+- [x] Missing schemas or a stale old namespace cause clear verification failures.
+- [x] No runtime dependency or consumer configuration leaks into the wheel.
+- [x] Example hidden skills survive the intended sdist inclusion rules.
+- [x] Minimum Python version and claimed platform coverage are recorded.
+- [x] CI can repeat the gates without publication credentials.
 
 ## Recovery and handoff
 

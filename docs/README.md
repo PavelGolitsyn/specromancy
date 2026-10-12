@@ -52,3 +52,6 @@ public facades or eagerly load sibling components.
 See the [test guide](../tests/README.md) for discovery commands and compatibility
 coverage. Generated adapters remain in harness-required locations; edit their
 canonical sources and regenerate them through the CLI.
+
+The [distribution verification guide](guides/distribution-verification.md) covers
+the offline installed-artifact gates, sdist contents, pinned tooling, and CI.

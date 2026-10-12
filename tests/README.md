@@ -49,19 +49,24 @@ The example's focused checks are:
 python -m unittest tests.packaging.test_release_documentation tests.shipped_configuration.test_consumer_example
 ```
 
-For a wheel-only check, copy `tests/packaging/test_release_documentation.py`,
-`examples/release-documentation/` (including hidden files), and
-`docs/guides/installation.md` into a separate bundle with the same relative
-paths. Install only the built wheel in a fresh environment outside the producer,
-set `SPECROMANCY_CONSUMER_BUNDLE` to that bundle's absolute path, clear
-`PYTHONPATH`, and run its copied test module with that environment's
-`python -I -B`. The module uses the installed CLI with explicit consumer roots;
-it never installs or downloads dependencies. The copied Markdown supplies the
-exact executable examples, so documentation drift fails the tests. The separate
-shipped-configuration check keeps the generic orchestrator byte-identical to
-the producer's canonical procedure and verifies portable skill frontmatter.
-See [Stage 06 evidence](../dosc/migration/evidence/06-consumer-example-and-docs.md)
-for the concrete wheel and verification commands.
+The repeatable distribution gate is separate from test discovery. Provision the
+pinned tooling, build a fresh wheel and sdist, then run:
+
+```sh
+python tools/verify_distribution.py --wheel /absolute/artifacts/specromancy_engine-0.2.0-py3-none-any.whl --sdist /absolute/artifacts/specromancy_engine-0.2.0.tar.gz
+```
+
+See [distribution verification](../docs/guides/distribution-verification.md) for
+complete setup, archive boundaries, offline execution, CI coverage, and retained
+logs. `test_distribution.py` supplies fast negative archive tests in discovery;
+it never builds or installs anything. The explicit verifier copies only the
+consumer, compatibility, safety, recovery, and adapter tests and their required
+fixtures into a temporary runner. Each exact wheel is installed into its own
+fresh venv, with import origins checked before any tests run. Both the direct
+wheel and a wheel rebuilt from the safely extracted sdist run the same suite.
+The rebuilt consumer uses the example and documentation extracted from the sdist.
+Source-export tests remain checkout tests and exclude build outputs, metadata
+caches, and any directory containing `pyvenv.cfg`, preserving workflow evidence.
 
 Run everything with:
 

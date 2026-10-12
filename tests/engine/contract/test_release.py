@@ -11,6 +11,8 @@ import tomllib
 import unittest
 from pathlib import Path
 
+from tests.source_export import ignore_development_outputs
+
 import specromancy_engine
 from tests.engine.contract.source_scan import runtime_sources
 
@@ -42,15 +44,7 @@ class ReleaseContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             checkout = Path(temporary) / "specromancy"
 
-            def ignore(_directory: str, names: list[str]) -> set[str]:
-                return {
-                    name
-                    for name in names
-                    if name in {".git", ".specromancy", "__pycache__", ".venv", "build", "dist"}
-                    or name.endswith((".pyc", ".pyo", ".egg-info"))
-                }
-
-            shutil.copytree(ROOT, checkout, ignore=ignore)
+            shutil.copytree(ROOT, checkout, ignore=ignore_development_outputs)
             subprocess.run(
                 ["git", "-C", str(checkout), "init", "--quiet"],
                 check=True,
