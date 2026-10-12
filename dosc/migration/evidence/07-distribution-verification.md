@@ -1,8 +1,9 @@
 # Stage 07 distribution verification and CI evidence
 
 Completed on 2026-10-12 for [Stage 07](../07-distribution-verification.md).
-The starting working tree was clean. All executed gates ran on macOS arm64;
-hosted CI has not been executed from this session.
+The starting working tree was clean. The initial execution below ran on macOS
+arm64 before hosted CI. The CI provisioning correction at the end records the
+subsequent hosted results and follow-up verification.
 
 ## Delivered gate
 
@@ -141,7 +142,7 @@ Temporary extraction/consumer environments are intentionally removed by the
 verifier. Logs and the supplied artifact set remain. No publication, tag, commit,
 registry check, or remote repository change was performed.
 
-## CI pins and coverage boundary
+## Initial CI pins and coverage boundary
 
 `.github/workflows/tests.yml` provisions tooling, installs editable source,
 runs the full suite and both adapter checks, builds exact artifacts, and runs the
@@ -164,3 +165,57 @@ The package requires Python >=3.11. Local passing evidence is macOS arm64 on
 running here. Windows and other interpreter versions were not tested and no
 Windows support is claimed. Stage 08 should include the actual hosted CI result
 before making broader release-readiness claims.
+
+## CI provisioning correction — 2026-10-12
+
+The initial hosted [PR run](https://github.com/PavelGolitsyn/specromancy/actions/runs/38240801925)
+and [push run](https://github.com/PavelGolitsyn/specromancy/actions/runs/38214095533)
+passed both Ubuntu jobs and macOS Python 3.14.4. The macOS 3.11.15 job failed in
+`setup-python`, before project installation, tests, or builds. Its runner was
+macOS ARM64. The action's catalog had no macOS 3.11.15 build; the local 3.11.15
+used for the original verification was supplied by uv, a different interpreter
+provider. The original matrix incorrectly assumed those catalogs were equivalent.
+
+The corrected workflow uses the same managed CPython provider on all four jobs.
+[`astral-sh/setup-uv` v10.3.0](https://github.com/astral-sh/setup-uv/releases/tag/v10.3.0)
+is pinned to `1c37ad07a6a961277cf70c0d37d6f313000f5884`, with uv pinned to
+`0.11.27`. The upstream tag and action inputs were checked before use. Caching is
+disabled, preserving the workflow's no-upload behavior. Explicit
+`uv python install --no-bin "$TEST_PYTHON_VERSION"` provisions the selected
+interpreter; `uv python find --managed-python` selects its executable to create
+the standard-library venv. The venv bin directory remains first on `PATH` for
+all later gates and shebang tests. Python/pip continue to own installation,
+testing, and package builds. The runtime and package build dependencies did not
+change. All exact Python versions, operating systems, and verification gates
+remain in the matrix.
+
+The pinned uv download catalog was checked for all four targets: CPython
+3.11.15 and 3.14.4, Linux x86_64 glibc and macOS ARM64. Both macOS interpreters
+were then downloaded into the initially empty
+`/private/tmp/specromancy-ci-fix/python/`, using a separate empty cache. This
+exercised provisioning without an existing interpreter installation. Download
+builds were `20260623` for 3.11.15 and `20260414` for 3.14.4. Local network access
+required sandbox escalation; the authorized downloads succeeded.
+
+Fresh dedicated venvs under `/private/tmp/specromancy-ci-fix/venv311/` and
+`venv314/` used those downloaded interpreters. Both installed the pinned tools
+from the existing local wheel cache, then installed the checkout with
+`python -m pip install --no-index --no-build-isolation -e .` before tests.
+The full `python -m unittest discover` suite passed with no skips: 282 tests
+in 41.473 seconds on 3.11.15 and 44.745 seconds on 3.14.4. Both installed and
+checkout adapter checks passed. YAML parsing verified the four matrix entries;
+every workflow shell block passed `bash -n`.
+
+Fresh artifacts were built under `/private/tmp/specromancy-ci-fix/artifacts/`
+using `python -m build --sdist --wheel --no-isolation`. The distribution gate was
+run using each new environment against these exact artifact paths. All four
+installed suites passed 52 tests with zero skips: direct/rebuilt wheel times
+were 7.705/7.668 seconds on 3.11.15 and 8.326/8.300 seconds on 3.14.4. The fresh
+wheel SHA-256 is
+`e959d42ada6cb6ae21ea33c4f14a12392eaa015d6b2982bd42ff04e7e1b8454c`;
+the fresh sdist SHA-256 is
+`1d87c0f27595527f4afeac3895e693d291e01d87809ea637d4d82514996d3674`.
+These artifacts include the updated provisioning guide. Full-suite,
+build, and distribution logs are retained under `/private/tmp/specromancy-ci-fix/`.
+The corrected hosted workflow still requires a run after these changes are
+pushed; local provisioning and tests do not substitute for that hosted result.

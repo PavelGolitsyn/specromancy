@@ -2,20 +2,26 @@
 
 Use a Git checkout with Python 3.11 or newer and Git on `PATH`. The minimum
 verification interpreter is 3.11.15; the development interpreter is 3.14.4.
-Local evidence covers macOS arm64. CI is configured for Ubuntu 24.04 and macOS
-15 on both interpreters; configuring the matrix is not evidence of a hosted CI
-run. Windows is unverified and is not claimed as supported. Other Python 3.11+
+CI covers Ubuntu 24.04 and macOS 15 on both interpreters. The initial hosted run
+passed both Ubuntu jobs and macOS 3.14.4; macOS 3.11.15 failed during interpreter
+provisioning. The corrected provisioning is verified locally; its hosted result
+is pending. Windows is unverified and is not claimed as supported. Other Python 3.11+
 versions satisfy the package metadata but are not individually verified here.
 
 ## Provision and build
 
-Create a dedicated environment and provision build tools explicitly. These
-commands may obtain build tools from the configured package index; tests and the
-verifier never download them. The pinned backend in `pyproject.toml` and the
+Use [uv 0.11.27](https://github.com/astral-sh/uv/releases/tag/0.11.27) to provision
+the same managed CPython builds as CI, then create a dedicated environment.
+Repeat with `TEST_PYTHON_VERSION=3.14.4` in a separate environment. Provisioning
+downloads the interpreter and build tools; tests and the verifier never download
+them. The pinned backend in `pyproject.toml` and the
 complete frontend/backend toolchain in `tools/requirements-build.txt` must agree.
 
 ```sh
-python3 -m venv .venv
+TEST_PYTHON_VERSION=3.11.15
+uv python install --no-bin "$TEST_PYTHON_VERSION"
+test_python="$(uv python find --managed-python "$TEST_PYTHON_VERSION")"
+"$test_python" -m venv .venv
 . .venv/bin/activate
 python -m pip install -r tools/requirements-build.txt
 python -m pip install --no-index --no-build-isolation -e .
@@ -25,6 +31,10 @@ bin/specromancy adapters generate --check
 ```
 
 Activation puts the selected interpreter first on `PATH` for shebang tests.
+Managed-only interpreter selection avoids silently using a different Python
+distribution preinstalled on a runner. The exact patch versions are preserved
+across operating systems; verify their managed builds exist for every target
+architecture when updating the matrix or uv pin.
 For an offline setup, provision the pinned tool wheels separately, then add
 `--no-index --find-links /absolute/build-tools` to the tooling installation.
 The runtime has no third-party requirements.
@@ -103,6 +113,11 @@ the gate checks contents and metadata instead.
 read-only repository permission, dedicated environments, and the same commands
 on both interpreters/platforms. It prints the retained verifier log even on
 failure. There are no publishing credentials, release steps, or artifact uploads.
+The pinned `astral-sh/setup-uv` action installs uv 0.11.27; uv provisions CPython
+on every matrix entry. This avoids relying on GitHub's separate `setup-python`
+catalog, which does not supply macOS Python 3.11.15. Environment creation,
+editable installation, tests, and builds continue to use standard Python/pip
+commands. uv is a provisioning tool, not a runtime or package build dependency.
 The pins were checked against upstream references at implementation time; review
 and update them and the build-tool pins deliberately together with verification.
 
