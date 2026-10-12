@@ -5,6 +5,15 @@ artifacts and repository changes; the CLI resolves inputs, enforces gates,
 validates outputs, and persists every transition. Runtime correctness comes
 from files under `.specromancy/`, never from conversation history.
 
+The installed `specromancy-engine` distribution supplies `specromancy_engine`
+and the `specromancy` command. A consumer owns its workflow and agent procedures;
+the producer's top-level configuration is its own development workflow, not an
+installed default. The [release-documentation example](../../examples/release-documentation/README.md)
+demonstrates this boundary without engine changes. The engine emits actions for
+an external agent/harness; it supplies no LLM process, credentials, generated
+prose, or publication service. Read-only repository phases can still produce
+their designated run outputs, which are sealed on completion.
+
 ## Responsibility split
 
 | Concern | Authoritative source |

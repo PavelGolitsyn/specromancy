@@ -13,13 +13,19 @@ The suite is split by the source of its test data:
   They must tolerate changes to the shipped configuration as long as it remains
   valid and consistent.
 - `packaging/` exercises installed consumer roots and package resources without
-  producer fixtures. Its self-contained smoke module can also be copied outside
+  engine test fixtures. Its self-contained smoke module can also be copied outside
   the checkout and run with a regular wheel installation; no test downloads or
   builds dependencies. It covers two consumers sharing a pipeline ID, real Git
   worktree markers, explicit/non-Git roots, public facades, and filesystem ownership.
   It also generates consumer adapters and executes all twelve harness wrapper
   invocations and both launch skills after explicit placeholder substitution,
   with no producer launcher. Hosted harness behavior is outside this contract.
+  `test_release_documentation.py` separately copies the user-facing example,
+  including hidden skills, into a temporary Git repository. It executes the
+  README's Python walkthrough and installation guide's public API example,
+  checks completion, immutable outputs, read-only enforcement, unchanged project
+  files, blocking, missing configuration, and explicit pipeline selection.
+  Existing `engine/fixtures/` remain independent of the user-facing example.
 
 Create and activate a dedicated environment before testing:
 
@@ -36,6 +42,26 @@ python -m unittest discover -s tests/engine -t .
 python -m unittest discover -s tests/shipped_configuration -t .
 python -m unittest discover -s tests/packaging -t .
 ```
+
+The example's focused checks are:
+
+```sh
+python -m unittest tests.packaging.test_release_documentation tests.shipped_configuration.test_consumer_example
+```
+
+For a wheel-only check, copy `tests/packaging/test_release_documentation.py`,
+`examples/release-documentation/` (including hidden files), and
+`docs/guides/installation.md` into a separate bundle with the same relative
+paths. Install only the built wheel in a fresh environment outside the producer,
+set `SPECROMANCY_CONSUMER_BUNDLE` to that bundle's absolute path, clear
+`PYTHONPATH`, and run its copied test module with that environment's
+`python -I -B`. The module uses the installed CLI with explicit consumer roots;
+it never installs or downloads dependencies. The copied Markdown supplies the
+exact executable examples, so documentation drift fails the tests. The separate
+shipped-configuration check keeps the generic orchestrator byte-identical to
+the producer's canonical procedure and verifies portable skill frontmatter.
+See [Stage 06 evidence](../dosc/migration/evidence/06-consumer-example-and-docs.md)
+for the concrete wheel and verification commands.
 
 Run everything with:
 

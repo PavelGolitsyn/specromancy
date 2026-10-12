@@ -1,6 +1,12 @@
 # Workflow customization
 
-This directory is the primary customization surface for Specromancy. Configure
+This directory configures this repository's own development workflow. It is not
+an automatically installed consumer default. New consumers should follow the
+[installation guide](../docs/guides/installation.md) and copy or adapt the
+[release-documentation example](../examples/release-documentation/README.md),
+preserving their existing instructions and registrations.
+
+Workflow files are the primary customization surface for Specromancy. Configure
 as many pipelines as needed without editing the generic engine in `src/specromancy_engine/`.
 Every new run explicitly chooses a registered pipeline; there is no default.
 

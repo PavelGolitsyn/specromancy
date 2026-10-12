@@ -1,9 +1,10 @@
 # CLI reference
 
-Run `bin/specromancy` from a checkout without installation, or install with
-`python -m pip install -e .` in a dedicated environment and use `specromancy`
-or `python -m specromancy_engine` from the consumer repository. Python 3.11 or newer
-is required; the runtime has no third-party dependencies.
+Install the engine wheel using the [consumer installation guide](../guides/installation.md)
+and use `specromancy` or `python -m specromancy_engine` from the consumer repository.
+Python 3.11 or newer is required; the runtime has no third-party dependencies.
+Contributors use `python -m pip install -e .` in a dedicated environment; the
+optional `bin/specromancy` wrapper also runs directly from a producer checkout.
 
 Global options may appear before or after a subcommand:
 
@@ -31,6 +32,9 @@ specromancy validate RUN_ID PHASE
 
 - `init DESCRIPTION --pipeline ID` creates a run, immutable request artifact, and pending
   first visit. `--description-file PATH` reads the request from UTF-8 input.
+  Relative description-file paths resolve from the selected consumer root.
+  This copies request content; it does not introduce arbitrary file selectors
+  for phase inputs. See the [complete walkthrough](../../examples/release-documentation/README.md).
 - `status RUN_ID` reports current persisted state, warnings, and the next command
   without advancing the workflow. Loading may append a recovery event for an
   interrupted manifest commit, as described in the persistence contract.
@@ -45,6 +49,8 @@ specromancy validate RUN_ID PHASE
 - `validate RUN_ID [PHASE] [--outcome OUTCOME]` validates the output, configured
   commands, and repository mutation policy before recording a transition.
   `--outcome` is required when more than one non-blocking outcome is possible.
+  Omit it when there is only one successful outcome. Use `block` with a declared
+  stop reason for blocking; `--outcome blocked` is not a validation route.
 - `run RUN_ID` performs deterministic CLI work until the next agent, pause,
   approval, block, failure, or terminal boundary. It never launches a harness.
 
@@ -118,6 +124,10 @@ is available.
 | 13 | run paused at a configured checkpoint |
 
 Exit codes 7–10 and 13 are expected workflow boundaries, not generic crashes.
+In particular, init and phase start normally return 8. Automation using `set -e`
+must capture and handle that code before continuing with the emitted action.
+Status returns 0 for a readable state; inspect its status and terminal result
+instead of treating that return code alone as workflow completion.
 Full public contracts are recorded in [contracts.md](contracts.md).
 
 Malformed run or visit statuses, including JSON arrays and objects, return

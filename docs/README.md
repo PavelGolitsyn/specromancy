@@ -2,6 +2,9 @@
 
 Current documentation is organized by purpose:
 
+- [Installation](guides/installation.md): CLI-only and Python dependency consumer routes.
+- [Release-documentation example](../examples/release-documentation/README.md): wheel-only lifecycle walkthrough.
+- [Migration](guides/migration.md): dependency, import, and module invocation changes.
 - [Architecture](reference/architecture.md): runtime responsibilities and dependencies.
 - [Public contracts](reference/contracts.md): stable imports, CLI behavior, and persisted data.
 - [CLI reference](reference/cli.md): commands, responses, and exit codes.
@@ -26,13 +29,16 @@ use the references and guides above for current behavior.
 | `src/specromancy_engine/_cli/` | Private command metadata and pipeline selection |
 | `src/specromancy_engine/schemas/` | Published JSON schemas |
 | `bin/` | Executable launcher |
-| `workflow/` | Canonical pipeline registry, graphs, and artifact templates |
-| `.agents/skills/` | Canonical procedures and manifest-owned pipeline launch skills |
+| `workflow/` | This repository's configured development registry, graphs, and templates |
+| `.agents/skills/` | This repository's canonical procedures and manifest-owned launch skills |
 | `adapters/` | Generation entry point and generated-file ownership manifest |
 | `.claude/`, `.github/`, `.opencode/` | Harness discovery files owned by the adapter manifest |
 | `tests/engine/` | Engine unit/contract tests, evaluations, and test-owned fixtures |
 | `tests/shipped_configuration/` | Validation of the shipped workflow and generated adapters |
+| `tests/packaging/` | Installed consumer contracts and executable documentation checks |
+| `examples/release-documentation/` | Consumer-owned registry, graph, skills, templates, and sample request; outside the wheel |
 | `docs/reference/`, `docs/guides/` | Current documentation |
+| `dosc/migration/` | Staged package migration plan and verification evidence |
 | `docs/history/` | Implementation plans and completed refactoring records |
 | `.specromancy/runs/` | Ignored local run state and immutable visit artifacts |
 

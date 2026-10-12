@@ -41,6 +41,13 @@ commands and status commands are unchanged.
 
 ## Installed resources and consumer roots
 
+Installation does not create or overwrite consumer `AGENTS.md`, a registry,
+skills, templates, or harness files. Consumers explicitly author or copy those
+resources, preserving existing instructions, and separately invoke adapter
+generation under its manifest ownership rules. Examples remain outside the
+wheel. See [installation](../guides/installation.md) for CLI and dependency
+routes and [migration](../guides/migration.md) for the import rename.
+
 The installed engine has no implicit pipeline or producer-checkout fallback.
 CLI discovery starts at the working directory and walks upward to a `.git`
 directory or worktree marker file. An explicit `--root PATH` overrides discovery,

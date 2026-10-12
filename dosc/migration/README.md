@@ -1,8 +1,8 @@
 # Specromancy Engine package migration
 
-Status: Stages 01–05 complete; Stage 06 is next. The distribution is now version
+Status: Stages 01–06 complete; Stage 07 is next. The distribution is now version
 `0.2.0`, supplies `specromancy_engine`, and retains the `specromancy` command.
-See the [Stage 05 verification](evidence/05-portable-skills-and-adapters.md).
+See the [Stage 06 verification](evidence/06-consumer-example-and-docs.md).
 Prepared on 2026-10-10 against commit
 `040d84debfdc0ebb44c64f4abd3c271c606d211d`; the Stage 01 baseline was executed
 on 2026-10-11 at `767a417850499bbe13d32cf2a6360a2f9bf04904`.

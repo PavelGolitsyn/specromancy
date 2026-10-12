@@ -1,10 +1,11 @@
 # Authoring pipelines
 
-The primary replaceability proof is
-`tests/engine/fixtures/replacement-pipeline/workflow/pipelines/replacement.toml`. It uses `inspect`,
-`transform`, and `verify` with its own skills and templates; the generic engine
-does not change. Copy that fixture when learning the format, then use the
-implementation pipeline for richer approval and repair examples.
+Start with the [release-documentation consumer](../../examples/release-documentation/README.md)
+and [installation guide](installation.md). The example supplies a registry,
+two read-only phases, canonical skills, templates, and a complete walkthrough.
+The producer's implementation pipeline provides richer approval and repair
+examples. Test-owned replacement fixtures independently verify replaceability;
+they are not the consumer onboarding template.
 
 Register each graph in mandatory `workflow/pipelines.toml`, with a unique ID
 and a path under `workflow/pipelines/`. There is no default; use
@@ -173,6 +174,10 @@ Changing or adding a reason changes the pipeline hash.
   rejects the rest.
 
 CLI-owned `.specromancy/` files are outside repository mutation comparison.
+Read-only phases may write their designated visit output there. Completed
+outputs are immutable. In the release-documentation example the reviewed notes
+stay in run storage; explicitly copying them into release docs is a user action
+outside that lifecycle.
 None of these policies grants permission to delete, reset, stage, or commit
 work; repository instructions still apply.
 

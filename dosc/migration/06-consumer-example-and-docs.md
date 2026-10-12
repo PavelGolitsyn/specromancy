@@ -1,6 +1,7 @@
 # Stage 06 — Consumer example and documentation
 
-Status: planned. Dependency: [Stage 05](05-portable-skills-and-adapters.md).
+Status: complete (2026-10-12). Dependency: [Stage 05](05-portable-skills-and-adapters.md).
+Verification: [Stage 06 evidence](evidence/06-consumer-example-and-docs.md).
 Next: [Stage 07](07-distribution-verification.md).
 Index: [migration plan](README.md).
 
@@ -101,12 +102,12 @@ test-owned workflow fixtures independent of the new user-facing example.
 
 ## Acceptance criteria
 
-- [ ] A consumer without engine source completes the release-documentation flow.
-- [ ] No example phase names or policies enter runtime code.
-- [ ] Both CLI-only and Python dependency installation routes are documented.
-- [ ] All needed canonical consumer files are supplied or explicitly described.
-- [ ] Installation versus configuration, agent work, and output handling are clear.
-- [ ] Existing workflows, fixtures, full tests, and adapter checks remain valid.
+- [x] A consumer without engine source completes the release-documentation flow.
+- [x] No example phase names or policies enter runtime code.
+- [x] Both CLI-only and Python dependency installation routes are documented.
+- [x] All needed canonical consumer files are supplied or explicitly described.
+- [x] Installation versus configuration, agent work, and output handling are clear.
+- [x] Existing workflows, fixtures, full tests, and adapter checks remain valid.
 
 ## Recovery and handoff
 
