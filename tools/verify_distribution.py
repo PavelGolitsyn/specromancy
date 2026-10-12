@@ -32,6 +32,7 @@ TEST_MODULES = (
     "tests.packaging.test_consumer_roots",
     "tests.packaging.test_release_documentation",
     "tests.engine.contract.test_compatibility",
+    "tests.engine.contract.test_engine_orchestration",
     "tests.engine.contract.test_safety",
     "tests.engine.contract.test_recovery",
     "tests.engine.unit.test_adapters",

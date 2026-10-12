@@ -41,10 +41,17 @@ Runtime data is written only under ignored `.specromancy/runs/` storage.
 The distribution is `specromancy-engine` version `0.2.0`. It
 provides the `specromancy` console command and `python -m specromancy_engine`. This
 build is for local verification, not publication. The checkout wrappers
-`bin/specromancy` and `adapters/generate.py` also work without installation.
+`bin/specromancy` and `adapters/generate.py` also work without installation as
+producer-checkout conveniences. Consumers install the dependency; they do not
+copy engine source or launchers into their projects.
 Python consumers must change imports to `specromancy_engine`; no legacy import
 shim is shipped. Stored runs retain their version-1 formats. See the
 [0.2.0 release notes](docs/releases/0.2.0.md) for upgrade instructions.
+Use the [controlled migration guide](docs/guides/migration.md) for existing runs
+and the [release-readiness evidence](dosc/migration/evidence/08-release-readiness.md)
+for local artifacts and verification results. `specromancy-engine` is the
+prospective repository name; remote renaming and registry ownership are not
+asserted or changed by this migration.
 
 ## Customize the workflow
 

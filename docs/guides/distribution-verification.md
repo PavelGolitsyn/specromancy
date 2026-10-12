@@ -2,10 +2,11 @@
 
 Use a Git checkout with Python 3.11 or newer and Git on `PATH`. The minimum
 verification interpreter is 3.11.15; the development interpreter is 3.14.4.
-CI covers Ubuntu 24.04 and macOS 15 on both interpreters. The initial hosted run
-passed both Ubuntu jobs and macOS 3.14.4; macOS 3.11.15 failed during interpreter
-provisioning. The corrected provisioning is verified locally; its hosted result
-is pending. Windows is unverified and is not claimed as supported. Other Python 3.11+
+CI covers Ubuntu 24.04 and macOS 15 on both interpreters. The corrected
+[hosted run](https://github.com/PavelGolitsyn/specromancy/actions/runs/38251565471)
+passed all four jobs at commit `6093c7812eff7a68e314e46ae8022144497d6e46`.
+Stage 08 records local verification of its final working tree separately from
+that hosted commit. Windows is unverified and is not claimed as supported. Other Python 3.11+
 versions satisfy the package metadata but are not individually verified here.
 
 ## Provision and build
@@ -107,6 +108,11 @@ owned files, collision protection, and repeated generation with identical bytes.
 There is no claim that archive bytes are reproducible across timestamps or hosts;
 the gate checks contents and metadata instead.
 
+The installed suite also runs the engine orchestration contracts: pending and
+granted approval invalidation, interrupted approval continuation, and skill and
+template provenance enforcement. These distinguish an engine-only installation
+change from editing a consumer's configuration or approved artifact.
+
 ## CI and evidence
 
 [The workflow](../../.github/workflows/tests.yml) uses commit-pinned actions,
@@ -121,5 +127,7 @@ commands. uv is a provisioning tool, not a runtime or package build dependency.
 The pins were checked against upstream references at implementation time; review
 and update them and the build-tool pins deliberately together with verification.
 
-See [Stage 07 evidence](../../dosc/migration/evidence/07-distribution-verification.md)
-for executed commands, results, archive hashes, and remaining coverage limits.
+See [Stage 08 release-readiness evidence](../../dosc/migration/evidence/08-release-readiness.md)
+for final commands, results, archive hashes, and coverage limits, and
+[Stage 07 evidence](../../dosc/migration/evidence/07-distribution-verification.md)
+for the gate's implementation and provisioning history.

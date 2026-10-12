@@ -1,4 +1,4 @@
-# Specromancy POC public contracts
+# Specromancy Engine POC public contracts
 
 These contracts describe version 0.2.0 of the POC. Breaking stored representation changes
 require a schema-version change and updated fixtures; additive fields with
@@ -25,6 +25,12 @@ namespace change preserves schemas, canonical hashes, and stored-data formats
 and requires no run conversion. Import compatibility and persisted-state
 compatibility are independent: existing version-1 records remain readable even
 though old imports no longer work.
+
+An engine-only upgrade with unchanged consumer configuration requires no state
+rewrite. Configuration and renderer upgrades remain separate operations with
+their existing provenance and ownership checks. Forward replay does not promise
+downgrade safety after new state writes. Follow the
+[migration guide](../guides/migration.md) for sequencing and rollback boundaries.
 
 The distribution is named `specromancy-engine`, is version
 `0.2.0`, requires Python 3.11 or newer, and has no third-party runtime

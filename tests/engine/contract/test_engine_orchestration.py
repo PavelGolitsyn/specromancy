@@ -348,6 +348,27 @@ class EngineOrchestrationContractTests(unittest.TestCase):
                 self.assertEqual(status["warnings"][-1]["code"], expected)
                 self.assertEqual(fixture.store.load(RUN_ID, verify_artifacts=False), before)
 
+    def test_template_drift_warns_and_rejects_activation_without_rewriting_state(self) -> None:
+        fixture = SafetyFixture(phase("inspect"))
+        self.addCleanup(fixture.close)
+        template = fixture.root / "template.md"
+        template.write_text("Original template.\n")
+        fixture.pipeline_path.write_text(fixture.pipeline_path.read_text().replace(
+            'validator = "file"', 'validator = "file"\noutput_template = "template.md"'
+        ))
+        engine = Engine(load_pipeline(fixture.pipeline_path, fixture.root), fixture.store)
+        run_id = engine.initialize("Inspect safely.")["action"]["run_id"]
+        before = fixture.store.load(run_id)
+        events = fixture.store.read_events(run_id)
+        template.write_text("Updated template.\n")
+        self.assertEqual([w["code"] for w in engine.status(run_id)["status"]["warnings"]],
+                         ["provenance-hash-mismatch"])
+        with self.assertRaises(EngineError) as raised:
+            engine.start_phase(run_id, "inspect")
+        self.assertEqual(raised.exception.diagnostic_code, "provenance-hash-mismatch")
+        self.assertEqual(fixture.store.load(run_id), before)
+        self.assertEqual(fixture.store.read_events(run_id), events)
+
     def test_missing_artifact_failure_is_recorded_once_and_retriable(self) -> None:
         fixture = SafetyFixture(phase("inspect"))
         self.addCleanup(fixture.close)

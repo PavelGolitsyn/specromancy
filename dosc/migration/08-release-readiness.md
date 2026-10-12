@@ -1,6 +1,7 @@
 # Stage 08 — Migration rehearsal and release readiness
 
-Status: planned. Dependency: [Stage 07](07-distribution-verification.md).
+Status: complete (2026-10-12). Dependency: [Stage 07](07-distribution-verification.md).
+Verification: [Stage 08 evidence](evidence/08-release-readiness.md).
 Index: [migration plan](README.md).
 
 ## Objective
@@ -59,21 +60,21 @@ affected checks and full suite after such changes.
 
 ## Final acceptance checklist
 
-- [ ] Product distribution is `specromancy-engine`.
-- [ ] Installable source is under `src/specromancy_engine/`.
-- [ ] `import specromancy_engine`, its public facades, module invocation, and
+- [x] Product distribution is `specromancy-engine`.
+- [x] Installable source is under `src/specromancy_engine/`.
+- [x] `import specromancy_engine`, its public facades, module invocation, and
   installed `specromancy` CLI work from outside the source checkout.
-- [ ] The intentional old-import break is explicit and has a chosen version.
-- [ ] Runtime dependencies remain empty and Python 3.11 verification passes.
-- [ ] A separate release-documentation consumer completes its custom pipeline.
-- [ ] Consumer workflows and canonical skills remain outside engine source.
-- [ ] All schemas are available in direct and sdist-rebuilt wheel installations.
-- [ ] State compatibility, recovery, immutable artifacts, read-only phases, and
+- [x] The intentional old-import break is explicit and has a chosen version.
+- [x] Runtime dependencies remain empty and Python 3.11 verification passes.
+- [x] A separate release-documentation consumer completes its custom pipeline.
+- [x] Consumer workflows and canonical skills remain outside engine source.
+- [x] All schemas are available in direct and sdist-rebuilt wheel installations.
+- [x] State compatibility, recovery, immutable artifacts, read-only phases, and
   approval invalidation pass through installed-package execution.
-- [ ] Generated adapters are deterministic, current, and ownership-safe.
-- [ ] Full tests pass; public contracts and developer setup are current.
-- [ ] No live run data, unrelated project files, or historical captures were rewritten.
-- [ ] Local release artifacts and their verification evidence are ready for review.
+- [x] Generated adapters are deterministic, current, and ownership-safe.
+- [x] Full tests pass; public contracts and developer setup are current.
+- [x] No live run data, unrelated project files, or historical captures were rewritten.
+- [x] Local release artifacts and their verification evidence are ready for review.
 
 ## Rollback and support guidance
 

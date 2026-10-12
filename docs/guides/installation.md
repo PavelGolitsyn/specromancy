@@ -25,6 +25,10 @@ in `pyproject.toml`; these are build dependencies, not engine runtime dependenci
 consumer. The consumer needs no engine source or editable install. The
 [distribution verification guide](distribution-verification.md) documents the
 repeatable wheel and sdist gates and links their executed evidence.
+For an existing consumer, follow the [controlled migration sequence](migration.md)
+and verify the wheel hash before installation. `bin/specromancy` and
+`adapters/generate.py` are producer-checkout conveniences; do not copy them or
+the engine source into each consumer project.
 
 ## CLI-only project environment
 

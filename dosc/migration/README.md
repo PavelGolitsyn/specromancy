@@ -1,8 +1,10 @@
 # Specromancy Engine package migration
 
-Status: Stages 01–07 complete; Stage 08 is next. The distribution is now version
+Status: Stages 01–08 complete; local release artifacts are ready for review.
+Publishing remains a separate action. The distribution is now version
 `0.2.0`, supplies `specromancy_engine`, and retains the `specromancy` command.
-See the [Stage 07 verification](evidence/07-distribution-verification.md).
+See the [Stage 08 release-readiness evidence](evidence/08-release-readiness.md)
+for final hashes, upgrade rehearsal, verification, and coverage limits.
 Prepared on 2026-10-10 against commit
 `040d84debfdc0ebb44c64f4abd3c271c606d211d`; the Stage 01 baseline was executed
 on 2026-10-11 at `767a417850499bbe13d32cf2a6360a2f9bf04904`.
