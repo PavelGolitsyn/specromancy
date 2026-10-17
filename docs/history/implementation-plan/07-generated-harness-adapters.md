@@ -20,7 +20,7 @@ tests/engine/unit/test_adapters.py
 tests/engine/contract/test_adapter_drift.py
 ```
 
-Codex and Hermes may require no generated command files in the POC because both can consume canonical repository instructions and skills. Their adapter definitions still exist in generator metadata so compatibility expectations are tested and documented.
+Codex and Hermes may require no generated command files in the engine because both can consume canonical repository instructions and skills. Their adapter definitions still exist in generator metadata so compatibility expectations are tested and documented.
 
 ## Work items
 

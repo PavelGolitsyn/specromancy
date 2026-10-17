@@ -16,7 +16,7 @@ example files in the initial inventory also remained byte-identical.
 `pyproject.toml` uses `setuptools.build_meta`, pinned to `setuptools==84.0.0`.
 This backend supports the Python 3.11 floor and the selected SPDX license and
 license-file metadata. The selection follows the upstream
-[release history](https://setuptools.pypa.io/en/stable/history.html) and
+[release history](https://setuptools.pypa.io/en/stable/implementation-history.html) and
 [pyproject configuration documentation](https://setuptools.pypa.io/en/stable/userguide/pyproject_config.html).
 Build dependencies are separate from the empty runtime dependency list.
 Discovery is limited to regular `specromancy` packages below `src/`; implicit

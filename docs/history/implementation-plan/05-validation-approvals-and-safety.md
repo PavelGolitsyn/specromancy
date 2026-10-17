@@ -44,7 +44,7 @@ Record:
 
 Use `git ls-files -co --exclude-standard -z` for the snapshot file set. Exclude `.git/` and `.specromancy/`. Hash symlink targets as links rather than following them outside the repository.
 
-When Git is unavailable, fail unless the pipeline explicitly allows non-Git operation. The default example requires Git because base/head provenance is part of the POC contract.
+When Git is unavailable, fail unless the pipeline explicitly allows non-Git operation. The default example requires Git because base/head provenance is part of the engine contract.
 
 ### 3. Enforce mutation policies
 
@@ -69,7 +69,7 @@ Commands are configured as argument arrays rather than shell strings where possi
 - with a small output summary in `run.json`;
 - sequentially, stopping on the first required-command failure.
 
-Environment inheritance is the default for the POC, but the manifest must not store the full environment or secret values. Record executable, arguments, exit code, duration, and output artifact paths.
+Environment inheritance is the default for the engine, but the manifest must not store the full environment or secret values. Record executable, arguments, exit code, duration, and output artifact paths.
 
 ### 5. Enforce approval integrity
 
@@ -83,7 +83,7 @@ An approval record binds:
 
 Before using an approval, recompute the artifact and pipeline hashes. Any mismatch invalidates the approval and returns the visit to `awaiting-approval` with a stale-approval diagnostic.
 
-The POC actor value may be `user`, supplied by the explicit CLI action. Identity/authentication beyond that is out of scope.
+The engine actor value may be `user`, supplied by the explicit CLI action. Identity/authentication beyond that is out of scope.
 
 ### 6. Bound loops mechanically
 

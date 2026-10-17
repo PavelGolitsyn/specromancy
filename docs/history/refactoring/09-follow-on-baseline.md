@@ -215,7 +215,7 @@ baseline files, run/visit status disagreement, array terminal/block payloads,
 scalar Git base, and standalone event numeric quirks/nested NaN. These are design
 evidence, not a new guarantee that every operational consumer accepts them.
 
-Final scope: four test modules and eight `docs/history/refactoring/` documents. Runtime,
+Final scope: four test modules and eight `docs/implementation-history/refactoring/` documents. Runtime,
 workflow, skills, schema files, generated adapters and compatibility captures are
 unchanged. Minimum-version execution remains the explicit Stage 15 gate; no
 Python 3.11 result is claimed here. There were no workflow or runtime scope

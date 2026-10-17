@@ -114,7 +114,7 @@ class DistributionContractTests(unittest.TestCase):
             (self.root / name).mkdir()
             (self.root / name / "pyvenv.cfg").touch()
         names = ["custom-environment", ".venv311", "build", "dist", "old.egg-info", "old.dist-info",
-                 "workflow", ".agents", "dosc", "docs", "tests", "adapters", "game-of-life"]
+                 "workflow", ".agents", "docs", "tests", "adapters", "game-of-life"]
         ignored = ignore_development_outputs(str(self.root), names)
         self.assertEqual(ignored, set(names[:6]))
 

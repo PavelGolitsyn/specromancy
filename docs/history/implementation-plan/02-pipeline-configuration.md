@@ -101,7 +101,7 @@ Cycles are permitted. Use strongly connected components or depth-first cycle det
 
 ### 4. Validate phase contracts
 
-Every phase must have exactly one declared primary output for the POC. It must declare:
+Every phase must have exactly one declared primary output for the engine. It must declare:
 
 - a mutation policy;
 - at least one completion criterion;
@@ -115,7 +115,7 @@ Supported mutation policies:
 - `repository-write`;
 - `allowlist`, with one or more repository-relative glob patterns.
 
-Supported POC validators:
+Supported engine validators:
 
 - `markdown`;
 - `json`;

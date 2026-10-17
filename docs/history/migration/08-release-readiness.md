@@ -14,7 +14,7 @@ release artifacts. Publishing is a separate action.
 
 Finalize the existing installation/migration guides, current public contracts,
 README, test instructions, and version metadata. Add a release-readiness report
-under `dosc/migration/evidence/` with artifact hashes and verification results.
+under `docs/implementation-history/migration/evidence/` with artifact hashes and verification results.
 Change implementation files only to resolve concrete gate failures; repeat the
 affected checks and full suite after such changes.
 

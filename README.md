@@ -1,6 +1,6 @@
 # Specromancy Engine
 
-Specromancy is a dependency-free Python 3.11+ proof of concept for portable,
+Specromancy Engine is a dependency-free Python 3.11+ framework for portable,
 artifact-based agent workflows. A declarative pipeline and canonical skills
 define the work; a small CLI validates transitions and persists recoverable run
 state independently of any harness conversation.
@@ -48,7 +48,7 @@ Python consumers must change imports to `specromancy_engine`; no legacy import
 shim is shipped. Stored runs retain their version-1 formats. See the
 [0.2.0 release notes](docs/releases/0.2.0.md) for upgrade instructions.
 Use the [controlled migration guide](docs/guides/migration.md) for existing runs
-and the [release-readiness evidence](dosc/migration/evidence/08-release-readiness.md)
+and the [release-readiness evidence](docs/implementation-history/migration/evidence/08-release-readiness.md)
 for local artifacts and verification results. `specromancy-engine` is the
 prospective repository name; remote renaming and registry ownership are not
 asserted or changed by this migration.
@@ -78,9 +78,9 @@ customization surface. Start with the
 - [Pipeline authoring](docs/guides/authoring-pipelines.md)
 - [Harness usage](docs/guides/harnesses.md)
 - [Public contracts](docs/reference/contracts.md)
-- [Historical plans and refactoring records](docs/history/README.md)
+- [Historical plans and refactoring records](docs/implementation-history/README.md)
 
-The POC intentionally does not launch harnesses, migrate active runs between
+The engine intentionally does not launch harnesses, migrate active runs between
 pipeline versions, provide remote storage or distributed locking, authenticate
 approvers, or implement parallel graph joins. See the architecture document for
 the complete limitations and safety boundary.

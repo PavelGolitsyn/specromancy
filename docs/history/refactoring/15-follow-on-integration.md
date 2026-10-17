@@ -207,9 +207,9 @@ generation was never run in write mode.
   diagnostics for CLI callers.
 - `tests/README.md`: map final boundaries, compatibility, corrections, durability,
   generation, and release checks to their suites.
-- `docs/history/refactoring/15-follow-on-integration.md`: record integration evidence,
+- `docs/implementation-history/refactoring/15-follow-on-integration.md`: record integration evidence,
   exact verification, completed gates, and scope.
-- `docs/history/refactoring/README.md`: record completion of stages 09–15.
+- `docs/implementation-history/refactoring/README.md`: record completion of stages 09–15.
 
 No scope expansion or skipped implementation work. The four deferred
 investigations above remain separate design work with evidence and decision

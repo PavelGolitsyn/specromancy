@@ -11,9 +11,9 @@ on 2026-10-11 at `767a417850499bbe13d32cf2a6360a2f9bf04904`.
 See the [baseline results](evidence/01-baseline.md) and
 [accepted contract decisions](evidence/contracts.md).
 
-This plan turns the checkout-based POC into an installable engine that another
+This plan turns the checkout-based engine into an installable engine that another
 project can depend on while owning its own pipeline specifications, skills, and
-templates. The plan lives in `dosc/migration/` as requested; the existing product
+templates. The plan lives in `docs/implementation-history/migration/` as requested; the existing product
 documentation remains in `docs/`.
 
 ## Target names and boundaries
@@ -66,7 +66,6 @@ specromancy-engine/
 │   └── .agents/skills/
 ├── tools/verify_distribution.py
 ├── docs/
-├── dosc/migration/
 ├── workflow/                       # This repository's development workflow
 ├── .agents/skills/                 # This repository's canonical procedures
 ├── adapters/                       # Manifest and optional developer wrapper

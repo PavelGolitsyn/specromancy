@@ -1,6 +1,6 @@
 # Historical plans and records
 
-- [POC v3 implementation plan](poc-v3/implementation-plan/README.md)
+- [Engine implementation plan](implementation-plan/README.md)
 - [Engine refactoring plan and completion evidence](refactoring/README.md)
 
 These documents retain the design context and verification evidence for earlier

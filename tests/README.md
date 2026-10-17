@@ -94,7 +94,7 @@ temporary consumer, then regenerate through the current ownership rules.
 The installed orchestration tests also invalidate already granted approvals after
 artifact or graph edits and reject changed prepared skills/templates. This is
 deliberately separate from the unchanged-configuration state replay. See the
-[Stage 08 evidence](../dosc/migration/evidence/08-release-readiness.md) for final
+[Stage 08 evidence](../docs/implementation-history/migration/evidence/08-release-readiness.md) for final
 counts, artifact hashes, platform boundaries, and the controlled upgrade results.
 
 `engine/contract/source_scan.py` recursively discovers runtime Python sources
@@ -116,7 +116,7 @@ subprocesses disable site packages and exercise the wrappers without installatio
 Build tools are acquired separately, never by unit tests.
 
 Follow-on integration evidence is recorded in
-[Stage 15](../docs/history/refactoring/15-follow-on-integration.md), including the exact
+[Stage 15](../docs/implementation-history/refactoring/15-follow-on-integration.md), including the exact
 interpreter paths, commands, counts, and deferred investigation boundaries.
 The regression coverage for the final module boundaries and corrections is:
 

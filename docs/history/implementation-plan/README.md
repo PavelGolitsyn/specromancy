@@ -1,4 +1,4 @@
-# POC v3 implementation plan
+# Engine implementation plan
 
 ## Objective
 
@@ -10,11 +10,11 @@ Build a minimal but robust, harness-agnostic agentic pipeline framework with:
 - artifact-based runtime state;
 - thin, generated harness adapters.
 
-The POC proves that a workflow can be reordered, extended, or replaced by editing the state-machine configuration and the Markdown skills/templates referenced by its phases. The Python engine must not contain knowledge of `research`, `plan`, `implement`, or `review`.
+The engine proves that a workflow can be reordered, extended, or replaced by editing the state-machine configuration and the Markdown skills/templates referenced by its phases. The Python engine must not contain knowledge of `research`, `plan`, `implement`, or `review`.
 
 The current multi-pipeline registry and selection contracts are documented in
 [Workflow customization](../../../../workflow/README.md) and
-[Public contracts](../../../reference/contracts.md); the stages below describe the original POC.
+[Public contracts](../../../reference/contracts.md); the stages below describe the original engine.
 
 ## Architectural boundary
 
@@ -29,7 +29,7 @@ The agent authors and reasons. The CLI enforces and records.
 | Cross-phase state | `.specromancy/runs/<run-id>/` artifacts and manifest |
 | Harness conventions | Generated adapters |
 
-`pipelines.toml` and per-pipeline TOML files are used for the POC instead of YAML so Python 3.11 can load it with `tomllib` and the CLI can remain dependency-free. If YAML becomes a hard product requirement, replace the configuration loader behind its existing interface and add a real YAML dependency; do not implement a partial YAML parser.
+`pipelines.toml` and per-pipeline TOML files are used for the engine instead of YAML so Python 3.11 can load it with `tomllib` and the CLI can remain dependency-free. If YAML becomes a hard product requirement, replace the configuration loader behind its existing interface and add a real YAML dependency; do not implement a partial YAML parser.
 
 ## Invariants shared by every stage
 
@@ -59,9 +59,9 @@ The agent authors and reasons. The CLI enforces and records.
 
 Each stage must land with its tests passing. Later stages may refine interfaces, but must not silently change an earlier public contract; contract changes require updating the schema version and affected fixtures.
 
-## POC completion criteria
+## Engine completion criteria
 
-The POC is complete when all of the following are true:
+The engine is complete when all of the following are true:
 
 - A fresh clone works with Python 3.11+ without package installation.
 - `bin/specromancy init "task" --pipeline implementation` creates a valid run.
@@ -73,7 +73,7 @@ The POC is complete when all of the following are true:
 - Canonical skills contain no vendor-only model or tool-permission fields.
 - `python -m unittest discover` passes all unit and contract tests.
 
-## Explicit POC non-goals
+## Explicit engine non-goals
 
 - Starting or controlling a vendor harness from the CLI.
 - Distributed or multi-host run coordination.

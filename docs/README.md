@@ -38,8 +38,7 @@ use the references and guides above for current behavior.
 | `tests/packaging/` | Installed consumer contracts and executable documentation checks |
 | `examples/release-documentation/` | Consumer-owned registry, graph, skills, templates, and sample request; outside the wheel |
 | `docs/reference/`, `docs/guides/` | Current documentation |
-| `dosc/migration/` | Staged package migration plan and verification evidence |
-| `docs/history/` | Implementation plans and completed refactoring records |
+| `docs/implementation-history/` | Implementation records |
 | `.specromancy/runs/` | Ignored local run state and immutable visit artifacts |
 
 The underscore-prefixed Python packages are internal implementation details.

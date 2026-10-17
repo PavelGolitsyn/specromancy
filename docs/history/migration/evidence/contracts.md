@@ -55,7 +55,7 @@ warning behavior, removal version, and distribution contents first.
 | Generated output: ownership/discovery | KEEP `adapters/manifest.json`, managed paths, `specromancy-<id>` prefix, harness names/modes and generator name | Every stage |
 | Generated output: versions | KEEP ownership schema version 1 if shape stays unchanged; increment generator version when executable rendering changes | Stage 05 |
 | Test expectation | CHANGE namespace, patch/import strings, physical package scans and deliberate invocation expectations only; KEEP original state/hash/diagnostic captures | Stages 02–05 |
-| Historical record | KEEP `docs/history/**` and original independent compatibility evidence unchanged | Every stage |
+| Historical record | KEEP `docs/implementation-history/**` and original independent compatibility evidence unchanged | Every stage |
 | Unrelated content | KEEP arbitrary scratch-directory names, test environment-variable names, prose not asserting package layout, schema URLs, and `game-of-life/` | Every stage |
 | Product/distribution identity | Use `specromancy-engine` for distribution and suggested repository name; no assertion of registry availability | Stages 02, 06 |
 

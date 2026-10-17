@@ -86,7 +86,7 @@ Each manifest mutation appends an event containing:
 
 Expected event types include `run-created`, `visit-started`, `validation-failed`, `visit-completed`, `approval-requested`, `approval-recorded`, `run-blocked`, and `run-completed`.
 
-`run.json` remains the fast canonical snapshot. `events.jsonl` provides diagnosis and recovery evidence, not an event-sourcing requirement for the POC.
+`run.json` remains the fast canonical snapshot. `events.jsonl` provides diagnosis and recovery evidence, not an event-sourcing requirement for the engine.
 
 ### 4. Make writes atomic
 

@@ -1,8 +1,8 @@
-# Stage 08 — Contract tests, evals, documentation, and POC release
+# Stage 08 — Contract tests, evals, documentation, and engine release
 
 ## Outcome
 
-Demonstrate that the POC is generic, recoverable, safe, and usable from multiple harnesses, then document the supported contract and known limitations.
+Demonstrate that the engine is generic, recoverable, safe, and usable from multiple harnesses, then document the supported contract and known limitations.
 
 ## Files introduced or completed
 
@@ -65,7 +65,7 @@ Evals describe expected artifacts and transitions, not exact model wording. Incl
 - material deviation from approved plan → approval/planning gate;
 - excessive review repairs → mechanical block.
 
-Each eval case declares initial repository state, request, expected phase sequence, expected terminal/gate status, and required artifact properties. Actual harness-driven eval automation may remain manual in the POC, but fixture validation must be executable.
+Each eval case declares initial repository state, request, expected phase sequence, expected terminal/gate status, and required artifact properties. Actual harness-driven eval automation may remain manual in the engine, but fixture validation must be executable.
 
 ### 4. Add static architecture checks
 
@@ -152,15 +152,15 @@ Link to architecture, CLI, authoring, harness, and implementation-plan documenta
 
 ## Exit criteria
 
-- All POC completion criteria in the implementation-plan index pass.
+- All engine completion criteria in the implementation-plan index pass.
 - Tests prove behavior rather than model prose.
 - Documentation lets a contributor replace the example pipeline without reading engine code.
 - The worktree is clean after tests and adapter drift checks.
-- Remaining work is explicitly categorized as post-POC rather than hidden in incomplete stages.
+- Remaining work is explicitly categorized as future enhancements rather than hidden in incomplete stages.
 
-## Post-POC candidates
+## Future enhancements candidates
 
-Do not pull these into POC completion unless a contract defect requires them:
+Do not pull these into engine completion unless a contract defect requires them:
 
 - packaged wheel or standalone binaries;
 - YAML configuration loader;

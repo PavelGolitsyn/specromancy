@@ -210,7 +210,7 @@ python -m unittest discover
 
 A run stores its pipeline hash. Any pipeline change causes `resume`, `phase`,
 and transition commands to reject that run with `pipeline-hash-mismatch`.
-Approval records also become stale. The POC deliberately has no active-run
+Approval records also become stale. The engine deliberately has no active-run
 migration: finish the old run before editing its pipeline, restore the exact
 old configuration to resume it, or initialize a new run under the new hash.
 Never edit `run.json` to force compatibility.

@@ -5,7 +5,7 @@ declares a repository setup, a request, the expected phase visits, the expected
 terminal or gate boundary, and semantic properties that the produced artifacts
 must demonstrate.
 
-The POC does not launch a model or harness, so execution remains manual:
+The engine does not launch a model or harness, so execution remains manual:
 
 1. create the declared repository state;
 2. initialize the request through the CLI;

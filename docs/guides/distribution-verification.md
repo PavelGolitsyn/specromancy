@@ -127,7 +127,7 @@ commands. uv is a provisioning tool, not a runtime or package build dependency.
 The pins were checked against upstream references at implementation time; review
 and update them and the build-tool pins deliberately together with verification.
 
-See [Stage 08 release-readiness evidence](../../dosc/migration/evidence/08-release-readiness.md)
+See [Stage 08 release-readiness evidence](../migration/evidence/08-release-readiness.md)
 for final commands, results, archive hashes, and coverage limits, and
-[Stage 07 evidence](../../dosc/migration/evidence/07-distribution-verification.md)
+[Stage 07 evidence](../migration/evidence/07-distribution-verification.md)
 for the gate's implementation and provisioning history.

@@ -126,7 +126,7 @@ Human output goes to stdout for successful/actionable responses and stderr for e
 
 - supported Python version;
 - test command;
-- no third-party runtime dependencies in the POC;
+- no third-party runtime dependencies in the engine;
 - canonical versus generated file locations;
 - no phase names in engine code;
 - artifact and state invariants;

@@ -1,8 +1,8 @@
-# Specromancy Engine POC public contracts
+# Specromancy Engine public contracts
 
-These contracts describe version 0.2.0 of the POC. Breaking stored representation changes
-require a schema-version change and updated fixtures; additive fields with
-backward-compatible defaults may extend the current version.
+These contracts describe version 0.2.0 of Specromancy Engine. Breaking stored
+representation changes require a schema-version change and updated fixtures;
+additive fields with backward-compatible defaults may extend the current version.
 
 ## Python import surface
 
@@ -270,7 +270,7 @@ respectively, subject to earlier validation failures. Manifest validation occurs
 before event reconciliation: malformed statuses leave `run.json` and
 `events.jsonl` unchanged even when the log is one revision behind. Version-1
 acceptance of numeric quirks, open approval dictionaries, and weak nested metadata
-is unchanged; the [compatibility decision matrix](../history/refactoring/14-persisted-data-diagnostics.md#nested-validation-decision-matrix)
+is unchanged; the [compatibility decision matrix](../implementation-history/refactoring/14-persisted-data-diagnostics.md#nested-validation-decision-matrix)
 records the separately deferred hardening work.
 
 ### Durable operations and visit preparation
@@ -445,7 +445,7 @@ load with one `recovery` event at the same revision, without synthesizing the
 missing approval event. Schemas and existing stored records remain compatible.
 External artifact edits are not made atomic with validation by this lock.
 
-The [integration evidence](../history/refactoring/15-follow-on-integration.md#intentional-behavior-corrections)
+The [integration evidence](../implementation-history/refactoring/15-follow-on-integration.md#intentional-behavior-corrections)
 maps approval overlap outcomes and malformed-status diagnostics to their tests.
 Those are the only intended behavior corrections in the follow-on refactoring;
 sequential version-1 captures, public imports, schema versions, command metadata,
