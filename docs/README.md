@@ -13,7 +13,7 @@ Current documentation is organized by purpose:
 - [Harness usage](guides/harnesses.md): run workflows from supported agent harnesses.
 - [Workflow customization](../workflow/README.md): editable sources and pipeline registration.
 
-[Historical plans and refactoring records](history/README.md) document prior work;
+[Historical plans and refactoring records](implementation-history/README.md) document prior work;
 use the references and guides above for current behavior.
 
 ## Repository map
