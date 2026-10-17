@@ -1,49 +1,32 @@
-# Specromancy Engine POC public contracts
+# Specromancy Engine public contracts
 
-These contracts describe version 0.2.0 of the POC. Breaking stored representation changes
-require a schema-version change and updated fixtures; additive fields with
-backward-compatible defaults may extend the current version.
+These contracts describe version 0.1.0 of Specromancy Engine. Breaking stored
+representation changes require a schema-version change and updated fixtures;
+additive fields with backward-compatible defaults may extend the current version.
 
 ## Python import surface
 
-Version 0.2.0 intentionally replaces the `specromancy` import namespace with
-`specromancy_engine`, without a legacy shim. Public imports are package-level exports and the
+Public imports use the `specromancy_engine` package-level exports and the
 `specromancy_engine.config`, `specromancy_engine.engine`, `specromancy_engine.run_store`,
 `specromancy_engine.registry`, `specromancy_engine.adapters`, and `specromancy_engine.cli` facades.
-Their existing re-exports and compatibility aliases still refer to the defining
-objects, with unchanged constructor signatures. Shared utility modules also move
-under the new namespace. For example, replace `from specromancy import Engine`
-with `from specromancy_engine import Engine`. The source tree now
-lives under `src/specromancy_engine/`; its four JSON schemas are packaged under
-`specromancy_engine/schemas/` in the installed distribution.
+Facade re-exports and compatibility aliases refer to the defining objects.
+For example, use `from specromancy_engine import Engine`.
+The source tree lives under `src/specromancy_engine/`; its four JSON schemas are
+packaged under `specromancy_engine/schemas/` in the installed distribution.
 
-Extracted implementation modules now live in the private `_config`, `_runs`,
-`_engine`, `_adapters`, and `_cli` subpackages. Those modules were internal
+The `_config`, `_runs`, `_engine`, `_adapters`, and `_cli` subpackages are private
 implementation details, not supported import contracts. Use the public facades
-for configuration records, errors, loading, execution, and run storage. This
-namespace change preserves schemas, canonical hashes, and stored-data formats
-and requires no run conversion. Import compatibility and persisted-state
-compatibility are independent: existing version-1 records remain readable even
-though old imports no longer work.
+for configuration records, errors, loading, execution, and run storage.
 
-An engine-only upgrade with unchanged consumer configuration requires no state
-rewrite. Configuration and renderer upgrades remain separate operations with
-their existing provenance and ownership checks. Forward replay does not promise
-downgrade safety after new state writes. Follow the
-[migration guide](../guides/migration.md) for sequencing and rollback boundaries.
+The distribution is named `specromancy-engine`, is version `0.1.0`, requires
+Python 3.11 or newer, and has no third-party runtime dependencies. It installs
+the `specromancy = specromancy_engine.cli:main` console entry point. Module
+invocation is `python -m specromancy_engine`.
 
-The distribution is named `specromancy-engine`, is version
-`0.2.0`, requires Python 3.11 or newer, and has no third-party runtime
-dependencies. It installs the `specromancy = specromancy_engine.cli:main` console entry
-point. Module invocation is now `python -m specromancy_engine`. See the
-[release notes](../releases/0.2.0.md) for upgrade instructions.
-
-Action packets now emit `final_validation_command` starting with `["specromancy"]`
-instead of the former Python interpreter/module prefix. All subsequent arguments
-and their order are preserved, as are the response shape and schema version.
-Execute this argv with the installed console script on `PATH`; source-export
-users can put the checkout's `bin/` on `PATH`. Consumer-configured validation
-commands and status commands are unchanged.
+Action packets emit `final_validation_command` as an argv starting with
+`["specromancy"]`. Execute it with the installed console script on `PATH`;
+source-export users can put the checkout's `bin/` on `PATH`. Consumer-configured
+validation commands execute the argv declared in their pipeline.
 
 ## Installed resources and consumer roots
 
@@ -52,7 +35,7 @@ skills, templates, or harness files. Consumers explicitly author or copy those
 resources, preserving existing instructions, and separately invoke adapter
 generation under its manifest ownership rules. Examples remain outside the
 wheel. See [installation](../guides/installation.md) for CLI and dependency
-routes and [migration](../guides/migration.md) for the import rename.
+routes.
 
 The installed engine has no implicit pipeline or producer-checkout fallback.
 CLI discovery starts at the working directory and walks upward to a `.git`
@@ -161,11 +144,10 @@ rendering.
 The canonical `.agents/skills/pipeline/SKILL.md` is required, project-owned,
 and never created by package installation or adapter generation. Onboarding
 explicitly copies the [generic procedure](../../.agents/skills/pipeline/SKILL.md)
-into the consumer; it assumes no phase names or order. Generator version 2
-changes invocation and provenance text while preserving manifest schema version
-1 and generator name `specromancy`. Unchanged owned version-1 output upgrades
-through normal generation. Generation restores current manifest-owned output
-even if edited; check mode reports those edits without writing. Unowned paths
+into the consumer; it assumes no phase names or order. The adapter generator
+uses version 2, manifest schema version 1, and generator name `specromancy`. These identifiers are independent of the package version.
+Unchanged owned version-1 output is accepted by normal generation. Generation
+restores current manifest-owned output even if edited; check mode reports those edits without writing. Unowned paths
 and edited stale paths remain conflicts. Save any intentional edits before
 regenerating and move their intended changes into canonical sources.
 
@@ -239,6 +221,27 @@ file hashes before removal, replaces each output atomically, and writes the
 manifest last. This is not a transaction across all generated files. Check mode
 compares expected bytes directly and creates no temporary output files.
 
+## Configuration and state handling
+
+Run and event schema versions are independent of the package version. Keep
+`.specromancy/` at its existing location. Never rewrite `run.json`, `events.jsonl`,
+artifact hashes, or completed outputs to bypass validation or force compatibility.
+Status inspection can recover an interrupted commit and append a recovery event;
+it is not guaranteed to leave every run byte-identical.
+
+Graph and artifact drift can invalidate approval. Prepared skill/template drift
+produces provenance warnings and prevents continuation. Editing an approved output
+before advancement marks the approval stale and requires a fresh decision.
+Finish active runs before changing their graph or consumed resources, or retain
+the exact resources recorded by those runs. There is no automatic active-run
+conversion; initialize a new run when adopting changed configuration.
+
+Configuration and adapter changes are separate from installing the engine.
+Preserve project instructions and the adapter manifest, and follow the ownership
+rules when regenerating. Forward replay of historical development fixtures does
+not establish downgrade safety after new state writes. A package downgrade does
+not undo configuration or renderer changes.
+
 ## Run persistence
 
 Run IDs use a UTC timestamp and eight lowercase hexadecimal characters, for
@@ -270,7 +273,7 @@ respectively, subject to earlier validation failures. Manifest validation occurs
 before event reconciliation: malformed statuses leave `run.json` and
 `events.jsonl` unchanged even when the log is one revision behind. Version-1
 acceptance of numeric quirks, open approval dictionaries, and weak nested metadata
-is unchanged; the [compatibility decision matrix](../history/refactoring/14-persisted-data-diagnostics.md#nested-validation-decision-matrix)
+is unchanged; the [compatibility decision matrix](../implementation-history/refactoring/14-persisted-data-diagnostics.md#nested-validation-decision-matrix)
 records the separately deferred hardening work.
 
 ### Durable operations and visit preparation
@@ -445,7 +448,7 @@ load with one `recovery` event at the same revision, without synthesizing the
 missing approval event. Schemas and existing stored records remain compatible.
 External artifact edits are not made atomic with validation by this lock.
 
-The [integration evidence](../history/refactoring/15-follow-on-integration.md#intentional-behavior-corrections)
+The [integration evidence](../implementation-history/refactoring/15-follow-on-integration.md#intentional-behavior-corrections)
 maps approval overlap outcomes and malformed-status diagnostics to their tests.
 Those are the only intended behavior corrections in the follow-on refactoring;
 sequential version-1 captures, public imports, schema versions, command metadata,

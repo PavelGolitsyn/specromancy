@@ -124,10 +124,8 @@ details, not new public APIs.
 
 ## Configuration dependencies
 
-`specromancy_engine.config` is the public configuration entry point. Version 0.2.0
-replaces the former `specromancy` namespace; see the [upgrade instructions](../releases/0.2.0.md).
-Its records
-are the same frozen class objects defined in `config_models`; configuration
+`specromancy_engine.config` is the public configuration entry point. Its records
+are the frozen class objects defined in `config_models`; configuration
 diagnostics and the omitted-value sentinel live in `config_errors`.
 
 ```text
@@ -168,9 +166,8 @@ JSON encoding, including ASCII escaping, transition sorting, and omission of
 false pause defaults. This encoding is deliberately separate from the generic
 `hashing.canonical_json_bytes` UTF-8 encoding used for run data. Registry
 serialization remains independent. Loading does not cache graph or dependency
-contents between commands. These internal boundaries add no public APIs or
-stored-data migrations; configuration hashes are retained. Public imports use
-the `specromancy_engine` namespace in version 0.2.0.
+contents between commands. Public imports use the `specromancy_engine` namespace; these internal boundaries
+are not additional public APIs.
 
 ## State and visit model
 
@@ -254,10 +251,10 @@ retain their separate matching rules.
 
 Annotations do not validate or fill missing fields. The existing runtime checks
 and published run/event schemas differ in several places; the
-[Stage 03 comparison](../history/refactoring/03-persisted-records.md#schema-comparison-and-deferred-validation-issues)
+[Stage 03 comparison](../implementation-history/refactoring/03-persisted-records.md#schema-comparison-and-deferred-validation-issues)
 records these differences and follow-up candidates. Artifact schema validation
 is a limited subset and cannot replace cross-record run checks. These internal
-modules add no public API or stored-data migration.
+modules are not public APIs.
 
 One run has this shape:
 
@@ -325,9 +322,9 @@ stale hashes, replaces individual files atomically, and writes the manifest last
 There is no cross-invocation cache or transaction across all adapter files. Check
 mode writes nothing; render-only calls omit manifest-only dependency reads.
 
-## POC limitations
+## Current limitations
 
-The POC has no harness launcher, remote store, database, daemon, authenticated
+The engine has no harness launcher, remote store, database, daemon, authenticated
 approvals, active-run migration, parallel joins, YAML loader, or arbitrary
 JSON-Schema implementation. Validation commands run with the invoking user's
 normal permissions. Run locking is local to one filesystem and stale locks
@@ -338,6 +335,6 @@ make validation and sealing atomic with external artifact or repository edits,
 nor establish general command-level concurrency safety. Duplicate continuations
 may execute validation commands more than once. Interrupted initialization and
 weakly accepted version-1 nested records also retain their existing limitations.
-The [follow-on integration record](../history/refactoring/15-follow-on-integration.md)
+The [follow-on integration record](../implementation-history/refactoring/15-follow-on-integration.md)
 links the two intentional corrections to tests and defines the evidence and
 decisions required before these deferred areas can be changed.

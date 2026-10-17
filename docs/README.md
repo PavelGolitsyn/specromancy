@@ -4,7 +4,6 @@ Current documentation is organized by purpose:
 
 - [Installation](guides/installation.md): CLI-only and Python dependency consumer routes.
 - [Release-documentation example](../examples/release-documentation/README.md): wheel-only lifecycle walkthrough.
-- [Migration](guides/migration.md): dependency, import, and module invocation changes.
 - [Architecture](reference/architecture.md): runtime responsibilities and dependencies.
 - [Public contracts](reference/contracts.md): stable imports, CLI behavior, and persisted data.
 - [CLI reference](reference/cli.md): commands, responses, and exit codes.
@@ -13,7 +12,7 @@ Current documentation is organized by purpose:
 - [Harness usage](guides/harnesses.md): run workflows from supported agent harnesses.
 - [Workflow customization](../workflow/README.md): editable sources and pipeline registration.
 
-[Historical plans and refactoring records](history/README.md) document prior work;
+[Historical plans and refactoring records](implementation-history/README.md) document prior work;
 use the references and guides above for current behavior.
 
 ## Repository map
@@ -38,15 +37,13 @@ use the references and guides above for current behavior.
 | `tests/packaging/` | Installed consumer contracts and executable documentation checks |
 | `examples/release-documentation/` | Consumer-owned registry, graph, skills, templates, and sample request; outside the wheel |
 | `docs/reference/`, `docs/guides/` | Current documentation |
-| `dosc/migration/` | Staged package migration plan and verification evidence |
-| `docs/history/` | Implementation plans and completed refactoring records |
+| `docs/implementation-history/` | Implementation records |
 | `.specromancy/runs/` | Ignored local run state and immutable visit artifacts |
 
 The underscore-prefixed Python packages are internal implementation details.
-Version 0.2.0 moves public imports to `specromancy_engine`, including its
-`config`, `engine`, `run_store`, `registry`, `adapters`, and `cli` facades.
-The old `specromancy` import namespace is no longer supplied. See the
-[release notes](releases/0.2.0.md). Internal package initializers do not import
+Public imports use `specromancy_engine`, including its `config`, `engine`,
+`run_store`, `registry`, `adapters`, and `cli` facades. See the
+[public contracts](reference/contracts.md). Internal package initializers do not import
 public facades or eagerly load sibling components.
 
 See the [test guide](../tests/README.md) for discovery commands and compatibility

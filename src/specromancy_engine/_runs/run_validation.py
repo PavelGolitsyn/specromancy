@@ -1,7 +1,7 @@
 """Pure checks for persisted dictionaries, preserving version-one acceptance.
 
 Annotations are not validators. These checks intentionally retain the legacy
-weak nested-field checks; see docs/history/refactoring/03-persisted-records.md. Event
+weak nested-field checks; see docs/implementation-history/refactoring/03-persisted-records.md. Event
 sequence/revision continuity and manifest hashes remain store responsibilities.
 """
 

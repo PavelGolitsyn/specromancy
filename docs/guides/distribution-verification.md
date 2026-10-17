@@ -2,12 +2,8 @@
 
 Use a Git checkout with Python 3.11 or newer and Git on `PATH`. The minimum
 verification interpreter is 3.11.15; the development interpreter is 3.14.4.
-CI covers Ubuntu 24.04 and macOS 15 on both interpreters. The corrected
-[hosted run](https://github.com/PavelGolitsyn/specromancy/actions/runs/38251565471)
-passed all four jobs at commit `6093c7812eff7a68e314e46ae8022144497d6e46`.
-Stage 08 records local verification of its final working tree separately from
-that hosted commit. Windows is unverified and is not claimed as supported. Other Python 3.11+
-versions satisfy the package metadata but are not individually verified here.
+CI is configured for Ubuntu 24.04 and macOS 15 on both interpreters. Windows is
+unverified and is not claimed as supported. Other Python 3.11+ versions satisfy the package metadata but are not individually verified here.
 
 ## Provision and build
 
@@ -46,8 +42,8 @@ Choose a new output directory for each build and keep its exact artifact paths:
 ARTIFACT_DIR="$(mktemp -d /tmp/specromancy-artifacts.XXXXXX)"
 python -m build --sdist --wheel --no-isolation --outdir "$ARTIFACT_DIR"
 python tools/verify_distribution.py \
-  --wheel "$ARTIFACT_DIR/specromancy_engine-0.2.0-py3-none-any.whl" \
-  --sdist "$ARTIFACT_DIR/specromancy_engine-0.2.0.tar.gz"
+  --wheel "$ARTIFACT_DIR/specromancy_engine-0.1.0-py3-none-any.whl" \
+  --sdist "$ARTIFACT_DIR/specromancy_engine-0.1.0.tar.gz"
 ```
 
 `python -m build` is the build frontend. Specifying both `--sdist --wheel`
@@ -79,7 +75,7 @@ run data, caches, environments, and unrelated projects fail the archive boundary
 
 `MANIFEST.in` defines a deliberate sdist allowlist: build metadata, runtime source
 and schemas, README, license, the complete release-documentation example
-(including hidden skills and ignore rules), and current guides/reference/release
+(including hidden skills and ignore rules), and current guides and reference
 documentation. Setuptools adds normal sdist metadata. Tests, historical documents,
 producer workflows, generated adapters, and developer tools are not included.
 The sdist is a consumer/build artifact, not a full developer checkout. Some
@@ -127,7 +123,7 @@ commands. uv is a provisioning tool, not a runtime or package build dependency.
 The pins were checked against upstream references at implementation time; review
 and update them and the build-tool pins deliberately together with verification.
 
-See [Stage 08 release-readiness evidence](../../dosc/migration/evidence/08-release-readiness.md)
-for final commands, results, archive hashes, and coverage limits, and
-[Stage 07 evidence](../../dosc/migration/evidence/07-distribution-verification.md)
-for the gate's implementation and provisioning history.
+Historical build results and provisioning decisions are retained in
+[implementation history](../implementation-history/README.md). Those artifact
+hashes and test results describe their original development builds; verify a
+fresh artifact set for the current checkout using the commands above.

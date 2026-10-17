@@ -116,8 +116,7 @@ def sdist_sources(root: Path) -> set[str]:
         ".agents/skills/review-release-notes/SKILL.md",
     ))
     for directory, extensions in ((f"{example}/workflow", {".toml", ".md"}),
-                                  ("docs/guides", {".md"}), ("docs/reference", {".md"}),
-                                  ("docs/releases", {".md"})):
+                                  ("docs/guides", {".md"}), ("docs/reference", {".md"})):
         names.update(p.relative_to(root).as_posix() for p in (root / directory).rglob("*")
                      if p.is_file() and p.suffix in extensions)
     return names

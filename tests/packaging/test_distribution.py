@@ -22,12 +22,12 @@ class DistributionContractTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name)
-        self.info = "specromancy_engine-0.2.0.dist-info"
+        self.info = "specromancy_engine-0.1.0.dist-info"
 
     def wheel(self, *, omit=(), extra=None, dependency=False):
         members = verifier.inventory(ROOT)
         members.update({f"{self.info}/{name}": content for name, content in {
-            "METADATA": ("Metadata-Version: 2.4\nName: specromancy-engine\nVersion: 0.2.0\n"
+            "METADATA": ("Metadata-Version: 2.4\nName: specromancy-engine\nVersion: 0.1.0\n"
                          "Requires-Python: >=3.11\nLicense-Expression: MIT\n"
                          "Description-Content-Type: text/markdown\n"
                          + ("Requires-Dist: unwanted\n" if dependency else "")
@@ -46,7 +46,7 @@ class DistributionContractTests(unittest.TestCase):
 
     def test_complete_wheel_inventory_and_metadata(self):
         result = verifier.inspect_wheel(self.wheel(), ROOT)
-        self.assertEqual(result["version"], "0.2.0")
+        self.assertEqual(result["version"], "0.1.0")
         self.assertEqual(set(result["runtime"]), set(verifier.inventory(ROOT)))
 
     def test_missing_schema_and_old_namespace_are_clear_failures(self):
@@ -81,7 +81,7 @@ class DistributionContractTests(unittest.TestCase):
             for name, content in members.items():
                 if name in omit:
                     continue
-                member = tarfile.TarInfo("specromancy_engine-0.2.0/" + name)
+                member = tarfile.TarInfo("specromancy_engine-0.1.0/" + name)
                 member.size = len(content)
                 archive.addfile(member, io.BytesIO(content))
             if special:
@@ -97,9 +97,9 @@ class DistributionContractTests(unittest.TestCase):
 
     def test_sdist_rejects_traversal_links_and_duplicate_members_before_writing(self):
         for name, kind in (("../escaped", tarfile.REGTYPE),
-                           ("specromancy_engine-0.2.0/link", tarfile.SYMTYPE),
-                           ("specromancy_engine-0.2.0/link", tarfile.LNKTYPE),
-                           ("specromancy_engine-0.2.0/README.md", tarfile.REGTYPE)):
+                           ("specromancy_engine-0.1.0/link", tarfile.SYMTYPE),
+                           ("specromancy_engine-0.1.0/link", tarfile.LNKTYPE),
+                           ("specromancy_engine-0.1.0/README.md", tarfile.REGTYPE)):
             with self.subTest(name=name, kind=kind):
                 special = tarfile.TarInfo(name)
                 special.type = kind
@@ -114,7 +114,7 @@ class DistributionContractTests(unittest.TestCase):
             (self.root / name).mkdir()
             (self.root / name / "pyvenv.cfg").touch()
         names = ["custom-environment", ".venv311", "build", "dist", "old.egg-info", "old.dist-info",
-                 "workflow", ".agents", "dosc", "docs", "tests", "adapters", "game-of-life"]
+                 "workflow", ".agents", "docs", "tests", "adapters", "game-of-life"]
         ignored = ignore_development_outputs(str(self.root), names)
         self.assertEqual(ignored, set(names[:6]))
 

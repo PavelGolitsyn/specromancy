@@ -112,9 +112,9 @@ class CompatibilityContractTests(unittest.TestCase):
         self.assertEqual(hashing.canonical_json_bytes({"text": "café 日本語"}),
                          '{"text":"café 日本語"}'.encode("utf-8"))
 
-    def test_versioned_responses_change_only_the_three_command_prefixes(self) -> None:
+    def test_current_responses_change_only_the_three_command_prefixes(self) -> None:
         original = read_record("responses.json")
-        expected = read_record("responses-0.2.0.json")
+        expected = read_record("responses-current.json")
         for name in ("action-pending", "action-active", "resumed"):
             with self.subTest(response=name):
                 old = original[name]["action"]["final_validation_command"]
@@ -126,7 +126,7 @@ class CompatibilityContractTests(unittest.TestCase):
 
     def test_response_envelopes_and_persisted_bytes_match_baseline(self) -> None:
         states, responses = capture_lifecycle()
-        self.assertEqual(responses, read_record("responses-0.2.0.json"))
+        self.assertEqual(responses, read_record("responses-current.json"))
         expected = read_record("states.json")
         self.assertEqual(set(states), set(expected))
         for state, files in states.items():
@@ -135,7 +135,7 @@ class CompatibilityContractTests(unittest.TestCase):
 
     def test_version_one_records_replay_and_recovery_is_exactly_once(self) -> None:
         states = read_record("states.json")
-        responses = read_record("responses-0.2.0.json")
+        responses = read_record("responses-current.json")
         for name, files in states.items():
             with self.subTest(state=name):
                 fixture = CompatibilityFixture(pause=True)

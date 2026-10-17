@@ -53,7 +53,7 @@ The repeatable distribution gate is separate from test discovery. Provision the
 pinned tooling, build a fresh wheel and sdist, then run:
 
 ```sh
-python tools/verify_distribution.py --wheel /absolute/artifacts/specromancy_engine-0.2.0-py3-none-any.whl --sdist /absolute/artifacts/specromancy_engine-0.2.0.tar.gz
+python tools/verify_distribution.py --wheel /absolute/artifacts/specromancy_engine-0.1.0-py3-none-any.whl --sdist /absolute/artifacts/specromancy_engine-0.1.0.tar.gz
 ```
 
 See [distribution verification](../docs/guides/distribution-verification.md) for
@@ -82,7 +82,7 @@ temporary repositories; `test_compatibility.py` compares against those independe
 records and continues restored pending, active, approval, paused, terminal, and
 recovery states. Tests never refresh expected records. See the
 [fixture capture and normalization policy](engine/fixtures/refactoring-compatibility/README.md).
-The separate `responses-0.2.0.json` expectation changes only the final validation
+The separate `responses-current.json` expectation changes only the final validation
 command prefixes in pending, active, and resumed actions. A dedicated comparison
 checks those exact changes against the untouched `responses.json`; all other
 response fields and the original persisted, canonical, and diagnostic records
@@ -94,8 +94,9 @@ temporary consumer, then regenerate through the current ownership rules.
 The installed orchestration tests also invalidate already granted approvals after
 artifact or graph edits and reject changed prepared skills/templates. This is
 deliberately separate from the unchanged-configuration state replay. See the
-[Stage 08 evidence](../dosc/migration/evidence/08-release-readiness.md) for final
-counts, artifact hashes, platform boundaries, and the controlled upgrade results.
+[Stage 08 evidence](../docs/implementation-history/migration/evidence/08-release-readiness.md) for historical
+counts, artifact hashes, platform boundaries, and development replay results.
+Those results describe the recorded builds, not the current 0.1.0 artifacts.
 
 `engine/contract/source_scan.py` recursively discovers runtime Python sources
 under `src/specromancy_engine/`, including nested package initializers, for architecture,
@@ -116,7 +117,7 @@ subprocesses disable site packages and exercise the wrappers without installatio
 Build tools are acquired separately, never by unit tests.
 
 Follow-on integration evidence is recorded in
-[Stage 15](../docs/history/refactoring/15-follow-on-integration.md), including the exact
+[Stage 15](../docs/implementation-history/refactoring/15-follow-on-integration.md), including the exact
 interpreter paths, commands, counts, and deferred investigation boundaries.
 The regression coverage for the final module boundaries and corrections is:
 

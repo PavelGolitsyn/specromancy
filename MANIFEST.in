@@ -19,4 +19,3 @@ include examples/release-documentation/.agents/skills/review-release-notes/SKILL
 include docs/README.md
 recursive-include docs/guides *.md
 recursive-include docs/reference *.md
-recursive-include docs/releases *.md

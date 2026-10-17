@@ -1,6 +1,6 @@
 # Repository instructions
 
-- Support Python 3.11 and newer. The POC has no third-party runtime dependencies.
+- Support Python 3.11 and newer. The engine has no third-party runtime dependencies.
 - Install the checkout in a dedicated environment with `python -m pip install -e .` before testing.
 - Run the full suite with `python -m unittest discover`.
 - Canonical workflow configuration and templates live under `workflow/`; canonical phase procedures live under `.agents/skills/`. The generic engine lives under `src/specromancy_engine/` and must not contain workflow-specific phase names or policies. Harness adapters are generated files recorded in `adapters/manifest.json` and must contain no unique workflow logic.

@@ -8,7 +8,7 @@ instructions, and skills; these are not installed defaults.
 
 ## Obtain a local wheel
 
-Version 0.2.0 is a local migration build. These instructions do not assume that
+The initial release baseline is version 0.1.0. These instructions do not assume that
 the package is published or available on PyPI. From a producer checkout, a
 maintainer builds the wheel in a dedicated build environment:
 
@@ -21,12 +21,11 @@ python -m build --sdist --wheel --no-isolation --outdir dist
 
 The separately provisioned toolchain includes the pinned build backend declared
 in `pyproject.toml`; these are build dependencies, not engine runtime dependencies. The result is
-`dist/specromancy_engine-0.2.0-py3-none-any.whl`. Transfer that wheel to the
+`dist/specromancy_engine-0.1.0-py3-none-any.whl`. Transfer that wheel to the
 consumer. The consumer needs no engine source or editable install. The
 [distribution verification guide](distribution-verification.md) documents the
 repeatable wheel and sdist gates and links their executed evidence.
-For an existing consumer, follow the [controlled migration sequence](migration.md)
-and verify the wheel hash before installation. `bin/specromancy` and
+Verify the wheel hash against its build evidence before installation. `bin/specromancy` and
 `adapters/generate.py` are producer-checkout conveniences; do not copy them or
 the engine source into each consumer project.
 
@@ -37,7 +36,7 @@ From the consumer project root (which may be a non-Python project):
 ```sh
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install --no-index --no-deps /absolute/path/to/specromancy_engine-0.2.0-py3-none-any.whl
+python -m pip install --no-index --no-deps /absolute/path/to/specromancy_engine-0.1.0-py3-none-any.whl
 specromancy --help
 python -m specromancy_engine --help
 ```
@@ -53,7 +52,7 @@ existing dependency list; preserve its other metadata and dependencies:
 
 ```toml
 [project]
-dependencies = ["specromancy-engine==0.2.0"]
+dependencies = ["specromancy-engine==0.1.0"]
 ```
 
 Use a directory containing the local wheel when installing that project:
@@ -151,4 +150,4 @@ specromancy adapters generate --check
 
 Editable tests alone do not prove a wheel works in another project. See the
 [test guide](../../tests/README.md) for independent consumer verification and
-the [migration guide](migration.md) for the breaking Python import rename.
+the [public contracts](../reference/contracts.md) for supported interfaces and state handling.

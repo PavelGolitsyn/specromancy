@@ -109,7 +109,7 @@ class ReleaseContractTests(unittest.TestCase):
 
     def test_release_documents_cover_supported_contract_and_limitations(self) -> None:
         required = {
-            "reference/architecture.md": ("Responsibility split", "POC limitations"),
+            "reference/architecture.md": ("Responsibility split", "Current limitations"),
             "reference/cli.md": ("Workflow commands", "exit codes"),
             "guides/authoring-pipelines.md": ("bounded loops", "active runs"),
             "guides/harnesses.md": ("Codex", "Claude Code", "GitHub Copilot", "OpenCode", "Hermes"),
