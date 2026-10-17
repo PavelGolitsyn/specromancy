@@ -3,7 +3,7 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from specromancy.registry import REGISTRY_PATH, load_registry
+from specromancy_engine.registry import REGISTRY_PATH, load_registry
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -18,7 +18,11 @@ class ShippedLayoutTests(unittest.TestCase):
             self.assertTrue(registration.path.is_relative_to(ROOT / "workflow/pipelines"))
 
     def test_engine_package_contains_no_customizable_workflow_files(self) -> None:
-        engine = ROOT / "specromancy"
+        engine = ROOT / "src" / "specromancy_engine"
+        self.assertTrue((engine / "__init__.py").is_file())
+        self.assertFalse((ROOT / "specromancy").exists())
+        self.assertFalse((ROOT / "src" / "specromancy").exists())
+        self.assertFalse((ROOT / "src" / "__init__.py").exists())
         self.assertFalse((engine / "pipeline.toml").exists())
         self.assertFalse((engine / "templates").exists())
         self.assertEqual(list(engine.glob("*.md")), [])
@@ -32,7 +36,7 @@ class ShippedLayoutTests(unittest.TestCase):
             "workflow/templates/",
             ".agents/skills/",
             "AGENTS.md",
-            "specromancy/",
+            "src/specromancy_engine/",
         ):
             with self.subTest(path=path):
                 self.assertIn(path, guide)

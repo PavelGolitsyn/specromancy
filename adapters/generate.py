@@ -4,9 +4,9 @@ from pathlib import Path
 import sys
 
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from specromancy.cli import main  # noqa: E402
+from specromancy_engine.cli import main  # noqa: E402
 
 
 if __name__ == "__main__":

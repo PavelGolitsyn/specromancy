@@ -2,7 +2,7 @@
 
 The suite is split by the source of its test data:
 
-- `features/` tests engine behavior with test-owned pipelines, skills, templates,
+- `engine/` tests engine behavior with test-owned pipelines, skills, templates,
   and repositories. These tests must not depend on the checkout's customizable
   shipped configuration. CLI fixtures provide their own mandatory registry;
   low-level engine tests may load explicit test-owned graph paths. They assert
@@ -12,32 +12,95 @@ The suite is split by the source of its test data:
   validity and consistency without requiring specific configuration values.
   They must tolerate changes to the shipped configuration as long as it remains
   valid and consistent.
+- `packaging/` exercises installed consumer roots and package resources without
+  engine test fixtures. Its self-contained smoke module can also be copied outside
+  the checkout and run with a regular wheel installation; no test downloads or
+  builds dependencies. It covers two consumers sharing a pipeline ID, real Git
+  worktree markers, explicit/non-Git roots, public facades, and filesystem ownership.
+  It also generates consumer adapters and executes all twelve harness wrapper
+  invocations and both launch skills after explicit placeholder substitution,
+  with no producer launcher. Hosted harness behavior is outside this contract.
+  `test_release_documentation.py` separately copies the user-facing example,
+  including hidden skills, into a temporary Git repository. It executes the
+  README's Python walkthrough and installation guide's public API example,
+  checks completion, immutable outputs, read-only enforcement, unchanged project
+  files, blocking, missing configuration, and explicit pipeline selection.
+  Existing `engine/fixtures/` remain independent of the user-facing example.
+
+Create and activate a dedicated environment before testing:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e .
+```
 
 Run the groups independently:
 
 ```sh
-python3 -m unittest discover -s tests/features -t .
-python3 -m unittest discover -s tests/shipped_configuration -t .
+python -m unittest discover -s tests/engine -t .
+python -m unittest discover -s tests/shipped_configuration -t .
+python -m unittest discover -s tests/packaging -t .
 ```
+
+The example's focused checks are:
+
+```sh
+python -m unittest tests.packaging.test_release_documentation tests.shipped_configuration.test_consumer_example
+```
+
+The repeatable distribution gate is separate from test discovery. Provision the
+pinned tooling, build a fresh wheel and sdist, then run:
+
+```sh
+python tools/verify_distribution.py --wheel /absolute/artifacts/specromancy_engine-0.2.0-py3-none-any.whl --sdist /absolute/artifacts/specromancy_engine-0.2.0.tar.gz
+```
+
+See [distribution verification](../docs/guides/distribution-verification.md) for
+complete setup, archive boundaries, offline execution, CI coverage, and retained
+logs. `test_distribution.py` supplies fast negative archive tests in discovery;
+it never builds or installs anything. The explicit verifier copies only the
+consumer, compatibility, orchestration, safety, recovery, and adapter tests and their required
+fixtures into a temporary runner. Each exact wheel is installed into its own
+fresh venv, with import origins checked before any tests run. Both the direct
+wheel and a wheel rebuilt from the safely extracted sdist run the same suite.
+The rebuilt consumer uses the example and documentation extracted from the sdist.
+Source-export tests remain checkout tests and exclude build outputs, metadata
+caches, and any directory containing `pyvenv.cfg`, preserving workflow evidence.
 
 Run everything with:
 
 ```sh
-python3 -m unittest discover
+python -m unittest discover
 ```
 
-`features/fixtures/refactoring-compatibility/` retains pre-extraction version-1
+`engine/fixtures/refactoring-compatibility/` retains pre-extraction version-1
 records with exact canonical pipeline bytes/hashes, response and diagnostic
 envelopes, persisted manifests/events/artifacts, and generated adapter bytes.
-`features/contract/compatibility_support.py` runs deterministic scenarios in
+`engine/contract/compatibility_support.py` runs deterministic scenarios in
 temporary repositories; `test_compatibility.py` compares against those independent
 records and continues restored pending, active, approval, paused, terminal, and
 recovery states. Tests never refresh expected records. See the
-[fixture capture and normalization policy](features/fixtures/refactoring-compatibility/README.md).
+[fixture capture and normalization policy](engine/fixtures/refactoring-compatibility/README.md).
+The separate `responses-0.2.0.json` expectation changes only the final validation
+command prefixes in pending, active, and resumed actions. A dedicated comparison
+checks those exact changes against the untouched `responses.json`; all other
+response fields and the original persisted, canonical, and diagnostic records
+remain exact comparisons. `adapters-generator-v2.json` separately versions the
+installed-command rendering. Its comparison against untouched `adapters.json`
+allows only invocation spelling, generator provenance/version, and output hashes
+to change. Upgrade tests install the original generated bytes and manifest in a
+temporary consumer, then regenerate through the current ownership rules.
+The installed orchestration tests also invalidate already granted approvals after
+artifact or graph edits and reject changed prepared skills/templates. This is
+deliberately separate from the unchanged-configuration state replay. See the
+[Stage 08 evidence](../dosc/migration/evidence/08-release-readiness.md) for final
+counts, artifact hashes, platform boundaries, and the controlled upgrade results.
 
-`features/contract/source_scan.py` recursively discovers runtime Python sources,
-including nested package initializers, for architecture, subprocess, and
-standard-library dependency checks. Architecture tests also import extracted
+`engine/contract/source_scan.py` recursively discovers runtime Python sources
+under `src/specromancy_engine/`, including nested package initializers, for architecture,
+subprocess, and standard-library dependency checks. It rejects missing or empty
+source roots. Architecture tests also import extracted
 components independently of the public facades to expose reversed dependencies.
 Pure visit decisions have table-driven tests in `unit/test_visit_transitions.py`;
 store interleavings and durable fault boundaries live in
@@ -48,14 +111,16 @@ recovery through observable responses and stored evidence.
 For minimum-version verification, run the full suite with Python 3.11 and put
 that interpreter's `bin` directory first on `PATH`, so subprocess launcher tests
 using `#!/usr/bin/env python3` also exercise it. Repeat on the development Python.
-The source-export tests require no package installation or runtime dependencies.
+Install the checkout into each test environment first. The source-export
+subprocesses disable site packages and exercise the wrappers without installation.
+Build tools are acquired separately, never by unit tests.
 
 Follow-on integration evidence is recorded in
-[Stage 15](../docs/refactoring/15-follow-on-integration.md), including the exact
+[Stage 15](../docs/history/refactoring/15-follow-on-integration.md), including the exact
 interpreter paths, commands, counts, and deferred investigation boundaries.
 The regression coverage for the final module boundaries and corrections is:
 
-| Contract | Evidence under `features/` |
+| Contract | Evidence under `engine/` |
 | --- | --- |
 | Original sequential bytes, hashes, packets, errors, restored runs, and facade aliases | `contract/test_compatibility.py`; the overlap test is separate from unchanged captures |
 | Parsing and service import direction, generic runtime, pure decision dependencies | `contract/test_architecture.py` |
@@ -65,7 +130,7 @@ The regression coverage for the final module boundaries and corrections is:
 | Deliberately retained weak version-1 acceptance | `unit/test_run_records.py`, status and nested compatibility tables |
 | Fault points, clocks, recovery, ownership, immutable outputs, read-only policy | `unit/test_run_persistence.py`, `unit/test_run_store.py`, `contract/test_interruptions.py`, `contract/test_recovery.py`, `contract/test_safety.py` |
 | Deterministic generation and adapter ownership in temporary repositories | `unit/test_adapters.py`, `contract/test_adapter_drift.py`, `contract/test_compatibility.py` |
-| Installation-free source exports, launchers, standard-library imports | `contract/test_release.py`, `contract/test_launcher.py` |
+| Installation-free source exports, launchers, metadata/version agreement, standard-library imports | `contract/test_release.py`, `contract/test_launcher.py` |
 
 Overlap tests deterministically inject a second engine at selected operation
 boundaries. They establish the specified approval outcomes, not safety for every

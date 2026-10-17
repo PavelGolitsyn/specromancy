@@ -9,9 +9,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from specromancy.registry import load_registry
-from specromancy.exit_codes import ExitCode
-from specromancy.validation import markdown_heading_counts
+from tests.source_export import ignore_development_outputs
+
+from specromancy_engine.registry import load_registry
+from specromancy_engine.exit_codes import ExitCode
+from specromancy_engine.validation import markdown_heading_counts
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -67,15 +69,7 @@ class ShippedPipelineTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as temporary:
                 checkout = Path(temporary) / "specromancy"
 
-                def ignore(_directory: str, names: list[str]) -> set[str]:
-                    return {
-                        name
-                        for name in names
-                        if name in {".git", ".specromancy", "__pycache__"}
-                        or name.endswith((".pyc", ".pyo"))
-                    }
-
-                shutil.copytree(ROOT, checkout, ignore=ignore)
+                shutil.copytree(ROOT, checkout, ignore=ignore_development_outputs)
                 subprocess.run(
                     ["git", "-C", str(checkout), "init", "--quiet"],
                     check=True,

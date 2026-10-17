@@ -1,7 +1,13 @@
 # Workflow customization
 
-This directory is the primary customization surface for Specromancy. Configure
-as many pipelines as needed without editing the generic engine in `specromancy/`.
+This directory configures this repository's own development workflow. It is not
+an automatically installed consumer default. New consumers should follow the
+[installation guide](../docs/guides/installation.md) and copy or adapt the
+[release-documentation example](../examples/release-documentation/README.md),
+preserving their existing instructions and registrations.
+
+Workflow files are the primary customization surface for Specromancy. Configure
+as many pipelines as needed without editing the generic engine in `src/specromancy_engine/`.
 Every new run explicitly chooses a registered pipeline; there is no default.
 
 ## Editable workflow sources
@@ -56,9 +62,10 @@ is removed. Moving or changing that graph does not migrate an existing run.
 After customization, run:
 
 ```sh
-bin/specromancy adapters generate
-bin/specromancy adapters generate --check
-python3 -m unittest discover
+specromancy adapters generate
+specromancy adapters generate --check
+python -m pip install -e .  # in an activated development environment
+python -m unittest discover
 ```
 
 Generation validates every registered graph. CLI execution loads the selected
@@ -68,7 +75,7 @@ The mandatory registry itself must remain valid for workflow commands.
 ## Start a run
 
 ```sh
-bin/specromancy init "describe the requested change" --pipeline implementation
+specromancy init "describe the requested change" --pipeline implementation
 ```
 
 Alternatively, invoke the generated `specromancy-implementation` skill. The
@@ -81,5 +88,5 @@ Their ownership and hashes are recorded in `adapters/manifest.json`.
 The `specromancy-` skill prefix is reserved for generated launch skills; all
 other `.agents/skills/` procedures remain editable canonical sources.
 
-See [Pipeline authoring](../docs/poc-v3/authoring-pipelines.md) for graph rules
+See [Pipeline authoring](../docs/guides/authoring-pipelines.md) for graph rules
 and active-run safety.

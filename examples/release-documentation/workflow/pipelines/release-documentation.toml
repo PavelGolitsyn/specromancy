@@ -1,0 +1,48 @@
+schema_version = 1
+id = "release-documentation"
+version = 1
+start = "draft-release-notes"
+terminal_outcomes = ["approved", "blocked"]
+artifact_pattern = "artifacts/{visit:03}-{phase}.md"
+allow_non_git = false
+
+[[phases]]
+id = "draft-release-notes"
+skill = "draft-release-notes"
+inputs = ["request"]
+output_name = "{visit:03}-release-notes.md"
+output_template = "../templates/release-notes.md"
+mutation = "read-only"
+completion_criteria = ["Describe only supplied changes and include the required upgrade action."]
+validator = "markdown"
+required_headings = ["Summary", "Changes", "Upgrade Notes"]
+approval_conditions = []
+stop_conditions = ["insufficient-change-data"]
+max_visits = 1
+
+[[phases.transitions]]
+outcome = "drafted"
+target = "review-release-notes"
+
+[[phases.transitions]]
+outcome = "blocked"
+
+[[phases]]
+id = "review-release-notes"
+skill = "review-release-notes"
+inputs = ["request", "latest:draft-release-notes"]
+output_name = "{visit:03}-review.md"
+output_template = "../templates/review.md"
+mutation = "read-only"
+completion_criteria = ["Compare every release claim and upgrade instruction against the request and record a verdict."]
+validator = "markdown"
+required_headings = ["Verdict", "Findings", "Verification"]
+approval_conditions = []
+stop_conditions = ["unsupported-release-claims"]
+max_visits = 1
+
+[[phases.transitions]]
+outcome = "approved"
+
+[[phases.transitions]]
+outcome = "blocked"
