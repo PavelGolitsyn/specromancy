@@ -1,0 +1,423 @@
+{
+  "action-pending": {
+    "schema_version": 1,
+    "kind": "action",
+    "code": 8,
+    "message": "run 20261003T120000Z-01020304 initialized; agent action is required",
+    "action": {
+      "schema_version": 1,
+      "run_id": "20261003T120000Z-01020304",
+      "visit_id": 1,
+      "visit_attempt": 1,
+      "visit_status": "pending",
+      "phase": "compose",
+      "skill": {
+        "path": ".agents/skills/compose/SKILL.md",
+        "sha256": "0f23854eaf46ea74515485f83b2b9f00230d05f65db9cbbdc807cf695dbbbdbc",
+        "absolute_path": "<ROOT>/.agents/skills/compose/SKILL.md"
+      },
+      "inputs": [
+        {
+          "path": "artifacts/000-request.md",
+          "sha256": "24e91767addbc1f8026e6644c50054409770ff9fa17608b913a9e388c9c13133",
+          "reference": "request",
+          "absolute_path": "<ROOT>/.specromancy/runs/20261003T120000Z-01020304/artifacts/000-request.md"
+        }
+      ],
+      "output": {
+        "path": "artifacts/001-compose.md",
+        "sha256": null,
+        "absolute_path": "<ROOT>/.specromancy/runs/20261003T120000Z-01020304/artifacts/001-compose.md"
+      },
+      "template": null,
+      "mutation": {
+        "policy": "read-only",
+        "allowlist": []
+      },
+      "completion_criteria": [
+        "Écrire un résultat 日本語."
+      ],
+      "validation": {
+        "type": "file",
+        "required_headings": [],
+        "heading_occurrence": "exactly-once",
+        "schema": null,
+        "commands": []
+      },
+      "approval_conditions": [
+        "accept-result"
+      ],
+      "stop_conditions": [
+        "no-evidence"
+      ],
+      "outcomes": [
+        "z-next",
+        "a-stop"
+      ],
+      "final_validation_command": [
+        "<PYTHON>",
+        "-m",
+        "specromancy",
+        "--root",
+        "<ROOT>",
+        "validate",
+        "20261003T120000Z-01020304",
+        "compose"
+      ]
+    }
+  },
+  "action-active": {
+    "schema_version": 1,
+    "kind": "action",
+    "code": 8,
+    "message": "phase compose is active; agent action is required",
+    "action": {
+      "schema_version": 1,
+      "run_id": "20261003T120000Z-01020304",
+      "visit_id": 1,
+      "visit_attempt": 1,
+      "visit_status": "active",
+      "phase": "compose",
+      "skill": {
+        "path": ".agents/skills/compose/SKILL.md",
+        "sha256": "0f23854eaf46ea74515485f83b2b9f00230d05f65db9cbbdc807cf695dbbbdbc",
+        "absolute_path": "<ROOT>/.agents/skills/compose/SKILL.md"
+      },
+      "inputs": [
+        {
+          "path": "artifacts/000-request.md",
+          "reference": "request",
+          "sha256": "24e91767addbc1f8026e6644c50054409770ff9fa17608b913a9e388c9c13133",
+          "absolute_path": "<ROOT>/.specromancy/runs/20261003T120000Z-01020304/artifacts/000-request.md"
+        }
+      ],
+      "output": {
+        "path": "artifacts/001-compose.md",
+        "sha256": null,
+        "absolute_path": "<ROOT>/.specromancy/runs/20261003T120000Z-01020304/artifacts/001-compose.md"
+      },
+      "template": null,
+      "mutation": {
+        "policy": "read-only",
+        "allowlist": []
+      },
+      "completion_criteria": [
+        "Écrire un résultat 日本語."
+      ],
+      "validation": {
+        "type": "file",
+        "required_headings": [],
+        "heading_occurrence": "exactly-once",
+        "schema": null,
+        "commands": []
+      },
+      "approval_conditions": [
+        "accept-result"
+      ],
+      "stop_conditions": [
+        "no-evidence"
+      ],
+      "outcomes": [
+        "z-next",
+        "a-stop"
+      ],
+      "final_validation_command": [
+        "<PYTHON>",
+        "-m",
+        "specromancy",
+        "--root",
+        "<ROOT>",
+        "validate",
+        "20261003T120000Z-01020304",
+        "compose"
+      ]
+    }
+  },
+  "approval": {
+    "schema_version": 1,
+    "kind": "approval",
+    "code": 7,
+    "message": "approval is required",
+    "approval": {
+      "run_id": "20261003T120000Z-01020304",
+      "phase_id": "compose",
+      "visit_number": 1,
+      "reason": "accept-result",
+      "details": "Accept this evidence.",
+      "artifact_sha256": "493a2559efd384b438980e8d50838730a467f4502b87ab23b9e743bfc2c6feaf",
+      "pipeline_sha256": "955de83d8f9589493e5a14402d0b4cb8a5f4dc8c423869acdc44eca9a09db525",
+      "outcome": "z-next",
+      "status": "pending",
+      "decision": null,
+      "actor": null,
+      "requested_at": "2026-10-03T12:00:00.000000Z",
+      "decided_at": null
+    },
+    "status": {
+      "schema_version": 1,
+      "run_id": "20261003T120000Z-01020304",
+      "pipeline": {
+        "id": "compatibility",
+        "path": "workflow/pipelines/compatibility.toml",
+        "sha256": "955de83d8f9589493e5a14402d0b4cb8a5f4dc8c423869acdc44eca9a09db525",
+        "version": 1,
+        "current_sha256": "955de83d8f9589493e5a14402d0b4cb8a5f4dc8c423869acdc44eca9a09db525"
+      },
+      "status": "awaiting-approval",
+      "current": {
+        "visit_id": 1,
+        "phase": "compose",
+        "status": "awaiting-approval",
+        "output": {
+          "path": "artifacts/001-compose.md",
+          "sha256": null
+        }
+      },
+      "completed_visits": [],
+      "pending_approval": {
+        "run_id": "20261003T120000Z-01020304",
+        "phase_id": "compose",
+        "visit_number": 1,
+        "reason": "accept-result",
+        "details": "Accept this evidence.",
+        "artifact_sha256": "493a2559efd384b438980e8d50838730a467f4502b87ab23b9e743bfc2c6feaf",
+        "pipeline_sha256": "955de83d8f9589493e5a14402d0b4cb8a5f4dc8c423869acdc44eca9a09db525",
+        "outcome": "z-next",
+        "status": "pending",
+        "decision": null,
+        "actor": null,
+        "requested_at": "2026-10-03T12:00:00.000000Z",
+        "decided_at": null
+      },
+      "block": null,
+      "terminal_result": null,
+      "next_command": [
+        "specromancy",
+        "approve",
+        "20261003T120000Z-01020304",
+        "compose"
+      ],
+      "warnings": []
+    }
+  },
+  "paused": {
+    "schema_version": 1,
+    "kind": "status",
+    "code": 13,
+    "message": "outcome 'z-next' recorded; run paused at checkpoint",
+    "status": {
+      "schema_version": 1,
+      "run_id": "20261003T120000Z-01020304",
+      "pipeline": {
+        "id": "compatibility",
+        "path": "workflow/pipelines/compatibility.toml",
+        "sha256": "955de83d8f9589493e5a14402d0b4cb8a5f4dc8c423869acdc44eca9a09db525",
+        "version": 1,
+        "current_sha256": "955de83d8f9589493e5a14402d0b4cb8a5f4dc8c423869acdc44eca9a09db525"
+      },
+      "status": "paused",
+      "current": {
+        "visit_id": 2,
+        "phase": "seal",
+        "status": "pending",
+        "output": {
+          "path": "artifacts/002-seal.md",
+          "sha256": null
+        }
+      },
+      "completed_visits": [
+        {
+          "visit_id": 1,
+          "phase": "compose",
+          "outcome": "z-next",
+          "output": {
+            "path": "artifacts/001-compose.md",
+            "sha256": "493a2559efd384b438980e8d50838730a467f4502b87ab23b9e743bfc2c6feaf"
+          }
+        }
+      ],
+      "pending_approval": null,
+      "block": null,
+      "terminal_result": null,
+      "next_command": [
+        "specromancy",
+        "resume",
+        "20261003T120000Z-01020304"
+      ],
+      "warnings": []
+    }
+  },
+  "resumed": {
+    "schema_version": 1,
+    "kind": "action",
+    "code": 8,
+    "message": "run resumed",
+    "action": {
+      "schema_version": 1,
+      "run_id": "20261003T120000Z-01020304",
+      "visit_id": 2,
+      "visit_attempt": 1,
+      "visit_status": "pending",
+      "phase": "seal",
+      "skill": {
+        "path": ".agents/skills/seal/SKILL.md",
+        "sha256": "377c9f805696dbea53612fa03586724ff583580d3164efff4f242f987090fc46",
+        "absolute_path": "<ROOT>/.agents/skills/seal/SKILL.md"
+      },
+      "inputs": [
+        {
+          "path": "artifacts/001-compose.md",
+          "reference": "latest:compose",
+          "sha256": "493a2559efd384b438980e8d50838730a467f4502b87ab23b9e743bfc2c6feaf",
+          "absolute_path": "<ROOT>/.specromancy/runs/20261003T120000Z-01020304/artifacts/001-compose.md"
+        },
+        {
+          "path": "artifacts/000-request.md",
+          "reference": "request",
+          "sha256": "24e91767addbc1f8026e6644c50054409770ff9fa17608b913a9e388c9c13133",
+          "absolute_path": "<ROOT>/.specromancy/runs/20261003T120000Z-01020304/artifacts/000-request.md"
+        },
+        {
+          "path": "artifacts/001-compose.md",
+          "reference": "visit:1",
+          "sha256": "493a2559efd384b438980e8d50838730a467f4502b87ab23b9e743bfc2c6feaf",
+          "absolute_path": "<ROOT>/.specromancy/runs/20261003T120000Z-01020304/artifacts/001-compose.md"
+        }
+      ],
+      "output": {
+        "path": "artifacts/002-seal.md",
+        "sha256": null,
+        "absolute_path": "<ROOT>/.specromancy/runs/20261003T120000Z-01020304/artifacts/002-seal.md"
+      },
+      "template": null,
+      "mutation": {
+        "policy": "read-only",
+        "allowlist": []
+      },
+      "completion_criteria": [
+        "Seal the result."
+      ],
+      "validation": {
+        "type": "file",
+        "required_headings": [],
+        "heading_occurrence": "exactly-once",
+        "schema": null,
+        "commands": []
+      },
+      "approval_conditions": [],
+      "stop_conditions": [],
+      "outcomes": [
+        "done"
+      ],
+      "final_validation_command": [
+        "<PYTHON>",
+        "-m",
+        "specromancy",
+        "--root",
+        "<ROOT>",
+        "validate",
+        "20261003T120000Z-01020304",
+        "seal"
+      ]
+    }
+  },
+  "terminal": {
+    "schema_version": 1,
+    "kind": "status",
+    "code": 0,
+    "message": "run completed with outcome 'done'",
+    "status": {
+      "schema_version": 1,
+      "run_id": "20261003T120000Z-01020304",
+      "pipeline": {
+        "id": "compatibility",
+        "path": "workflow/pipelines/compatibility.toml",
+        "sha256": "955de83d8f9589493e5a14402d0b4cb8a5f4dc8c423869acdc44eca9a09db525",
+        "version": 1,
+        "current_sha256": "955de83d8f9589493e5a14402d0b4cb8a5f4dc8c423869acdc44eca9a09db525"
+      },
+      "status": "completed",
+      "current": {
+        "visit_id": 2,
+        "phase": "seal",
+        "status": "completed",
+        "output": {
+          "path": "artifacts/002-seal.md",
+          "sha256": "b7a619486b67565427d4f433ee0aaa157fd64dc89be71936b0fe2d77a6fa8716"
+        }
+      },
+      "completed_visits": [
+        {
+          "visit_id": 1,
+          "phase": "compose",
+          "outcome": "z-next",
+          "output": {
+            "path": "artifacts/001-compose.md",
+            "sha256": "493a2559efd384b438980e8d50838730a467f4502b87ab23b9e743bfc2c6feaf"
+          }
+        },
+        {
+          "visit_id": 2,
+          "phase": "seal",
+          "outcome": "done",
+          "output": {
+            "path": "artifacts/002-seal.md",
+            "sha256": "b7a619486b67565427d4f433ee0aaa157fd64dc89be71936b0fe2d77a6fa8716"
+          }
+        }
+      ],
+      "pending_approval": null,
+      "block": null,
+      "terminal_result": {
+        "outcome": "done",
+        "phase": "seal",
+        "visit_number": 2
+      },
+      "next_command": null,
+      "warnings": []
+    }
+  },
+  "blocked": {
+    "schema_version": 1,
+    "kind": "status",
+    "code": 9,
+    "message": "run is blocked",
+    "status": {
+      "schema_version": 1,
+      "run_id": "20261003T120000Z-01020304",
+      "pipeline": {
+        "id": "compatibility",
+        "path": "workflow/pipelines/compatibility.toml",
+        "sha256": "955de83d8f9589493e5a14402d0b4cb8a5f4dc8c423869acdc44eca9a09db525",
+        "version": 1,
+        "current_sha256": "955de83d8f9589493e5a14402d0b4cb8a5f4dc8c423869acdc44eca9a09db525"
+      },
+      "status": "blocked",
+      "current": {
+        "visit_id": 1,
+        "phase": "compose",
+        "status": "blocked",
+        "output": {
+          "path": "artifacts/001-compose.md",
+          "sha256": null
+        }
+      },
+      "completed_visits": [],
+      "pending_approval": null,
+      "block": {
+        "phase_id": "compose",
+        "visit_number": 1,
+        "reason": "no-evidence",
+        "details": "No source.",
+        "recorded_at": "2026-10-03T12:00:00.000000Z"
+      },
+      "terminal_result": null,
+      "next_command": [
+        "specromancy",
+        "status",
+        "20261003T120000Z-01020304"
+      ],
+      "warnings": []
+    }
+  }
+}

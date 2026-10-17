@@ -1,0 +1,57 @@
+schema_version = 1
+id = "branch"
+version = 1
+start = "inspect"
+terminal_outcomes = ["accepted", "rejected"]
+artifact_pattern = "artifacts/{visit:03}-{phase}.md"
+
+[[phases]]
+id = "inspect"
+skill = "research"
+inputs = ["request"]
+output_name = "{visit:03}-inspection.md"
+mutation = "read-only"
+completion_criteria = ["Choose a configured branch."]
+validator = "file"
+approval_conditions = []
+stop_conditions = []
+max_visits = 1
+
+[[phases.transitions]]
+outcome = "transformable"
+target = "transform"
+
+[[phases.transitions]]
+outcome = "verifiable"
+target = "verify"
+
+[[phases]]
+id = "transform"
+skill = "implement"
+inputs = ["latest:inspect"]
+output_name = "{visit:03}-transformation.md"
+mutation = "repository-write"
+completion_criteria = ["Record the transformation."]
+validator = "file"
+approval_conditions = []
+stop_conditions = []
+max_visits = 1
+
+[[phases.transitions]]
+outcome = "accepted"
+
+[[phases]]
+id = "verify"
+skill = "review"
+inputs = ["latest:inspect"]
+output_name = "{visit:03}-verification.md"
+mutation = "read-only"
+completion_criteria = ["Record the verification."]
+validator = "file"
+approval_conditions = []
+stop_conditions = []
+max_visits = 1
+
+[[phases.transitions]]
+outcome = "rejected"
+

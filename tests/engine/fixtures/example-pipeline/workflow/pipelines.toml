@@ -1,0 +1,5 @@
+schema_version = 1
+
+[[pipelines]]
+id = "engine-example"
+path = "pipelines/engine-example.toml"

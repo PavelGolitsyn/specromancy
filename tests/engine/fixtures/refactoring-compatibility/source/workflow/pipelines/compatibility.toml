@@ -1,0 +1,36 @@
+schema_version = 1
+id = "compatibility"
+version = 1
+start = "compose"
+terminal_outcomes = ["done", "a-stop"]
+artifact_pattern = "artifacts/{visit:03}-{phase}.md"
+allow_non_git = true
+
+[[phases]]
+id = "compose"
+skill = "compose"
+inputs = ["request"]
+output_name = "{visit:03}-compose.md"
+mutation = "read-only"
+completion_criteria = ["Écrire un résultat 日本語."]
+validator = "file"
+approval_conditions = ["accept-result"]
+stop_conditions = ["no-evidence"]
+[[phases.transitions]]
+outcome = "z-next"
+target = "seal"
+[[phases.transitions]]
+outcome = "a-stop"
+
+[[phases]]
+id = "seal"
+skill = "seal"
+inputs = ["latest:compose", "request", "visit:1"]
+output_name = "{visit:03}-seal.md"
+mutation = "read-only"
+completion_criteria = ["Seal the result."]
+validator = "file"
+approval_conditions = []
+stop_conditions = []
+[[phases.transitions]]
+outcome = "done"

@@ -1,0 +1,97 @@
+{
+  "wrong-phase": {
+    "exit_code": 5,
+    "stdout": "",
+    "stderr": {
+      "code": 5,
+      "details": {
+        "error_code": "unexpected-phase",
+        "expected": "compose",
+        "requested": "seal",
+        "status": "active"
+      },
+      "message": "cannot start phase 'seal'; expected 'compose'"
+    }
+  },
+  "outcome-before-output": {
+    "exit_code": 5,
+    "stdout": "",
+    "stderr": {
+      "code": 5,
+      "details": {
+        "declared": [
+          "z-next",
+          "a-stop"
+        ],
+        "error_code": "outcome-required",
+        "phase": "compose"
+      },
+      "message": "phase 'compose' requires one of ['z-next', 'a-stop']"
+    }
+  },
+  "missing-output": {
+    "exit_code": 6,
+    "stdout": "",
+    "stderr": {
+      "code": 6,
+      "details": {
+        "error_code": "missing-output",
+        "path": "artifacts/001-compose.md"
+      },
+      "message": "output artifact does not exist: artifacts/001-compose.md"
+    }
+  },
+  "stale-approval": {
+    "exit_code": 7,
+    "stdout": {
+      "code": 7,
+      "details": {
+        "error_code": "stale-approval",
+        "mismatches": [
+          "artifact",
+          "pipeline"
+        ],
+        "phase": "compose",
+        "visit_number": 1
+      },
+      "message": "approval request is stale because its artifact or pipeline changed"
+    },
+    "stderr": ""
+  },
+  "field-location": {
+    "code": 3,
+    "message": "phase 'compose' uses unsupported mutation policy 'sometimes'",
+    "details": {
+      "error_code": "invalid-mutation-policy",
+      "path": "<ROOT>/workflow/pipelines/compatibility.toml",
+      "remediation": "choose one of allowlist, read-only, repository-write",
+      "phase": "compose",
+      "field": "mutation",
+      "value": "sometimes"
+    }
+  },
+  "transition-location": {
+    "code": 3,
+    "message": "outcome 'z-next' targets unknown phase 'missing'",
+    "details": {
+      "error_code": "unknown-transition-target",
+      "path": "<ROOT>/workflow/pipelines/compatibility.toml",
+      "remediation": "target a declared phase",
+      "phase": "compose",
+      "field": "transitions.target",
+      "value": "missing"
+    }
+  },
+  "schema-location": {
+    "code": 3,
+    "message": "invalid JSON validator schema at $.properties.result: unsupported schema keyword 'minLength'",
+    "details": {
+      "error_code": "unsupported-json-schema",
+      "path": "<ROOT>/workflow/pipelines/compatibility.toml",
+      "remediation": "use only type, required, properties, items, enum, pattern, and additionalProperties",
+      "phase": "compose",
+      "field": "validator_path",
+      "value": "result.schema.json"
+    }
+  }
+}

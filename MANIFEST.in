@@ -1,0 +1,22 @@
+# Start from an allowlist, including when setuptools has a cached SOURCES.txt.
+global-exclude *
+include pyproject.toml MANIFEST.in README.md LICENSE
+recursive-include src/specromancy_engine *.py
+include src/specromancy_engine/schemas/*.json
+include src/specromancy_engine.egg-info/PKG-INFO
+include src/specromancy_engine.egg-info/SOURCES.txt
+include src/specromancy_engine.egg-info/dependency_links.txt
+include src/specromancy_engine.egg-info/entry_points.txt
+include src/specromancy_engine.egg-info/top_level.txt
+include examples/release-documentation/README.md
+include examples/release-documentation/AGENTS.md
+include examples/release-documentation/.gitignore
+include examples/release-documentation/sample-changes.md
+recursive-include examples/release-documentation/workflow *.toml *.md
+include examples/release-documentation/.agents/skills/pipeline/SKILL.md
+include examples/release-documentation/.agents/skills/draft-release-notes/SKILL.md
+include examples/release-documentation/.agents/skills/review-release-notes/SKILL.md
+include docs/README.md
+recursive-include docs/guides *.md
+recursive-include docs/reference *.md
+recursive-include docs/releases *.md
