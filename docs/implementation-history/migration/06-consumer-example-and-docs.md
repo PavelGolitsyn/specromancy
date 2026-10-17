@@ -35,7 +35,7 @@ examples/release-documentation/
 
 Update `README.md`, `docs/README.md`, `docs/reference/{architecture,contracts,cli}.md`,
 `docs/guides/{authoring-pipelines,harnesses}.md`, `workflow/README.md`, and
-`tests/README.md`. Add `docs/guides/installation.md`, a migration guide, and
+`tests/README.md`. Add `docs/guides/installation.md` and
 example lifecycle coverage under `tests/engine/contract/` or `tests/packaging/`.
 
 ## Work
@@ -79,7 +79,7 @@ example lifecycle coverage under `tests/engine/contract/` or `tests/packaging/`.
 10. Provide a Python usage example using the actual public API. Describe the
     dependency name/import name distinction and the `specromancy` executable.
     Separate consumer instructions from contributor editable-install setup.
-11. Update the repository map and import migration guide. Keep the producer's
+11. Update the repository map and public import documentation. Keep the producer's
     `workflow/` and `.agents/skills/` in place; classify them as this repository's
     own configured workflow, not automatically installed customer defaults.
 

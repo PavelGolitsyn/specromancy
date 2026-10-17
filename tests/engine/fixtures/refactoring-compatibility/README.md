@@ -46,3 +46,9 @@ the capture scenarios for inspection. A deliberate contract change must review
 both the scenario and the expected record; do not refresh records merely to make
 an extraction pass. Adapter generation must also stay in `AdapterFixture`'s
 temporary repository.
+
+`responses-current.json` holds the installed-command response expectation. Its
+contents are preserved from the development snapshot; its filename change is
+recorded in [implementation history](../../../../docs/implementation-history/initial-release-baseline.md). The comparison with `responses.json` permits only the
+three final-validation command prefixes to differ. Package release numbering
+does not alter these records or the separately versioned adapter fixtures.

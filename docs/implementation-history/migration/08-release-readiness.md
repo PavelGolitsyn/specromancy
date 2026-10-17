@@ -7,12 +7,12 @@ Index: [migration plan](README.md).
 ## Objective
 
 Demonstrate the complete transition from checkout-oriented usage to an installed
-dependency, finalize the migration instructions, and prepare verified local
+dependency within 0.1.0, finalize installation instructions, and prepare verified local
 release artifacts. Publishing is a separate action.
 
 ## Intended files
 
-Finalize the existing installation/migration guides, current public contracts,
+Finalize the installation guide and current public contracts,
 README, test instructions, and version metadata. Add a release-readiness report
 under `docs/implementation-history/migration/evidence/` with artifact hashes and verification results.
 Change implementation files only to resolve concrete gate failures; repeat the

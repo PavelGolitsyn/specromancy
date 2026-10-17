@@ -1,10 +1,15 @@
-# Specromancy Engine package migration
+# 0.1.0 packaging and namespace implementation
 
-Status: Stages 01–08 complete; local release artifacts are ready for review.
-Publishing remains a separate action. The distribution is now version
-`0.2.0`, supplies `specromancy_engine`, and retains the `specromancy` command.
-See the [Stage 08 release-readiness evidence](evidence/08-release-readiness.md)
-for final hashes, upgrade rehearsal, verification, and coverage limits.
+Status: Stages 01–08 complete as part of the 0.1.0 implementation. This migration
+is the internal transition from checkout-based source to an installable engine,
+not a transition between product releases. The distribution is `specromancy-engine`
+0.1.0, supplies `specromancy_engine`, and retains the `specromancy` command.
+
+Build evidence identifies artifacts by implementation stage and original hash.
+Historical command excerpts use explicit artifact-path placeholders instead of
+obsolete filenames. See the [metadata correction](../initial-release-baseline.md)
+and [Stage 08 evidence](evidence/08-release-readiness.md) for the recorded builds,
+state replay, verification, and coverage limits.
 Prepared on 2026-10-10 against commit
 `040d84debfdc0ebb44c64f4abd3c271c606d211d`; the Stage 01 baseline was executed
 on 2026-10-11 at `767a417850499bbe13d32cf2a6360a2f9bf04904`.
@@ -30,13 +35,12 @@ documentation remains in `docs/`.
 | Consumer runtime state | `.specromancy/runs/` | Preserve paths, schemas, hashes, and recovery behavior |
 | Generated adapters | Existing harness paths and `adapters/manifest.json` | Preserve ownership rules; deliberately update invocation text |
 
-The accepted import migration is a direct pre-1.0 break, with no legacy import
-shim. The current documented import guarantees make this a real contract
-change, not a cosmetic rename. Stage 01 found no known consumer requiring a
-transition period in the inspected repository. Revisit the decision if a
-concrete external consumer is identified before Stage 03. The chosen next
-version is `0.2.0`; Stage 02 retains `0.1.0` for its intermediate build.
-Neither package-name availability nor publication rights are assumed.
+The namespace change was implemented directly within 0.1.0, without a legacy
+import shim. It changed the development API and module invocation; original
+state fixtures were retained to verify persistence independently. The earlier
+implementation was not in use by consumers, so no consumer transition period
+or separate release was needed. Neither package-name availability nor
+publication rights are assumed.
 
 ```text
 specromancy-engine/
@@ -121,9 +125,9 @@ introduced packaging and moved the runtime to `src/specromancy/`.
 - Release tests exercise source exports without installation. Additional
   regular-install tests are needed to prove this product's intended use.
 
-See the current [public contracts](../../docs/reference/contracts.md),
-[architecture](../../docs/reference/architecture.md), and
-[test map](../../tests/README.md).
+See the current [public contracts](../../reference/contracts.md),
+[architecture](../../reference/architecture.md), and
+[test map](../../../tests/README.md).
 
 ## Invariants and scope limits
 

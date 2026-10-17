@@ -1,5 +1,9 @@
 # Stage 04 consumer-root and resource verification
 
+This records a stage of the 0.1.0 implementation. Artifacts are identified by
+stage and original hash; historical command excerpts use explicit artifact-path
+placeholders where obsolete filenames have been omitted.
+
 Completed on 2026-10-11 for [Stage 04](../04-consumer-roots-and-resources.md).
 All checks ran on macOS arm64. No runtime, package metadata, published schema,
 canonical workflow, generated adapter, or persisted format changes were needed.
@@ -112,7 +116,7 @@ python -m pip wheel --no-index \
   --wheel-dir /private/tmp/specromancy-migration-04/dist
 ```
 
-`specromancy_engine-0.2.0-py3-none-any.whl` has SHA-256
+Stage 04 wheel has SHA-256
 `776263c37ccc9716408f064a09cf9a7ab6ac6da53ead853204a34784c6e08c49`.
 Archive inspection confirmed all four schema bytes match the source and that
 the wheel contains only the engine package and distribution metadata.

@@ -1,14 +1,15 @@
 # Stage 03 namespace verification
 
 Completed on 2026-10-11 for [Stage 03](../03-python-namespace.md), applying the
-[Stage 01 direct-migration decision](contracts.md). Version `0.2.0` is a local
-verification build; no publication or remote repository rename was performed.
+[Stage 01 namespace decision](contracts.md), within the 0.1.0 implementation.
+Artifacts below are identified by stage and original hash. No publication or
+remote repository rename was performed.
 
 ## Changes and preservation
 
 All 56 runtime files moved from `src/specromancy/` to
 `src/specromancy_engine/`. Compared with their pre-stage Git contents, only
-three files changed beyond their location: `__init__.py` sets `0.2.0`,
+three files changed beyond their location: `__init__.py` updates build metadata,
 `__main__.py` documents the new module command, and `actions.py` emits the
 installed command prefix. The other 53 runtime files, including all four
 schemas, are byte-identical. Public facades, signatures, re-export identities,
@@ -20,12 +21,11 @@ Packaging discovery, package data, and the console entry point now use
 targets, synthetic modules, subprocess module names, dependency allowlists,
 physical scans, and schema paths were updated by category. CLI names,
 `.specromancy/`, pipeline IDs, harness paths, and generator identity remain.
-Current documentation and repository instructions describe the new namespace;
-[release notes](../../../docs/releases/0.2.0.md) explain the import break and
-independent persisted-state compatibility.
+The [public contracts](../../../reference/contracts.md) describe the implemented
+namespace and persisted-state behavior.
 
 The original compatibility captures and all other tracked fixture/history
-files remain byte-identical. A separate `responses-0.2.0.json` preserves the
+files remain byte-identical. A separate `responses-current.json` preserves the
 original formatting and key order, removing only `<PYTHON>` and `-m` from the
 three action command prefixes (`action-pending`, `action-active`, `resumed`).
 A dedicated test verifies exactly those changes and compares every remaining
@@ -91,8 +91,8 @@ PIP_FIND_LINKS=/private/tmp/specromancy-migration-02/build-tools \
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `specromancy_engine-0.2.0-py3-none-any.whl` | `e050047246fb661c8b8afb857b8376fb29c06d66d4598958ac32be7566c71241` |
-| `specromancy_engine-0.2.0.tar.gz` | `2a5cb3f0b77ec0d413864439c9ccdaab198abf5b44ed475d19a88994623659d3` |
+| Stage 03 wheel | `e050047246fb661c8b8afb857b8376fb29c06d66d4598958ac32be7566c71241` |
+| Stage 03 source archive | `2a5cb3f0b77ec0d413864439c9ccdaab198abf5b44ed475d19a88994623659d3` |
 
 Archive inspection compared all 56 runtime members and their bytes with the
 checkout in both artifacts. The wheel contains only `specromancy_engine/` and

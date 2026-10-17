@@ -1,5 +1,9 @@
 # Migration contract decisions
 
+This records a stage of the 0.1.0 implementation. Artifacts are identified by
+stage and original hash; historical command excerpts use explicit artifact-path
+placeholders where obsolete filenames have been omitted.
+
 Decision date: 2026-10-11. Baseline commit:
 `767a417850499bbe13d32cf2a6360a2f9bf04904`.
 See [executed baseline](01-baseline.md) and [occurrence inventory](inventory.tsv).
@@ -8,17 +12,18 @@ continues to expose its existing `0.1.0` contracts during Stage 01.
 
 ## Compatibility and version decision
 
-Use the planned direct pre-1.0 migration: distribution `specromancy-engine`,
-import namespace `specromancy_engine`, release version **0.2.0**, and no legacy
-import shim. Stage 02 retains `specromancy` and `0.1.0` for its unpublished
-intermediate build; Stage 03 changes both package and distribution versions
-together. No registry publication or remote repository rename is authorized.
+Use distribution `specromancy-engine` and import namespace `specromancy_engine`,
+without a legacy import shim, as part of the **0.1.0 implementation**. Stage 02
+uses `specromancy` for its intermediate source layout; Stage 03 changes the
+namespace. Package and distribution metadata are kept consistent throughout
+the implementation. No registry publication or remote repository rename is
+authorized.
 
 The old imports are a real documented guarantee in
 `docs/reference/contracts.md:7`, `docs/README.md:38`, and architecture text.
 The migration intentionally breaks that guarantee, along with old module
 invocation and source-relative schema paths. Stage 03 must replace the
-present-tense guarantee with explicit upgrade instructions. The current
+present-tense guarantee with documentation of the implemented namespace. The current
 documentation remains accurate and unchanged in Stage 01.
 
 The tracked consumer search found old imports in the two checkout wrappers

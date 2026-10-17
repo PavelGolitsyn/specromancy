@@ -17,7 +17,7 @@ review outcome, not a human approval gate or a guarantee of factual accuracy.
 ## Install and copy
 
 Follow the [installation guide](../../docs/guides/installation.md) to build
-`specromancy_engine-0.2.0-py3-none-any.whl`. This is a local wheel workflow;
+`specromancy_engine-0.1.0-py3-none-any.whl`. This is a local wheel workflow;
 registry installation is available only after a release exists.
 
 From the producer checkout, copy into a **new** directory outside that checkout
@@ -32,7 +32,7 @@ cd "$CONSUMER"
 git init --quiet
 python3 -m venv .venv
 . .venv/bin/activate
-python -m pip install --no-index --no-deps /absolute/path/to/specromancy_engine-0.2.0-py3-none-any.whl
+python -m pip install --no-index --no-deps /absolute/path/to/specromancy_engine-0.1.0-py3-none-any.whl
 ```
 
 No commit is required. For an existing project, review and merge the canonical
@@ -170,4 +170,4 @@ this copy in the same change. A shipped-configuration consistency test enforces
 byte equality and portable frontmatter for these example skills. Release-specific
 procedures and templates remain example-owned; test-owned workflow fixtures are
 independent. Examples are repository assets, kept outside the wheel; source
-distribution inclusion is verified in migration Stage 07.
+distribution inclusion is checked by the [distribution verifier](../../docs/guides/distribution-verification.md).

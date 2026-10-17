@@ -1,5 +1,9 @@
 # Stage 06 consumer example and documentation verification
 
+This records a stage of the 0.1.0 implementation. Artifacts are identified by
+stage and original hash; historical command excerpts use explicit artifact-path
+placeholders where obsolete filenames have been omitted.
+
 Completed on 2026-10-12 for [Stage 06](../06-consumer-example-and-docs.md).
 All checks ran on macOS arm64. The initial working tree was clean.
 
@@ -31,8 +35,10 @@ permission, and that structural validation does not establish factual accuracy.
 The installation guide separates CLI-only wheel installation, dependency
 metadata in another Python project, and contributor editable installation.
 Configuration is explicitly copied or authored, preserving existing consumer
-instructions and adapter ownership. The import migration guide covers the
-distribution/import/executable names and unchanged run formats. Registry
+instructions and adapter ownership. Distribution/import/executable names and
+run formats are documented in the current public contracts. The separate
+consumer migration guide drafted during this stage was removed because all
+of this work belongs to the 0.1.0 implementation. Registry
 publication is not claimed. Source-distribution inclusion remains Stage 07 work.
 
 ## Permanent coverage
@@ -104,7 +110,7 @@ python -m pip wheel --no-index \
   --wheel-dir /private/tmp/specromancy-stage06-verification/dist
 ```
 
-The wheel `specromancy_engine-0.2.0-py3-none-any.whl` has SHA-256:
+The Stage 06 wheel has SHA-256:
 `72d5b29e0f1da9d9cbcf560a590dc6ef8dfc608069eb163f54a46357fefd9af6`.
 Archive inspection found only the engine package and distribution metadata,
 with all four engine schemas and no consumer examples, skills, or configuration.
@@ -128,7 +134,8 @@ The consumer contained neither engine source nor a checkout launcher. The suite
 completed the documented lifecycle and verified project file preservation.
 
 A second fresh environment installed a separate minimal Python project whose
-`[project].dependencies` contained `specromancy-engine==0.2.0`. It resolved the
+`[project].dependencies` pinned `specromancy-engine` to the tested Stage 06 build.
+It resolved the
 local wheel via `pip install --no-index --find-links DIST --find-links BUILD_TOOLS .`.
 The documented public API snippet and installed CLI help both succeeded there.
 Thus both installation routes were executed without a registry release.

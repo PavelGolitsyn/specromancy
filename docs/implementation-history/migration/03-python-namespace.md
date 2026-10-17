@@ -57,10 +57,10 @@ and making the intentional Python API break explicit.
 6. Preserve `.specromancy/`, `specromancy-<pipeline-id>` generated skill names,
    harness command directories, pipeline IDs, registry paths, and generator
    identity unless a later stage explicitly changes a separate contract.
-7. Record the breaking release version and migration instructions in current
-   public contracts and release notes. Remove the present-tense promise that
-   old public imports remain available. Explain that import compatibility and
-   persisted-state compatibility are independent.
+7. Document the 0.1.0 namespace and invocation in current public contracts.
+   Remove the present-tense promise that old development imports remain
+   available. Explain that import compatibility and persisted-state
+   compatibility are independent; no separate consumer release is involved.
 8. Reinstall the editable package after updating discovery and entry points.
    Build in a clean temporary export to avoid obsolete build output masking an
    incomplete rename. Do not use destructive repository cleanup commands.

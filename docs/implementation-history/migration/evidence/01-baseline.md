@@ -166,6 +166,6 @@ consumer files that remain unchanged, preserving the legacy record bytes.
 
 The baseline is clean and the original captures are preserved. Proceed with
 the physical move and packaging under the temporary `specromancy` namespace
-at version `0.1.0`. Use the contract matrix for later `0.2.0` changes, including
+at version `0.1.0`. Use the contract matrix for later implementation stages, including
 the discovered action-command discrepancy. No runtime source, canonical
 workflow, generated adapter, or local run artifact changes are part of Stage 01.

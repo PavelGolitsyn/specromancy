@@ -1,8 +1,10 @@
 # Stage 08 release-readiness evidence
 
-Completed on 2026-10-12 for [Stage 08](../08-release-readiness.md). Local release
-preparation is complete for **specromancy-engine 0.2.0**. Nothing was published,
-tagged, committed, uploaded, or renamed remotely.
+Completed on 2026-10-12 for [Stage 08](../08-release-readiness.md), as part of
+the **specromancy-engine 0.1.0 implementation**. Artifacts are identified by
+stage and original hash; command excerpts use explicit artifact-path placeholders
+in place of obsolete filenames. Nothing was published, tagged, committed,
+uploaded, or renamed remotely.
 
 ## Build origin and scope
 
@@ -34,7 +36,7 @@ templates, and engine schemas match their baseline bytes.
 
 | Surface | Verified result |
 | --- | --- |
-| Distribution and version | `specromancy-engine`, `0.2.0`; package/metadata versions agree |
+| Recorded build metadata | `specromancy-engine`; package and distribution version values agreed in the Stage 08 artifacts |
 | Python namespace | `specromancy_engine`; six public facades, exports, aliases and exception identities pass; old `specromancy` import absent |
 | Source and resources | `src/specromancy_engine/`; all four schemas installed and readable with `importlib.resources` |
 | Commands | Installed `specromancy` and `python -m specromancy_engine` work outside checkout; deliberate old module/import break documented |
@@ -56,7 +58,7 @@ This run used the plan's **independent original fixture replay** route. The
 fixtures were captured from runtime commit
 `7f8aafab4a4f7b6597fded823deb5cd49889450f`; their capture procedure and fault
 boundaries are documented in the
-[fixture README](../../../tests/engine/fixtures/refactoring-compatibility/README.md).
+[fixture README](../../../../tests/engine/fixtures/refactoring-compatibility/README.md).
 No live consumer or producer run was used as a test fixture.
 
 For each installed wheel, the verifier creates a temporary consumer using the
@@ -158,9 +160,11 @@ python bin/specromancy adapters generate --check
 # Build once with 3.14.4; verify the exact pair with both interpreters.
 python -m build --sdist --wheel --no-isolation \
   --outdir /private/tmp/specromancy-stage08-20261012/artifacts
+# STAGE08_WHEEL and STAGE08_SDIST stand for the exact artifact paths
+# identified by the SHA-256 values below.
 python tools/verify_distribution.py \
-  --wheel /private/tmp/specromancy-stage08-20261012/artifacts/specromancy_engine-0.2.0-py3-none-any.whl \
-  --sdist /private/tmp/specromancy-stage08-20261012/artifacts/specromancy_engine-0.2.0.tar.gz \
+  --wheel "$STAGE08_WHEEL" \
+  --sdist "$STAGE08_SDIST" \
   --log /private/tmp/specromancy-stage08-20261012/distribution311.log
 ```
 
@@ -175,8 +179,8 @@ Artifact directory: `/private/tmp/specromancy-stage08-20261012/artifacts/`.
 
 | Artifact | Bytes | SHA-256 |
 | --- | ---: | --- |
-| `specromancy_engine-0.2.0-py3-none-any.whl` | 95451 | `b027b98c44df51efbb709b7cae5a4fef0074025b171cf67ccc18aeb59c199b5e` |
-| `specromancy_engine-0.2.0.tar.gz` | 115030 | `197cb8055fa0e229ffd73aa4ffa96528f159c8ab1794ef6e350d37ff8a82fdf7` |
+| Stage 08 wheel | 95451 | `b027b98c44df51efbb709b7cae5a4fef0074025b171cf67ccc18aeb59c199b5e` |
+| Stage 08 source archive | 115030 | `197cb8055fa0e229ffd73aa4ffa96528f159c8ab1794ef6e350d37ff8a82fdf7` |
 
 Both temporary sdist-rebuilt wheels had SHA-256
 `530ec5d1500534c55ba2e35803d52454a7491d5efc826b1a083303fe32a93bc3`.
@@ -223,7 +227,7 @@ is not evidence that every platform/version was exercised. Real hosted harness
 behavior remains outside the subprocess-wrapper tests. This forward fixture
 replay does not establish downgrade safety after new state writes. Keep the
 prior engine/configuration and a filesystem backup; follow the
-[migration/rollback guide](../../../docs/guides/migration.md), never rewrite
+[state-handling contracts](../../../reference/contracts.md#configuration-and-state-handling), never rewrite
 state or audit history. Local `/private/tmp` artifacts must be retained elsewhere
 by the release owner before temporary storage is cleared. Registry account
 setup, name availability, credentials, tags, publishing, and remote repository

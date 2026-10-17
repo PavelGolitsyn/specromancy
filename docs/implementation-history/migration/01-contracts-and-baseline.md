@@ -55,8 +55,8 @@ outputs or private runtime artifacts to the evidence.
    its exact supported facade list, object identity, warning behavior, removal
    version, and distribution contents before proceeding; do not improvise
    duplicate implementations during Stage 3.
-5. Choose the release version after inspecting prior releases. Propose `0.2.0`
-   for the import break; do not infer package registry availability from a name.
+5. Keep this packaging and namespace work within the 0.1.0 implementation;
+   do not infer package registry availability from a name.
 6. Record representative legacy scenarios already captured in
    `tests/engine/fixtures/refactoring-compatibility/`: pending, active, approval,
    paused, completed, and manifest/event recovery. Reuse these independent
@@ -94,7 +94,8 @@ fixtures or adapters just to make a baseline appear clean.
 
 Both Python 3.11.15 and 3.14.4 passed 9 compatibility tests, 7 launcher/release
 tests, the full 249-test suite, and the adapter drift check. The decision is a
-direct import break at `0.2.0`, with no legacy shim; Stage 02 retains `0.1.0`.
+direct namespace change within 0.1.0, with no legacy shim. The temporary
+version metadata used by development builds is recorded in the evidence.
 Stage 01 also found that action packets currently emit Python module argv,
 unlike status commands. The contract evidence and Stage 03 now identify the
 deliberate command-value change and require separate versioned expectations.

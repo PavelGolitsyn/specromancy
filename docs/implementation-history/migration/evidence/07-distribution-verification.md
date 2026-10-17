@@ -1,5 +1,9 @@
 # Stage 07 distribution verification and CI evidence
 
+This records a stage of the 0.1.0 implementation. Artifacts are identified by
+stage and original hash; historical command excerpts use explicit artifact-path
+placeholders where obsolete filenames have been omitted.
+
 Completed on 2026-10-12 for [Stage 07](../07-distribution-verification.md).
 The starting working tree was clean. The initial execution below ran on macOS
 arm64 before hosted CI. The CI provisioning correction at the end records the
@@ -99,9 +103,11 @@ specified so the first wheel did not itself depend on the sdist build:
 ```sh
 python -m build --sdist --wheel --no-isolation \
   --outdir /private/tmp/specromancy-stage07-final-20261012
+# STAGE07_WHEEL and STAGE07_SDIST stand for the exact artifact paths
+# identified by the SHA-256 values below.
 python tools/verify_distribution.py \
-  --wheel /private/tmp/specromancy-stage07-final-20261012/specromancy_engine-0.2.0-py3-none-any.whl \
-  --sdist /private/tmp/specromancy-stage07-final-20261012/specromancy_engine-0.2.0.tar.gz \
+  --wheel "$STAGE07_WHEEL" \
+  --sdist "$STAGE07_SDIST" \
   --log /private/tmp/specromancy-stage07-verify314.log
 ```
 
@@ -116,8 +122,8 @@ The fresh artifact set is `/private/tmp/specromancy-stage07-final-20261012/`:
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `specromancy_engine-0.2.0-py3-none-any.whl` | `99ab88f558112c8a99b26ffd3e4aa379a43a95edfdb7b9b7b0220b904ddcd873` |
-| `specromancy_engine-0.2.0.tar.gz` | `8099d3f4ae42afa555301c53372f74f46b08c3953bdfa9a82d1e32fed637aae7` |
+| Stage 07 wheel | `99ab88f558112c8a99b26ffd3e4aa379a43a95edfdb7b9b7b0220b904ddcd873` |
+| Stage 07 source archive | `8099d3f4ae42afa555301c53372f74f46b08c3953bdfa9a82d1e32fed637aae7` |
 
 The two temporary rebuilt wheels both had hash
 `36496e7707cd9bb3726ff66970e743077c61f58364d2f6a8b5f07cfefd48a134` in these
